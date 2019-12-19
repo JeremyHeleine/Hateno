@@ -63,6 +63,21 @@ class SimulationNotFoundError(Error):
 		self.simulation = simulation
 
 """
+Exception raised when the folder of a simulation already exists.
+"""
+
+class SimulationFolderAlreadyExistError(Error):
+	"""
+	Store the folder's name.
+
+	:param str folder:
+		The name of the folder which should not exist.
+	"""
+
+	def __init__(self, folder):
+		self.folder = folder
+
+"""
 Manage a simulations folder: add, delete, extract or update simulations, based on their settings.
 """
 
@@ -155,6 +170,22 @@ class Manager():
 		shutil.rmtree(folder)
 
 	"""
+	Extract a simulation from an archive.
+
+	:param str simulation_name:
+		Name of the archive to extract.
+
+	:param str folder:
+		Folder into which the files must go.
+	"""
+
+	def uncompress(self, simulation_name, folder):
+		with tarfile.open(os.path.join(self._folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
+			tar.extractall(path = self._folder)
+
+		shutil.move(os.path.join(self._folder, simulation_name), folder)
+
+	"""
 	Add a simulation to the list.
 
 	:param dict simulation:
@@ -194,3 +225,26 @@ class Manager():
 		os.unlink(os.path.join(self._folder, f'{simulation_name}.tar.bz2'))
 		del self._simulations_list[simulation_name]
 		self.saveSimulationsList()
+
+	"""
+	Extract a simulation.
+
+	:param dict simulation:
+		The simulation to extract.
+	"""
+
+	def extract(self, simulation):
+		full_settings = self.generateSettings(simulation['settings'])
+		simulation_name = string.hash(string.fromObject(full_settings))
+
+		if not(simulation_name in self._simulations_list):
+			raise SimulationNotFoundError(simulation_name)
+
+		if os.path.exists(simulation['folder']):
+			raise SimulationFolderAlreadyExistError(simulation['folder'])
+
+		destination_path = os.path.dirname(os.path.normpath(simulation['folder']))
+		if destination_path and not(os.path.isdir(destination_path)):
+			os.makedirs(destination_path)
+
+		self.uncompress(simulation_name, simulation['folder'])
