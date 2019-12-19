@@ -48,6 +48,21 @@ class SimulationIntegrityCheckFailedError(Error):
 		self.folder = folder
 
 """
+Exception raised when we look for a non existing simulation.
+"""
+
+class SimulationNotFoundError(Error):
+	"""
+	Store the simulation's name.
+
+	:param str simulation:
+		The name of the simulation which has not been found.
+	"""
+
+	def __init__(self, simulation):
+		self.simulation = simulation
+
+"""
 Manage a simulations folder: add, delete, extract or update simulations, based on their settings.
 """
 
@@ -160,4 +175,22 @@ class Manager():
 		self.compress(simulation['folder'], simulation_name)
 
 		self._simulations_list[simulation_name] = settings_str
+		self.saveSimulationsList()
+
+	"""
+	Delete a simulation.
+
+	:param dict simulation:
+		The simulation to delete.
+	"""
+
+	def delete(self, simulation):
+		full_settings = self.generateSettings(simulation['settings'])
+		simulation_name = string.hash(string.fromObject(full_settings))
+
+		if not(simulation_name in self._simulations_list):
+			raise SimulationNotFoundError(simulation_name)
+
+		os.unlink(os.path.join(self._folder, f'{simulation_name}.tar.bz2'))
+		del self._simulations_list[simulation_name]
 		self.saveSimulationsList()
