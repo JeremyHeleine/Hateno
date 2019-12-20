@@ -7,7 +7,7 @@ A checker must belong into one of the following categories: file checkers, folde
 
 --
 
-A file checker can be applied to a file. It must accept have the following signature.
+A file checker can be applied to a file. It must have the following signature.
 Convention: prefix the name of the function by `file_`.
 
 :param dict simulation:
@@ -21,6 +21,11 @@ Convention: prefix the name of the function by `file_`.
 
 :return bool:
 	`True` if the file successfully passed the test, `False` otherwise.
+
+--
+
+A folder checker can be applied to a folder. It must have the same signature as a file checker (the filename is replaced by the foldername).
+Convention: prefix the name of the function by `folder_`.
 """
 
 import os
@@ -35,8 +40,24 @@ def file_exists(simulation, settings, filename):
 
 """
 File checker.
-Check if a file contains is not empty.
+Check if the file is not empty.
 """
 
 def file_notEmpty(simulation, settings, filename):
 	return os.stat(os.path.join(simulation['folder'], filename)).st_size != 0
+
+"""
+Folder check.
+Check if the folder exists.
+"""
+
+def folder_exists(simulation, settings, foldername):
+	return os.path.isdir(os.path.join(simulation['folder'], foldername))
+
+"""
+Folder check.
+Check if the folder is not empty.
+"""
+
+def folder_notEmpty(simulation, settings, foldername):
+	return len(os.listdir(os.path.join(simulation['folder'], foldername))) > 0

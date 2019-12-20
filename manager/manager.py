@@ -280,17 +280,19 @@ class Manager():
 
 			return name
 
-		if 'files' in self._settings['output']:
-			for output_file in self._settings['output']['files']:
-				if 'checks' in output_file:
-					for checker_name in output_file['checks']:
-						if not(checker_name in self._checkers['file']):
-							raise CheckerNotFoundError(checker_name, 'file')
+		try:
+			for output_entry in ['files', 'folders']:
+				checkers_cat = output_entry[:-1]
 
-						if not(self._checkers['file'][checker_name](simulation, full_settings, parseName(output_file['name']))):
+				for output in self._settings['output'][output_entry]:
+					for checker_name in output['checks']:
+						if not(checker_name in self._checkers[checkers_cat]):
+							raise CheckerNotFoundError(checker_name, checkers_cat)
+
+						if not(self._checkers[checkers_cat][checker_name](simulation, full_settings, parseName(output['name']))):
 							return False
 
-		if 'folders' in self._settings['output']:
+		except KeyError:
 			pass
 
 		if 'checks' in self._settings['output']:
