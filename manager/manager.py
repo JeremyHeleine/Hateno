@@ -3,12 +3,17 @@
 
 import os
 import errno
+import inspect
 
 import shutil
 import copy
 import tarfile
 
+import functools
+import re
+
 from utils import jsonfiles, string
+import manager.checkers as checkers
 
 """
 Base class for exceptions occurring in the manager.
@@ -31,6 +36,40 @@ class SimulationFolderNotFoundError(Error):
 
 	def __init__(self, folder):
 		self.folder = folder
+
+"""
+Exception raised when we try to access a checkers category which does not exist.
+"""
+
+class CheckersCategoryNotFoundError(Error):
+	"""
+	Store the category's name.
+
+	:param str category:
+		The category which has not been found.
+	"""
+
+	def __init__(self, category):
+		self.category = category
+
+"""
+Exception raised when we try to access a checker which does not exist.
+"""
+
+class CheckerNotFoundError(Error):
+	"""
+	Store the category and checker names.
+
+	:param str category:
+		The checker's category.
+
+	:param str checker_name:
+		The name of the checker which has not been found.
+	"""
+
+	def __init__(self, category, checker_name):
+		self.category = category
+		self.checker_name = checker_name
 
 """
 Exception raised when a folder fails to pass an integrity check.
@@ -104,12 +143,86 @@ class Manager():
 		if os.path.isfile(self._simulations_list_file):
 			self._simulations_list = jsonfiles.read(self._simulations_list_file)
 
+		self.generateRegexes()
+		self.initCheckers()
+
 	"""
 	Save the list of simulations.
 	"""
 
 	def saveSimulationsList(self):
 		jsonfiles.write(self._simulations_list, self._simulations_list_file)
+
+	"""
+	Compile in advance the regular expressions we use.
+	"""
+
+	def generateRegexes(self):
+		# Used to parse a name of a file/folder with the value of a setting
+		self._settings_regex = re.compile(r'\{setting:([^}]+)\}')
+
+		# Used to determine if a function is a checker
+		self._checkers_regex = re.compile(r'^(file|folder|global)_([A-Za-z0-9_]+)$')
+
+	"""
+	Load the default checkers.
+	"""
+
+	def initCheckers(self):
+		self._checkers = {cat: {} for cat in ['file', 'folder', 'global']}
+		self.loadCheckersFromModule(checkers)
+
+	"""
+	Load all checkers in a given module.
+
+	:param Module module:
+		Module (already loaded) where are defined the checkers.
+	"""
+
+	def loadCheckersFromModule(self, module):
+		for function in inspect.getmembers(module, inspect.isfunction):
+			checker_match = self._checkers_regex.match(function[0])
+
+			if checker_match:
+				self.setChecker(checker_match.group(1), checker_match.group(2), function[1])
+
+	"""
+	Set (add or replace) a checker.
+
+	:param str category:
+		Category of the checker (`file`, `folder` or `global`).
+
+	:param str checker_name:
+		Name of checker.
+
+	:param function checker:
+		Checker to register (callback function).
+	"""
+
+	def setChecker(self, category, checker_name, checker):
+		if not(category in self._checkers):
+			raise CheckersCategoryNotFoundError(category)
+
+		self._checkers[category][checker_name] = checker
+
+	"""
+	Remove a checker.
+
+	:param str category:
+		Category of the checker (`file`, `folder` or `global`).
+
+	:param str checker_name:
+		Name of checker.
+	"""
+
+	def removeChecker(self, category, checker_name):
+		if not(category in self._checkers):
+			raise CheckersCategoryNotFoundError(category)
+
+		if not(checker_name in self._checkers[category]):
+			raise CheckerNotFoundError(checker_name, category)
+
+		del self._checkers[category][checker_name]
 
 	"""
 	Generate the full set of settings for a simulation.
@@ -143,14 +256,46 @@ class Manager():
 	"""
 	Check the integrity of a simulation.
 
-	:param str folder:
-		Folder containing the simulation files.
+	:param dict simulation:
+		The simulation to check.
+
+	:param list full_settings:
+		The full set of settings of this simulation.
 
 	:return bool:
 		`True` if the integrity check is successful, `False` otherwise.
 	"""
 
-	def checkIntegrity(self, folder):
+	def checkIntegrity(self, simulation, full_settings):
+		# Parse a name (of file or folder), potentially with some settings values
+		# This function explicitely doesn't take into account multiple settings
+		settings_values = functools.reduce(lambda a, b: {**a, **b}, full_settings)
+
+		def parseName(name):
+			for setting_match in self._settings_regex.finditer(name):
+				try:
+					name = name.replace(setting_match.group(0), str(settings_values[setting_match.group(1)]))
+				except KeyError:
+					pass
+
+			return name
+
+		if 'files' in self._settings['output']:
+			for output_file in self._settings['output']['files']:
+				if 'checks' in output_file:
+					for checker_name in output_file['checks']:
+						if not(checker_name in self._checkers['file']):
+							raise CheckerNotFoundError(checker_name, 'file')
+
+						if not(self._checkers['file'][checker_name](simulation, full_settings, parseName(output_file['name']))):
+							return False
+
+		if 'folders' in self._settings['output']:
+			pass
+
+		if 'checks' in self._settings['output']:
+			pass
+
 		return True
 
 	"""
@@ -196,12 +341,12 @@ class Manager():
 		if not(os.path.isdir(simulation['folder'])):
 			raise SimulationFolderNotFoundError(simulation['folder'])
 
-		if not(self.checkIntegrity(simulation['folder'])):
-			raise SimulationIntegrityCheckFailedError(simulation['folder'])
-
 		full_settings = self.generateSettings(simulation['settings'])
 		settings_str = string.fromObject(full_settings)
 		simulation_name = string.hash(settings_str)
+
+		if not(self.checkIntegrity(simulation, full_settings)):
+			raise SimulationIntegrityCheckFailedError(simulation['folder'])
 
 		self.compress(simulation['folder'], simulation_name)
 
