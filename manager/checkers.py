@@ -37,30 +37,34 @@ Convention: prefix the name of the function by `global_`.
 """
 
 import os
+import glob
 
 """
 File checker.
-Check if the file exists.
+Check if at least one file matching the pattern exists.
 """
 
 def file_exists(simulation, settings, filename):
-	return os.path.isfile(os.path.join(simulation['folder'], filename))
+	matching_files = [entry for entry in glob.glob(os.path.join(simulation['folder'], filename)) if os.path.isfile(entry)]
+	return len(matching_files) > 0
 
 """
 File checker.
-Check if the file is not empty.
+Check if all files matching the pattern are non empty.
 """
 
 def file_notEmpty(simulation, settings, filename):
-	return os.stat(os.path.join(simulation['folder'], filename)).st_size != 0
+	nonempty_files = [entry for entry in glob.glob(os.path.join(simulation['folder'], filename)) if os.path.isfile(entry) and os.stat(entry).st_size != 0]
+	return len(nonempty_files) > 0
 
 """
 Folder check.
-Check if the folder exists.
+Check if at least one folder matching the pattern exists.
 """
 
 def folder_exists(simulation, settings, foldername):
-	return os.path.isdir(os.path.join(simulation['folder'], foldername))
+	matching_folders = [entry for entry in glob.glob(os.path.join(simulation['folder'], foldername)) if os.path.isdir(entry)]
+	return len(matching_folders) > 0
 
 """
 Folder check.
@@ -87,4 +91,9 @@ def global_noMore(simulation, settings, tree):
 		'files': sum(filenames, [])
 	}
 
-	return folder_tree == tree
+	matching_tree = {
+		output_entry: [os.path.relpath(entry, simulation['folder']) for entry in sum([glob.glob(os.path.join(simulation['folder'], pattern)) for pattern in patterns], [])]
+		for output_entry, patterns in tree.items()
+	}
+
+	return set(folder_tree['folders']) == set(matching_tree['folders']) and set(folder_tree['files']) == set(matching_tree['files'])
