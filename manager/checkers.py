@@ -26,6 +26,14 @@ Convention: prefix the name of the function by `file_`.
 
 A folder checker can be applied to a folder. It must have the same signature as a file checker (the filename is replaced by the foldername).
 Convention: prefix the name of the function by `folder_`.
+
+--
+
+A global checker can be applied to the whole simulation folder. It must have the same signature as a file/folder checker, except for the third argument, described below.
+Convention: prefix the name of the function by `global_`.
+
+:param dict tree:
+	The list of files and folders names listed in the `output` in the configuration file.
 """
 
 import os
@@ -61,3 +69,22 @@ Check if the folder is not empty.
 
 def folder_notEmpty(simulation, settings, foldername):
 	return len(os.listdir(os.path.join(simulation['folder'], foldername))) > 0
+
+"""
+Global check.
+Check if no other file than the listed ones is present.
+"""
+
+def global_noMore(simulation, settings, tree):
+	folder_paths = [(
+		list(map(lambda n: os.path.relpath(os.path.join(dirpath, n), simulation['folder']), dirnames)),
+		list(map(lambda n: os.path.relpath(os.path.join(dirpath, n), simulation['folder']), filenames))
+	) for dirpath, dirnames, filenames in os.walk(simulation['folder'])]
+
+	dirnames, filenames = zip(*folder_paths)
+	folder_tree = {
+		'folders': sum(dirnames, []),
+		'files': sum(filenames, [])
+	}
+
+	return folder_tree == tree

@@ -280,23 +280,32 @@ class Manager():
 
 			return name
 
-		try:
-			for output_entry in ['files', 'folders']:
-				checkers_cat = output_entry[:-1]
+		tree = {}
 
+		for output_entry in ['files', 'folders']:
+			tree[output_entry] = []
+			checkers_cat = output_entry[:-1]
+
+			if output_entry in self._settings['output']:
 				for output in self._settings['output'][output_entry]:
-					for checker_name in output['checks']:
-						if not(checker_name in self._checkers[checkers_cat]):
-							raise CheckerNotFoundError(checker_name, checkers_cat)
+					parsed_name = parseName(output['name'])
+					tree[output_entry].append(parsed_name)
 
-						if not(self._checkers[checkers_cat][checker_name](simulation, full_settings, parseName(output['name']))):
-							return False
+					if 'checks' in output:
+						for checker_name in output['checks']:
+							if not(checker_name in self._checkers[checkers_cat]):
+								raise CheckerNotFoundError(checker_name, checkers_cat)
 
-		except KeyError:
-			pass
+							if not(self._checkers[checkers_cat][checker_name](simulation, full_settings, parsed_name)):
+								return False
 
 		if 'checks' in self._settings['output']:
-			pass
+			for checker_name in self._settings['output']['checks']:
+				if not(checker_name in self._checkers['global']):
+					raise CheckerNotFoundError(checker_name, 'global')
+
+				if not(self._checkers['global'][checker_name](simulation, full_settings, tree)):
+					return False
 
 		return True
 
