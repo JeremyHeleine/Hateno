@@ -423,6 +423,11 @@ class Manager():
 
 		save_list : boolean
 			`True` to save the simulations list, `False` otherwise.
+
+		Raises
+		------
+		SimulationNotFoundError
+			The simulation does not exist in the list.
 		'''
 
 		full_settings = self.generateSettings(simulation['settings'])
@@ -445,6 +450,14 @@ class Manager():
 		----------
 		simulation : dict
 			The simulation to extract.
+
+		Raises
+		------
+		SimulationNotFoundError
+			The simulation does not exist in the list.
+
+		SimulationFolderAlreadyExistError
+			The destination of extraction already exists.
 		'''
 
 		full_settings = self.generateSettings(simulation['settings'])
@@ -497,12 +510,24 @@ class Manager():
 		----------
 		simulations : list
 			List of simulations, each being a dictionary.
+
+		Returns
+		-------
+		errors : list
+			List of simulations that were not deleted because they raised an error.
 		'''
 
+		errors = []
+
 		for simulation in simulations:
-			self.delete(simulation, save_list = False)
+			try:
+				self.delete(simulation, save_list = False)
+
+			except SimulationNotFoundError:
+				errors.append(simulation)
 
 		self.saveSimulationsList()
+		return errors
 
 	def batchExtract(self, simulations):
 		'''
@@ -514,5 +539,13 @@ class Manager():
 			List of simulations, each being a dictionary.
 		'''
 
+		errors = []
+
 		for simulation in simulations:
-			self.extract(simulation)
+			try:
+				self.extract(simulation)
+
+			except (SimulationNotFoundError, SimulationFolderAlreadyExistError):
+				errors.append(simulation)
+
+		return errors
