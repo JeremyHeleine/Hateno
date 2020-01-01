@@ -463,3 +463,31 @@ class Manager():
 			self.add(simulation, save_list = False)
 
 		self.saveSimulationsList()
+
+	def batchDelete(self, simulations):
+		'''
+		Delete multiple simulations.
+
+		Parameters
+		----------
+		simulations : list
+			List of simulations, each being a dictionary.
+		'''
+
+		for simulation in simulations:
+			self.delete(simulation, save_list = False)
+
+		self.saveSimulationsList()
+
+	def batchExtract(self, simulations):
+		'''
+		Extract multiple simulations.
+
+		Parameters
+		----------
+		simulations : list
+			List of simulations, each being a dictionary.
+		'''
+
+		for simulation in simulations:
+			self.extract(simulation)
