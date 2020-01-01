@@ -136,6 +136,11 @@ class Manager():
 	----------
 	folder : str
 		The folder to manage. Must contain a settings file.
+
+	Raises
+	------
+	FileNotFoundError
+		No `.simulations.conf` file found in folder.
 	'''
 
 	def __init__(self, folder):
@@ -380,6 +385,14 @@ class Manager():
 
 		save_list : boolean
 			`True` to save the simulations list, `False` otherwise.
+
+		Raises
+		------
+		SimulationFolderNotFoundError
+			The folder indicated in the simulation does not exist.
+
+		SimulationIntegrityCheckFailedError
+			At least one integrity check failed.
 		'''
 
 		if not(os.path.isdir(simulation['folder'])):
@@ -457,12 +470,24 @@ class Manager():
 		----------
 		simulations : list
 			List of simulations, each being a dictionary.
+
+		Returns
+		-------
+		errors : list
+			List of simulations that were not added because they raised an error.
 		'''
 
+		errors = []
+
 		for simulation in simulations:
-			self.add(simulation, save_list = False)
+			try:
+				self.add(simulation, save_list = False)
+
+			except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
+				errors.append(simulation)
 
 		self.saveSimulationsList()
+		return errors
 
 	def batchDelete(self, simulations):
 		'''
