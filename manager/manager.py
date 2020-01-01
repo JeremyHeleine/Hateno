@@ -475,6 +475,44 @@ class Manager():
 
 		self.uncompress(simulation_name, simulation['folder'])
 
+	def batchAction(self, simulations, callback, args = {}, save_list = True):
+		'''
+		Apply a callback function to each simulation of a given list.
+
+		Parameters
+		----------
+		simulations : list
+			List of simulations, each being a dictionary.
+
+		callback : function
+			Function to call. The simulation will be passed as the first parameter.
+
+		args : dict
+			Additional named arguments to pass to the callback.
+
+		save_list : boolean
+			`True` to save the simulations list once the loop is over, `False` to not save it.
+
+		Returns
+		-------
+		errors : list
+			List of simulations which raised an error.
+		'''
+
+		errors = []
+
+		for simulation in simulations:
+			try:
+				callback(simulation, **args)
+
+			except Error:
+				errors.append(simulation)
+
+		if save_list:
+			self.saveSimulationsList()
+
+		return errors
+
 	def batchAdd(self, simulations):
 		'''
 		Add multiple simulations to the list.
@@ -490,17 +528,7 @@ class Manager():
 			List of simulations that were not added because they raised an error.
 		'''
 
-		errors = []
-
-		for simulation in simulations:
-			try:
-				self.add(simulation, save_list = False)
-
-			except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
-				errors.append(simulation)
-
-		self.saveSimulationsList()
-		return errors
+		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True)
 
 	def batchDelete(self, simulations):
 		'''
@@ -517,17 +545,7 @@ class Manager():
 			List of simulations that were not deleted because they raised an error.
 		'''
 
-		errors = []
-
-		for simulation in simulations:
-			try:
-				self.delete(simulation, save_list = False)
-
-			except SimulationNotFoundError:
-				errors.append(simulation)
-
-		self.saveSimulationsList()
-		return errors
+		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True)
 
 	def batchExtract(self, simulations):
 		'''
@@ -539,13 +557,4 @@ class Manager():
 			List of simulations, each being a dictionary.
 		'''
 
-		errors = []
-
-		for simulation in simulations:
-			try:
-				self.extract(simulation)
-
-			except (SimulationNotFoundError, SimulationFolderAlreadyExistError):
-				errors.append(simulation)
-
-		return errors
+		return self.batchAction(simulations, self.extract, save_list = False)
