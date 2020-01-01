@@ -369,7 +369,7 @@ class Manager():
 
 		shutil.move(os.path.join(self._folder, simulation_name), folder)
 
-	def add(self, simulation):
+	def add(self, simulation, save_list = True):
 		'''
 		Add a simulation to the list.
 
@@ -377,6 +377,9 @@ class Manager():
 		----------
 		simulation : dict
 			The simulation to add.
+
+		save_list : boolean
+			`True` to save the simulations list, `False` otherwise.
 		'''
 
 		if not(os.path.isdir(simulation['folder'])):
@@ -392,9 +395,11 @@ class Manager():
 		self.compress(simulation['folder'], simulation_name)
 
 		self._simulations_list[simulation_name] = settings_str
-		self.saveSimulationsList()
 
-	def delete(self, simulation):
+		if save_list:
+			self.saveSimulationsList()
+
+	def delete(self, simulation, save_list = True):
 		'''
 		Delete a simulation.
 
@@ -402,6 +407,9 @@ class Manager():
 		----------
 		simulation : dict
 			The simulation to delete.
+
+		save_list : boolean
+			`True` to save the simulations list, `False` otherwise.
 		'''
 
 		full_settings = self.generateSettings(simulation['settings'])
@@ -412,7 +420,9 @@ class Manager():
 
 		os.unlink(os.path.join(self._folder, f'{simulation_name}.tar.bz2'))
 		del self._simulations_list[simulation_name]
-		self.saveSimulationsList()
+
+		if save_list:
+			self.saveSimulationsList()
 
 	def extract(self, simulation):
 		'''
