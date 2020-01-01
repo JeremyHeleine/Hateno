@@ -448,3 +448,18 @@ class Manager():
 			os.makedirs(destination_path)
 
 		self.uncompress(simulation_name, simulation['folder'])
+
+	def batchAdd(self, simulations):
+		'''
+		Add multiple simulations to the list.
+
+		Parameters
+		----------
+		simulations : list
+			List of simulations, each being a dictionary.
+		'''
+
+		for simulation in simulations:
+			self.add(simulation, save_list = False)
+
+		self.saveSimulationsList()
