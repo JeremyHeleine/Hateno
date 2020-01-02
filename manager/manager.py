@@ -6,40 +6,29 @@ import errno
 import inspect
 
 import shutil
-import copy
 import tarfile
 
 import functools
 import re
 
+from manager.folder import Folder
 from utils import jsonfiles, string
 from manager.errors import *
 import manager.checkers as checkers
 
-class Manager():
+class Manager(Folder):
 	'''
 	Manage a simulations folder: add, delete, extract or update simulations, based on their settings.
-	Initialize the manager with the folder to manage: load the settings and the current list of simulations.
+	Initialize the manager with the folder to manage and load the current list of simulations.
 
 	Parameters
 	----------
 	folder : str
 		The folder to manage. Must contain a settings file.
-
-	Raises
-	------
-	FileNotFoundError
-		No `.simulations.conf` file found in folder.
 	'''
 
 	def __init__(self, folder):
-		self._folder = folder
-		self._settings_file = os.path.join(self._folder, '.simulations.conf')
-
-		if not(os.path.isfile(self._settings_file)):
-			raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self._settings_file)
-
-		self._settings = jsonfiles.read(self._settings_file)
+		super().__init__(folder)
 
 		self._simulations_list_file = os.path.join(self._folder, '.simulations.list')
 		self._simulations_list = {}
@@ -133,39 +122,6 @@ class Manager():
 			raise CheckerNotFoundError(checker_name, category)
 
 		del self._checkers[category][checker_name]
-
-	def generateSettings(self, settings):
-		'''
-		Generate the full set of settings for a simulation.
-
-		Parameters
-		----------
-		settings : dict
-			Values of some settings for the simulation.
-
-		Returns
-		-------
-		full_settings : dict
-			The full set of settings, with default values if needed.
-		'''
-
-		full_settings = []
-		for settings_set in self._settings['settings']:
-			settings_pairs = {s['name']: s['default'] for s in settings_set['settings']}
-			values_sets = [s['settings'] for s in settings if s['set'] == settings_set['set']]
-
-			sets_to_add = []
-			for values_set in values_sets:
-				pairs = copy.deepcopy(settings_pairs)
-				pairs.update(values_set)
-				sets_to_add.append(pairs)
-
-			if not(sets_to_add) and settings_set['required']:
-				sets_to_add.append(settings_pairs)
-
-			full_settings += sets_to_add
-
-		return full_settings
 
 	def checkIntegrity(self, simulation, full_settings):
 		'''
