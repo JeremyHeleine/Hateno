@@ -31,7 +31,7 @@ class Folder():
 
 		self._settings = jsonfiles.read(self._settings_file)
 
-	def generateSettings(self, settings):
+	def generateSettings(self, settings, as_strings = False):
 		'''
 		Generate the full set of settings for a simulation.
 
@@ -39,6 +39,9 @@ class Folder():
 		----------
 		settings : dict
 			Values of some settings for the simulation.
+
+		as_strings : boolean
+			`True` to get a string representation of the settings, `False` to get them as a dictionary.
 
 		Returns
 		-------
@@ -60,6 +63,21 @@ class Folder():
 			if not(sets_to_add) and settings_set['required']:
 				sets_to_add.append(settings_pairs)
 
-			full_settings += sets_to_add
+			if as_strings:
+				patterns = {
+					s['name']: s['pattern'] if 'pattern' in s else self._settings['setting_pattern']
+					for s in settings_set['settings']
+				}
+
+				full_settings += [
+					[
+						patterns[setting_name].format(name = setting_name, value = setting_value)
+						for setting_name, setting_value in set_to_add.items()
+					]
+					for set_to_add in sets_to_add
+				]
+
+			else:
+				full_settings += sets_to_add
 
 		return full_settings

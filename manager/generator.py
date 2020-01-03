@@ -41,3 +41,18 @@ class Generator(Folder):
 		'''
 
 		self._simulations_to_generate.clear()
+
+	def parse(self):
+		'''
+		Parse the current list of simulations to generate the corresponding command lines.
+
+		Returns
+		-------
+		command_lines : list
+			List of command lines, one per simulation to generate
+		'''
+
+		return [
+			' '.join([self._settings['exec']] + sum(self.generateSettings(simulation['settings'], as_strings = True), []))
+			for simulation in self._simulations_to_generate
+		]
