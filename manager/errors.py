@@ -112,3 +112,17 @@ class SimulationFolderAlreadyExistError(Error):
 		'''
 
 		self.folder = folder
+
+class EmptyListError(Error):
+	'''
+	Exception raised when a specific list is empty.
+	'''
+
+	pass
+
+class DestinationFolderExistsError(Error):
+	'''
+	Exception raised when a destination folder already exists.
+	'''
+
+	pass
