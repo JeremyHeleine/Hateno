@@ -29,11 +29,11 @@ class RemoteFolder():
 
 		self._configuration = jsonfiles.read(self._configuration_file)
 
-	'''
-	Open the connection.
-	'''
-
 	def open(self):
+		'''
+		Open the connection.
+		'''
+
 		self._ssh = paramiko.SSHClient()
 		self._ssh.load_system_host_keys()
 		self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -44,13 +44,43 @@ class RemoteFolder():
 		if 'working_directory' in self._configuration:
 			self._sftp.chdir(self._configuration['working_directory'])
 
-	'''
-	Close the connection.
-	'''
-
 	def close(self):
+		'''
+		Close the connection.
+		'''
+
 		try:
 			self._ssh.close()
 
 		except AttributeError:
 			pass
+
+	def sendFile(self, filename, remote_path = None, *, permissions = -1, delete = False):
+		'''
+		Send a file.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file to send.
+
+		remote_path : str
+			Path of the remote file to write.
+
+		permissions : int
+			Permissions of the remote file.
+
+		delete : boolean
+			`True` to delete the local file, once sent.
+		'''
+
+		if not(remote_path):
+			remote_path = os.path.basename(filename)
+
+		self._sftp.put(filename, remote_path)
+
+		if permissions >= 0:
+			self._sftp.chmod(remote_path, permissions)
+
+		if delete:
+			os.unlink(filename)
