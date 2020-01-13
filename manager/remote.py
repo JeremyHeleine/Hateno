@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import stat
 import paramiko
 
 from utils import jsonfiles
@@ -181,3 +182,40 @@ class RemoteFolder():
 
 		if delete:
 			os.rmdir(directory)
+
+	def receiveDir(self, remote_path, directory = None, *, copy_permissions = True, delete = False):
+		'''
+		Receive (download) a directory.
+
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote directory to receive.
+
+		directory : str
+			Name of the directory to create.
+
+		copy_permissions : boolean
+			`True` to copy the chmod from the remote directory.
+
+		delete : boolean
+			`True` to delete the remote directory.
+		'''
+
+		if not(directory):
+			directory = os.path.basename(remote_path)
+
+		try:
+			entries = os.listdir(directory)
+
+		except FileNotFoundError:
+			os.makedirs(directory)
+
+		if copy_permissions:
+			self.copyChmodToLocal(remote_path, directory)
+
+		for entry in [(entry, os.path.join(remote_path, entry)) for entry in self._sftp.listdir(directory)]:
+			(self.receiveDir if self._sftp.lstat(entry[1]).st_mode & stat.S_IFDIR else self.receiveFile)(entry[1], os.path.join(directory, entry[0]), copy_permissions = copy_permissions, delete = delete)
+
+		if delete:
+			self._sftp.rmdir(remote_path)
