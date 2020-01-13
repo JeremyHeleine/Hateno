@@ -55,7 +55,7 @@ class RemoteFolder():
 		except AttributeError:
 			pass
 
-	def copyChmod(self, filename, remote_path):
+	def copyChmodToRemote(self, filename, remote_path):
 		'''
 		Change the chmod of a remote file to reflect a local one.
 
@@ -70,6 +70,21 @@ class RemoteFolder():
 
 		self._sftp.chmod(remote_path, os.stat(filename).st_mode & 0o777)
 
+	def copyChmodToLocal(self, remote_path, filename):
+		'''
+		Change the chmod of a local file to reflect a remote one.
+
+		Parameters
+		----------
+		remote_path : str
+			Name of the file to use to copy the chmod.
+
+		filename : str
+			Local path to alter.
+		'''
+
+		os.chmod(filename, self._sftp.lstat(remote_path).st_mode & 0o777)
+
 	def sendFile(self, filename, remote_path = None, *, copy_permissions = True, delete = False):
 		'''
 		Send a file.
@@ -82,8 +97,8 @@ class RemoteFolder():
 		remote_path : str
 			Path of the remote file to write.
 
-		permissions : int
-			Permissions of the remote file.
+		copy_permissions : boolean
+			`True` to copy the chmod from the local file.
 
 		delete : boolean
 			`True` to delete the local file, once sent.
@@ -95,10 +110,40 @@ class RemoteFolder():
 		self._sftp.put(filename, remote_path)
 
 		if copy_permissions:
-			self.copyChmod(filename, remote_path)
+			self.copyChmodToRemote(filename, remote_path)
 
 		if delete:
 			os.unlink(filename)
+
+	def receiveFile(self, remote_path, filename = None, *, copy_permissions = True, delete = False):
+		'''
+		Receive (download) a file.
+
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote file to receive.
+
+		filename : str
+			Name of the file to create.
+
+		copy_permissions : boolean
+			`True` to copy the chmod from the remote file.
+
+		delete : boolean
+			`True` to delete the remote file.
+		'''
+
+		if not(filename):
+			filename = os.path.basename(remote_path)
+
+		self._sftp.get(remote_path, filename)
+
+		if copy_permissions:
+			self.copyChmodToLocal(remote_path, filename)
+
+		if delete:
+			self._sftp.remove(remote_path)
 
 	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False):
 		'''
@@ -111,6 +156,12 @@ class RemoteFolder():
 
 		remote_path : str
 			Path of the remote directory to create.
+
+		copy_permissions : boolean
+			`True` to copy the chmod from the local directory.
+
+		delete : boolean
+			`True` to delete the local directory, once sent.
 		'''
 
 		if not(remote_path):
@@ -123,7 +174,7 @@ class RemoteFolder():
 			self._sftp.mkdir(remote_path)
 
 		if copy_permissions:
-			self.copyChmod(directory, remote_path)
+			self.copyChmodToRemote(directory, remote_path)
 
 		for entry in [(entry, os.path.join(directory, entry)) for entry in os.listdir(directory)]:
 			(self.sendDir if os.path.isdir(entry[1]) else self.sendFile)(entry[1], os.path.join(remote_path, entry[0]), copy_permissions = copy_permissions, delete = delete)
