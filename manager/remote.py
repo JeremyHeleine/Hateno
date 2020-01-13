@@ -146,7 +146,7 @@ class RemoteFolder():
 		if delete:
 			self._sftp.remove(remote_path)
 
-	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False):
+	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
 		'''
 		Send a directory.
 
@@ -163,6 +163,9 @@ class RemoteFolder():
 
 		delete : boolean
 			`True` to delete the local directory, once sent.
+
+		empty_dest : boolean
+			`True` to ensure the destination folder is empty.
 		'''
 
 		if not(remote_path):
@@ -170,6 +173,9 @@ class RemoteFolder():
 
 		try:
 			entries = self._sftp.listdir(remote_path)
+
+			if empty_dest and entries:
+				self.deleteRemote([os.path.join(remote_path, e) for e in entries])
 
 		except FileNotFoundError:
 			self._sftp.mkdir(remote_path)
@@ -183,7 +189,7 @@ class RemoteFolder():
 		if delete:
 			os.rmdir(directory)
 
-	def receiveDir(self, remote_path, directory = None, *, copy_permissions = True, delete = False):
+	def receiveDir(self, remote_path, directory = None, *, copy_permissions = True, delete = False, empty_dest = False):
 		'''
 		Receive (download) a directory.
 
@@ -200,13 +206,19 @@ class RemoteFolder():
 
 		delete : boolean
 			`True` to delete the remote directory.
+
+		empty_dest : boolean
+			`True` to ensure the destination folder is empty.
 		'''
 
 		if not(directory):
-			directory = os.path.basename(remote_path)
+			directory = os.path.basename(os.path.normpath(remote_path))
 
 		try:
 			entries = os.listdir(directory)
+
+			if empty_dest and entries:
+				self.deleteLocal([os.path.join(directory, e) for e in entries])
 
 		except FileNotFoundError:
 			os.makedirs(directory)
@@ -219,3 +231,34 @@ class RemoteFolder():
 
 		if delete:
 			self._sftp.rmdir(remote_path)
+
+	def deleteRemote(self, entries):
+		'''
+		Recursively delete some remote entries.
+
+		Parameters
+		----------
+		entries : list
+			List of paths to delete.
+		'''
+
+		for entry in entries:
+			if self._sftp.lstat(entry).st_mode & stat.S_IFDIR:
+				self.deleteRemote([os.path.join(entry, e) for e in self._sftp.listdir(entry)])
+				self._sftp.rmdir(entry)
+
+			else:
+				self._sftp.remove(entry)
+
+	def deleteLocal(self, entries):
+		'''
+		Recursively delete some local entries.
+
+		Parameters
+		----------
+		entries : list
+			List of paths to delete.
+		'''
+
+		for entry in entries:
+			(shutil.rmtree if os.path.isdir(entry) else os.unlink)(entry)
