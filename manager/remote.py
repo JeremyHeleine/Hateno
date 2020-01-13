@@ -146,6 +146,23 @@ class RemoteFolder():
 		if delete:
 			self._sftp.remove(remote_path)
 
+	def makedirs(self, directory):
+		'''
+		Recursively create a directory.
+
+		Parameters
+		----------
+		directory : str
+			Path to create.
+		'''
+
+		try:
+			self._sftp.mkdir(directory)
+
+		except FileNotFoundError:
+			self.makedirs(os.path.split(os.path.normpath(directory))[0])
+			self._sftp.mkdir(directory)
+
 	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
 		'''
 		Send a directory.
@@ -178,7 +195,7 @@ class RemoteFolder():
 				self.deleteRemote([os.path.join(remote_path, e) for e in entries])
 
 		except FileNotFoundError:
-			self._sftp.mkdir(remote_path)
+			self.makedirs(remote_path)
 
 		if copy_permissions:
 			self.copyChmodToRemote(directory, remote_path)
