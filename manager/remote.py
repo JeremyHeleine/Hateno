@@ -84,7 +84,7 @@ class RemoteFolder():
 			Local path to alter.
 		'''
 
-		os.chmod(filename, self._sftp.lstat(remote_path).st_mode & 0o777)
+		os.chmod(filename, self._sftp.stat(remote_path).st_mode & 0o777)
 
 	def sendFile(self, filename, remote_path = None, *, copy_permissions = True, delete = False):
 		'''
@@ -227,7 +227,7 @@ class RemoteFolder():
 			self.copyChmodToLocal(remote_path, directory)
 
 		for entry in [(entry, os.path.join(remote_path, entry)) for entry in self._sftp.listdir(directory)]:
-			(self.receiveDir if self._sftp.lstat(entry[1]).st_mode & stat.S_IFDIR else self.receiveFile)(entry[1], os.path.join(directory, entry[0]), copy_permissions = copy_permissions, delete = delete)
+			(self.receiveDir if stat.S_ISDIR(self._sftp.stat(entry[1]).st_mode) else self.receiveFile)(entry[1], os.path.join(directory, entry[0]), copy_permissions = copy_permissions, delete = delete)
 
 		if delete:
 			self._sftp.rmdir(remote_path)
@@ -243,7 +243,7 @@ class RemoteFolder():
 		'''
 
 		for entry in entries:
-			if self._sftp.lstat(entry).st_mode & stat.S_IFDIR:
+			if stat.S_ISDIR(self._sftp.stat(entry).st_mode):
 				self.deleteRemote([os.path.join(entry, e) for e in self._sftp.listdir(entry)])
 				self._sftp.rmdir(entry)
 
