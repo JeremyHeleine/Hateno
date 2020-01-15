@@ -104,7 +104,7 @@ class Generator(Folder):
 		with open(output_name, 'w') as f:
 			f.write(script_content)
 
-	def generate(self, dest_folder, *, max_simulations = 0, subgroups_skeletons = [], wholegroup_skeletons = []):
+	def generate(self, dest_folder, recipe):
 		'''
 		Generate the scripts to launch the simulations by subgroups.
 
@@ -113,14 +113,8 @@ class Generator(Folder):
 		dest_folder : str
 			Destination folder where scripts should be stored.
 
-		max_simulations : int
-			Maximum number of simulations in each subgroup. If 0, only one subgroup is created.
-
-		subgroups_skeletons : list
-			Names of the skeletons to use for each subgroup.
-
-		subgroups_skeletons : list
-			Names of the skeletons to use for each subgroup.
+		recipe : dict
+			Parameters to generate the scripts.
 
 		Raises
 		------
@@ -141,28 +135,32 @@ class Generator(Folder):
 
 		command_lines = self.parse()
 
-		if max_simulations <= 0:
-			max_simulations = len(command_lines)
+		if not('max_simulations' in recipe) or recipe['max_simulations'] <= 0:
+			recipe['max_simulations'] = len(command_lines)
 
-		command_lines_sets = [command_lines[k:k+max_simulations] for k in range(0, len(command_lines), max_simulations)]
+		command_lines_sets = [command_lines[k:k+recipe['max_simulations']] for k in range(0, len(command_lines), recipe['max_simulations'])]
 
 		data_lists = {}
 		data_variables = {}
 
-		skeletons_calls = [
-			{
-				'command_lines': command_lines_set,
-				'skeleton_name_joiner': f'-{k}.',
-				'skeletons': subgroups_skeletons
-			}
-			for k, command_lines_set in enumerate(command_lines_sets)
-		]
+		skeletons_calls = []
 
-		skeletons_calls.append({
-			'command_lines': command_lines,
-			'skeleton_name_joiner': '.',
-			'skeletons': wholegroup_skeletons
-		})
+		if 'subgroups_skeletons' in recipe:
+			skeletons_calls += [
+				{
+					'command_lines': command_lines_set,
+					'skeleton_name_joiner': f'-{k}.',
+					'skeletons': recipe['subgroups_skeletons']
+				}
+				for k, command_lines_set in enumerate(command_lines_sets)
+			]
+
+		if 'wholegroup_skeletons' in recipe:
+			skeletons_calls.append({
+				'command_lines': command_lines,
+				'skeleton_name_joiner': '.',
+				'skeletons': recipe['wholegroup_skeletons']
+			})
 
 		for skeletons_call in skeletons_calls:
 			data_lists['COMMAND_LINES'] = skeletons_call['command_lines']
