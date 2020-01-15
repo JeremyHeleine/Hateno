@@ -38,12 +38,17 @@ class Watcher():
 		Remotely read the current states of the jobs.
 		'''
 
-		known_states = self._remote_folder.getFileContents(self._states_path)
+		try:
+			known_states = self._remote_folder.getFileContents(self._states_path)
 
-		for job in self._jobs_to_watch & set(known_states.keys()):
-			state = known_states[job]
+		except FileNotFoundError:
+			pass
 
-			if state in ['waiting', 'began', 'succeed', 'failed']:
-				self._jobs_states[job] = state
+		else:
+			for job in self._jobs_to_watch & set(known_states.keys()):
+				state = known_states[job]
+
+				if state in ['waiting', 'began', 'succeed', 'failed']:
+					self._jobs_states[job] = state
 
 		self._jobs_states.update({job: 'waiting' for job in self._jobs_to_watch - set(self._jobs_states.keys())})
