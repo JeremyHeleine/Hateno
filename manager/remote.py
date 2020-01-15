@@ -4,6 +4,7 @@
 import os
 import stat
 import paramiko
+import json
 
 from utils import jsonfiles
 
@@ -145,6 +146,34 @@ class RemoteFolder():
 
 		if delete:
 			self._sftp.remove(remote_path)
+
+	def getFileContents(self, remote_path, as_json = True):
+		'''
+		Retrieve the content of a remote file.
+
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote file to read.
+
+		as_json : boolean
+			`True` to interpret the content as JSON, `False` for raw text.
+
+		Returns
+		-------
+		content : str|dict|list
+			Content of the file, as a dictionary or list if interpreted as JSON.
+		'''
+
+		content = None
+
+		with self._sftp.open(remote_path, 'r') as f:
+			content = f.read()
+
+		if as_json:
+			content = json.loads(content)
+
+		return content
 
 	def makedirs(self, directory):
 		'''
