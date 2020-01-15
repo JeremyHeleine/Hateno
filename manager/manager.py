@@ -320,7 +320,7 @@ class Manager(Folder):
 
 		self.uncompress(simulation_name, simulation['folder'])
 
-	def batchAction(self, simulations, callback, args = {}, save_list = True):
+	def batchAction(self, simulations, callback, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error)):
 		'''
 		Apply a callback function to each simulation of a given list.
 
@@ -338,6 +338,12 @@ class Manager(Folder):
 		save_list : boolean
 			`True` to save the simulations list once the loop is over, `False` to not save it.
 
+		errors_store : tuple
+			List of exceptions that, when raised, lead to the storage of the involved simulation.
+
+		errors_pass : tuple
+			List of exceptions that, when raised, do nothing.
+
 		Returns
 		-------
 		errors : list
@@ -350,8 +356,11 @@ class Manager(Folder):
 			try:
 				callback(simulation, **args)
 
-			except Error:
+			except errors_store:
 				errors.append(simulation)
+
+			except errors_pass:
+				pass
 
 		if save_list:
 			self.saveSimulationsList()
@@ -373,7 +382,7 @@ class Manager(Folder):
 			List of simulations that were not added because they raised an error.
 		'''
 
-		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True)
+		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError))
 
 	def batchDelete(self, simulations):
 		'''
@@ -390,9 +399,9 @@ class Manager(Folder):
 			List of simulations that were not deleted because they raised an error.
 		'''
 
-		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True)
+		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError))
 
-	def batchExtract(self, simulations):
+	def batchExtract(self, simulations, *, ignore_existing = True):
 		'''
 		Extract multiple simulations.
 
@@ -400,6 +409,22 @@ class Manager(Folder):
 		----------
 		simulations : list
 			List of simulations, each being a dictionary.
+
+		ignore_existing : boolean
+			Ignore simulations for which the destination folder already exists.
+
+		Returns
+		-------
+		errors : list
+			List of simulations that were not extracted because they raised an error.
 		'''
 
-		return self.batchAction(simulations, self.extract, save_list = False)
+		if ignore_existing:
+			errors_store = (SimulationNotFoundError,)
+			errors_pass = (SimulationFolderAlreadyExistError,)
+
+		else:
+			errors_store = (SimulationNotFoundError, SimulationFolderAlreadyExistError)
+			errors_pass = ()
+
+		return self.batchAction(simulations, self.extract, save_list = False, errors_store = errors_store, errors_pass = errors_pass)
