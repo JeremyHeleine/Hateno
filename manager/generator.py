@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import stat
 import re
 from string import Template
 
@@ -62,7 +63,7 @@ class Generator(Folder):
 			for simulation in self._simulations_to_generate
 		]
 
-	def generateScriptFromSkeleton(self, skeleton_name, output_name, lists, variables):
+	def generateScriptFromSkeleton(self, skeleton_name, output_name, lists, variables, *, make_executable = False):
 		'''
 		Generate a script from a skeleton, using a given set of command lines.
 
@@ -79,6 +80,9 @@ class Generator(Folder):
 
 		variables : dict
 			Variables we can use in the whole script template.
+
+		make_executable : boolean
+			`True` to add the 'exec' permission to the script.
 		'''
 
 		with open(skeleton_name, 'r') as f:
@@ -103,6 +107,9 @@ class Generator(Folder):
 
 		with open(output_name, 'w') as f:
 			f.write(script_content)
+
+		if make_executable:
+			os.chmod(output_name, os.stat(output_name).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 	def generate(self, dest_folder, recipe):
 		'''
@@ -162,6 +169,9 @@ class Generator(Folder):
 				'skeletons': recipe['wholegroup_skeletons']
 			})
 
+		if not('make_executable' in recipe):
+			recipe['make_executable'] = False
+
 		for skeletons_call in skeletons_calls:
 			data_lists['COMMAND_LINES'] = skeletons_call['command_lines']
 
@@ -170,7 +180,7 @@ class Generator(Folder):
 				skeleton_tag = re.sub('[^A-Z_]+', '_', skeleton_basename_parts[0].upper())
 				script_name = os.path.join(dest_folder, skeletons_call['skeleton_name_joiner'].join(skeleton_basename_parts))
 
-				self.generateScriptFromSkeleton(skeleton_name, script_name, data_lists, data_variables)
+				self.generateScriptFromSkeleton(skeleton_name, script_name, data_lists, data_variables, make_executable = recipe['make_executable'])
 				data_variables[skeleton_tag] = script_name
 
 				try:
