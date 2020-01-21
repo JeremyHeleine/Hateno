@@ -126,3 +126,16 @@ class DestinationFolderExistsError(Error):
 	'''
 
 	pass
+
+class ScriptNotFoundError(Error):
+	'''
+	Exception raised when a given script does not exist.
+
+	Parameters
+	----------
+	script_coords : dict
+		Coordinates of the script which has not been found.
+	'''
+
+	def __init__(self, script_coords):
+		self.script_coords = script_coords

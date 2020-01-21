@@ -9,17 +9,13 @@ class Watcher():
 	----------
 	remote_folder : RemoteFolder
 		A RemoteFolder instance to use to search for notifications.
-
-	states_path : str
-		Path to the remote file containing the jobs states.
 	'''
 
-	def __init__(self, remote_folder, states_path):
+	def __init__(self, remote_folder):
 		self._jobs_to_watch = set()
 		self._jobs_states = {}
 
 		self._remote_folder = remote_folder
-		self._states_path = states_path
 
 	def addJobsToWatch(self, jobs):
 		'''
@@ -33,13 +29,35 @@ class Watcher():
 
 		self._jobs_to_watch |= set(jobs)
 
-	def updateJobsStates(self):
+	def clearJobs(self):
+		'''
+		Clear the list of jobs to watch.
+		'''
+
+		self._jobs_to_watch.clear()
+
+	def areJobsFinished(self):
+		'''
+		Determine whether all jobs are finished or not.
+
+		Returns
+		-------
+		jobs_finished : boolean
+			`True` if all jobs are finished, `False` if there is still at least one running.
+		'''
+
+		return self._jobs_to_watch == set([job for job, state in self._jobs_states.items() if state in ['succeed', 'failed']])
+
+	def updateJobsStates(self, states_path):
 		'''
 		Remotely read the current states of the jobs.
+
+		states_path : str
+			Path to the remote file containing the jobs states.
 		'''
 
 		try:
-			known_states = self._remote_folder.getFileContents(self._states_path)
+			known_states = self._remote_folder.getFileContents(states_path)
 
 		except FileNotFoundError:
 			pass

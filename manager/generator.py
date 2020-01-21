@@ -130,6 +130,11 @@ class Generator(Folder):
 
 		DestinationFolderExistsError
 			The destination folder already exists.
+
+		Returns
+		-------
+		generated_scripts : list
+			List of generated scripts, separated: one list per skeleton, in the order they are called.
 		'''
 
 		if not(self._simulations_to_generate):
@@ -151,6 +156,7 @@ class Generator(Folder):
 		data_variables = {}
 
 		skeletons_calls = []
+		generated_scripts = []
 
 		if 'subgroups_skeletons' in recipe:
 			skeletons_calls += [
@@ -174,6 +180,7 @@ class Generator(Folder):
 
 		for skeletons_call in skeletons_calls:
 			data_lists['COMMAND_LINES'] = skeletons_call['command_lines']
+			generated_scripts.append([])
 
 			for skeleton_name in skeletons_call['skeletons']:
 				skeleton_basename_parts = os.path.basename(skeleton_name).rsplit('.skeleton.', maxsplit = 1)
@@ -188,3 +195,7 @@ class Generator(Folder):
 
 				except KeyError:
 					data_lists[skeleton_tag] = [script_name]
+
+				generated_scripts[-1].append(script_name)
+
+		return generated_scripts

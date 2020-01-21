@@ -1,10 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import re
 import codecs
 import base64
 import hashlib
 import json
+
+def intOrNone(s):
+	'''
+	Convert a string into either an integer or a `None`.
+
+	Parameters
+	----------
+	s : str
+		The string to convert.
+
+	Returns
+	-------
+	converted : int|None
+		The wanted integer if `s` represents one, `None` otherwise.
+	'''
+
+	if re.match(r'^-?[0-9]+$', s):
+		return int(s)
+
+	return None
 
 def fromObject(obj):
 	'''

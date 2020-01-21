@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
+import stat
+import time
+import tempfile
+import copy
+
+from utils import string
+
 from manager.manager import Manager
 from manager.generator import Generator
 from manager.remote import RemoteFolder
+from manager.watcher import Watcher
+from manager.errors import *
 
 class Maker():
 	'''
@@ -25,6 +35,7 @@ class Maker():
 		self._manager_instance = None
 		self._generator_instance = None
 		self._remote_folder_instance = None
+		self._watcher_instance = None
 
 	@property
 	def _manager(self):
@@ -34,7 +45,7 @@ class Maker():
 		Returns
 		-------
 		manager : Manager
-			Current instance, of a new one if `None`.
+			Current instance, or a new one if `None`.
 		'''
 
 		if not(self._manager_instance):
@@ -50,7 +61,7 @@ class Maker():
 		Returns
 		-------
 		generator : Generator
-			Current instance, of a new one if `None`.
+			Current instance, or a new one if `None`.
 		'''
 
 		if not(self._generator_instance):
@@ -61,18 +72,35 @@ class Maker():
 	@property
 	def _remote_folder(self):
 		'''
-		Returns the instance of Manager used in the Maker.
+		Returns the instance of RemoteFolder used in the Maker.
 
 		Returns
 		-------
-		manager : Manager
-			Current instance, of a new one if `None`.
+		remote_folder : RemoteFolder
+			Current instance, or a new one if `None`.
 		'''
 
 		if not(self._remote_folder_instance):
 			self._remote_folder_instance = RemoteFolder(self._remote_folder_conf)
+			self._remote_folder_instance.open()
 
 		return self._remote_folder_instance
+
+	@property
+	def _watcher(self):
+		'''
+		Returns the instance of Watcher used in the Maker.
+
+		Returns
+		-------
+		watcher : Watcher
+			Current instance, or a new one if `None`.
+		'''
+
+		if not(self._watcher_instance):
+			self._watcher_instance = Watcher(self._remote_folder)
+
+		return self._watcher_instance
 
 	def close(self):
 		'''
@@ -90,7 +118,36 @@ class Maker():
 
 		self._remote_folder_instance = None
 
-	def run(self, simulations):
+	def parseScriptToLaunch(self, launch_option):
+		'''
+		Parse the `launch` option of a recipe to determine which skeleton/script must be called.
+
+		Parameters
+		----------
+		launch_option : str
+			Value of the `launch` option to parse.
+
+		Returns
+		-------
+		script_to_launch : dict
+			"Coordinates" of the script to launch.
+		'''
+
+		option_split = launch_option.rsplit(':', maxsplit = 2)
+		option_split_num = [string.intOrNone(s) for s in option_split]
+
+		cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
+
+		coords = option_split_num[cut:]
+		coords += [-1] * (2 - len(coords))
+
+		return {
+			'name': ':'.join(option_split[:cut]),
+			'skeleton': coords[0],
+			'script': coords[1]
+		}
+
+	def run(self, simulations, generator_recipe):
 		'''
 		Main loop, run until all simulations are extracted or some jobs failed.
 
@@ -98,6 +155,58 @@ class Maker():
 		----------
 		simulations : list
 			List of simulations to extract/generate.
+
+		generator_recipe : dict
+			Recipe to use in the generator to generate the scripts.
 		'''
 
-		unknown_simulations = self._manager.batchExtract(simulations)
+		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
+
+		while True:
+			unknown_simulations = self._manager.batchExtract(simulations)
+
+			if not(unknown_simulations):
+				break
+
+			scripts_dir = 'scripts'
+
+			self._generator.add(unknown_simulations)
+			generated_scripts = self._generator.generate(scripts_dir, generator_recipe)
+			self._generator.clear()
+
+			possible_skeletons_to_launch = [k for k, s in enumerate(generator_recipe['subgroups_skeletons'] + generator_recipe['wholegroup_skeletons']) if s == script_coords['name']]
+
+			try:
+				script_to_launch = generated_scripts[possible_skeletons_to_launch[script_coords['skeleton']]][script_coords['script']]
+
+			except IndexError:
+				raise ScriptNotFoundError(script_coords)
+
+			script_mode = os.stat(script_to_launch).st_mode
+			if not(script_mode & stat.S_IXUSR & stat.S_IXGRP & stat.S_IXOTH):
+				os.chmod(script_to_launch, script_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+			self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
+
+			output = self._remote_folder.execute(script_to_launch)
+			jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
+
+			self._watcher.addJobsToWatch(jobs_ids)
+
+			while not(self._watcher.areJobsFinished()):
+				self._watcher.updateJobsStates(generator_recipe['jobs_states_path'])
+				time.sleep(10)
+
+			self._watcher.clearJobs()
+
+			simulations_to_add = []
+
+			for simulation in unknown_simulations:
+				tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
+				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
+
+				simulation_to_add = copy.deepcopy(simulation)
+				simulation_to_add['folder'] = tmpdir
+				simulations_to_add.append(simulation_to_add)
+
+			self._manager.batchAdd(simulations_to_add)

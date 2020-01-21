@@ -57,6 +57,27 @@ class RemoteFolder():
 		except AttributeError:
 			pass
 
+	def execute(self, cmd):
+		'''
+		Remotely execute a command from the working directory.
+
+		Parameters
+		----------
+		cmd : str
+			Command to execute.
+
+		Returns
+		-------
+		output : paramiko.ChannelFile
+			Output of the command (file-like object).
+		'''
+
+		if 'working_directory' in self._configuration:
+			cmd = f'cd {self._configuration["working_directory"]}; {cmd}'
+
+		stdin, stdout, stderr = self._ssh.exec_command(cmd)
+		return stdout
+
 	def copyChmodToRemote(self, filename, remote_path):
 		'''
 		Change the chmod of a remote file to reflect a local one.
@@ -272,7 +293,7 @@ class RemoteFolder():
 		if copy_permissions:
 			self.copyChmodToLocal(remote_path, directory)
 
-		for entry in [(entry, os.path.join(remote_path, entry)) for entry in self._sftp.listdir(directory)]:
+		for entry in [(entry, os.path.join(remote_path, entry)) for entry in self._sftp.listdir(remote_path)]:
 			(self.receiveDir if stat.S_ISDIR(self._sftp.stat(entry[1]).st_mode) else self.receiveFile)(entry[1], os.path.join(directory, entry[0]), copy_permissions = copy_permissions, delete = delete)
 
 		if delete:
