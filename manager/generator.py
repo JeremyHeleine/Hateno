@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 import stat
 import re
 from string import Template
@@ -111,7 +112,7 @@ class Generator(Folder):
 		if make_executable:
 			os.chmod(output_name, os.stat(output_name).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-	def generate(self, dest_folder, recipe):
+	def generate(self, dest_folder, recipe, *, empty_dest = False):
 		'''
 		Generate the scripts to launch the simulations by subgroups.
 
@@ -122,6 +123,9 @@ class Generator(Folder):
 
 		recipe : dict
 			Parameters to generate the scripts.
+
+		empty_dest : boolean
+			If `True` and if the destination folder already exists, empty it before generating the scripts. If `False` the existence of the folder raises an error.
 
 		Raises
 		------
@@ -141,9 +145,15 @@ class Generator(Folder):
 			raise EmptyListError()
 
 		if os.path.isdir(dest_folder):
-			raise DestinationFolderExistsError()
+			if empty_dest:
+				for entry in [os.path.join(dest_folder, e) for e in os.listdir(dest_folder)]:
+					(shutil.rmtree if os.path.isdir(entry) else os.unlink)(entry)
 
-		os.makedirs(dest_folder)
+			else:
+				raise DestinationFolderExistsError()
+
+		else:
+			os.makedirs(dest_folder)
 
 		command_lines = self.parse()
 
@@ -178,6 +188,8 @@ class Generator(Folder):
 		if not('make_executable' in recipe):
 			recipe['make_executable'] = False
 
+		scripts_basedir = dest_folder if not('basedir' in recipe) else recipe['basedir']
+
 		for skeletons_call in skeletons_calls:
 			data_lists['COMMAND_LINES'] = skeletons_call['command_lines']
 			generated_scripts.append([])
@@ -185,17 +197,19 @@ class Generator(Folder):
 			for skeleton_name in skeletons_call['skeletons']:
 				skeleton_basename_parts = os.path.basename(skeleton_name).rsplit('.skeleton.', maxsplit = 1)
 				skeleton_tag = re.sub('[^A-Z_]+', '_', skeleton_basename_parts[0].upper())
-				script_name = os.path.join(dest_folder, skeletons_call['skeleton_name_joiner'].join(skeleton_basename_parts))
+				script_name = skeletons_call['skeleton_name_joiner'].join(skeleton_basename_parts)
+				script_localpath = os.path.join(dest_folder, script_name)
+				script_finalpath = os.path.join(scripts_basedir, script_name)
 
-				self.generateScriptFromSkeleton(skeleton_name, script_name, data_lists, data_variables, make_executable = recipe['make_executable'])
-				data_variables[skeleton_tag] = script_name
+				self.generateScriptFromSkeleton(skeleton_name, script_localpath, data_lists, data_variables, make_executable = recipe['make_executable'])
+				data_variables[skeleton_tag] = script_finalpath
 
 				try:
-					data_lists[skeleton_tag].append(script_name)
+					data_lists[skeleton_tag].append(script_finalpath)
 
 				except KeyError:
-					data_lists[skeleton_tag] = [script_name]
+					data_lists[skeleton_tag] = [script_finalpath]
 
-				generated_scripts[-1].append(script_name)
+				generated_scripts[-1].append({'name': script_name, 'localpath': script_localpath, 'finalpath': script_finalpath})
 
 		return generated_scripts

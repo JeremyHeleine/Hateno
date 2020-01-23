@@ -125,6 +125,11 @@ class RemoteFolder():
 
 		delete : boolean
 			`True` to delete the local file, once sent.
+
+		Returns
+		-------
+		remote_path : str
+			Remote path of the sent file.
 		'''
 
 		if not(remote_path):
@@ -137,6 +142,8 @@ class RemoteFolder():
 
 		if delete:
 			os.unlink(filename)
+
+		return remote_path
 
 	def receiveFile(self, remote_path, filename = None, *, copy_permissions = True, delete = False):
 		'''
@@ -155,6 +162,11 @@ class RemoteFolder():
 
 		delete : boolean
 			`True` to delete the remote file.
+
+		Returns
+		-------
+		filename : str
+			Path of the received file.
 		'''
 
 		if not(filename):
@@ -167,6 +179,8 @@ class RemoteFolder():
 
 		if delete:
 			self._sftp.remove(remote_path)
+
+		return filename
 
 	def getFileContents(self, remote_path, as_json = True):
 		'''
@@ -233,6 +247,11 @@ class RemoteFolder():
 
 		empty_dest : boolean
 			`True` to ensure the destination folder is empty.
+
+		Returns
+		-------
+		remote_path : str
+			Remote path of the sent directory.
 		'''
 
 		if not(remote_path):
@@ -256,6 +275,8 @@ class RemoteFolder():
 		if delete:
 			os.rmdir(directory)
 
+		return remote_path
+
 	def receiveDir(self, remote_path, directory = None, *, copy_permissions = True, delete = False, empty_dest = False):
 		'''
 		Receive (download) a directory.
@@ -276,6 +297,11 @@ class RemoteFolder():
 
 		empty_dest : boolean
 			`True` to ensure the destination folder is empty.
+
+		Returns
+		-------
+		directory : str
+			Local path of the received directory.
 		'''
 
 		if not(directory):
@@ -298,6 +324,8 @@ class RemoteFolder():
 
 		if delete:
 			self._sftp.rmdir(remote_path)
+
+		return directory
 
 	def deleteRemote(self, entries):
 		'''

@@ -168,45 +168,105 @@ class Maker():
 			if not(unknown_simulations):
 				break
 
-			scripts_dir = 'scripts'
+			jobs_ids = self.generateSimulations(unknown_simulations, generator_recipe, script_coords)
+			self.waitForJobs(jobs_ids, generator_recipe)
+			self.downloadSimulations(unknown_simulations)
 
-			self._generator.add(unknown_simulations)
-			generated_scripts = self._generator.generate(scripts_dir, generator_recipe)
-			self._generator.clear()
+	def generateSimulations(self, simulations, recipe, script_coords):
+		'''
+		Generate the scripts to generate some unknown simulations, and run them.
 
-			possible_skeletons_to_launch = [k for k, s in enumerate(generator_recipe['subgroups_skeletons'] + generator_recipe['wholegroup_skeletons']) if s == script_coords['name']]
+		Parameters
+		----------
+		simulations : list
+			List of simulations to create.
 
-			try:
-				script_to_launch = generated_scripts[possible_skeletons_to_launch[script_coords['skeleton']]][script_coords['script']]
+		recipe : dict
+			Recipe to use in the generator.
 
-			except IndexError:
-				raise ScriptNotFoundError(script_coords)
+		script_coords : dict
+			'Coordinates' of the script to launch.
 
-			script_mode = os.stat(script_to_launch).st_mode
-			if not(script_mode & stat.S_IXUSR & stat.S_IXGRP & stat.S_IXOTH):
-				os.chmod(script_to_launch, script_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+		Raises
+		------
+		ScriptNotFoundError
+			The script to launch has not been found.
 
-			self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
+		Returns
+		-------
+		jobs_ids : list
+			IDs of the jobs to wait.
+		'''
 
-			output = self._remote_folder.execute(script_to_launch)
-			jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
+		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
+		recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
 
-			self._watcher.addJobsToWatch(jobs_ids)
+		self._generator.add(simulations)
+		generated_scripts = self._generator.generate(scripts_dir, recipe, empty_dest = True)
+		self._generator.clear()
 
-			while not(self._watcher.areJobsFinished()):
-				self._watcher.updateJobsStates(generator_recipe['jobs_states_path'])
-				time.sleep(10)
+		possible_skeletons_to_launch = [k for k, s in enumerate(recipe['subgroups_skeletons'] + recipe['wholegroup_skeletons']) if s == script_coords['name']]
 
-			self._watcher.clearJobs()
+		try:
+			script_to_launch = generated_scripts[possible_skeletons_to_launch[script_coords['skeleton']]][script_coords['script']]
 
-			simulations_to_add = []
+		except IndexError:
+			raise ScriptNotFoundError(script_coords)
 
-			for simulation in unknown_simulations:
-				tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
-				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
+		script_mode = os.stat(script_to_launch['localpath']).st_mode
+		if not(script_mode & stat.S_IXUSR & stat.S_IXGRP & stat.S_IXOTH):
+			os.chmod(script_to_launch['localpath'], script_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-				simulation_to_add = copy.deepcopy(simulation)
-				simulation_to_add['folder'] = tmpdir
-				simulations_to_add.append(simulation_to_add)
+		self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
 
-			self._manager.batchAdd(simulations_to_add)
+		output = self._remote_folder.execute(script_to_launch['finalpath'])
+		jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
+
+		return jobs_ids
+
+	def waitForJobs(self, jobs_ids, recipe):
+		'''
+		Wait for a given list of jobs to finish.
+
+		Parameters
+		----------
+		jobs_ids : list
+			IDs of the jobs to wait.
+
+		recipe : dict
+			Generator recipe to use.
+		'''
+
+		self._watcher.addJobsToWatch(jobs_ids)
+
+		while True:
+			self._watcher.updateJobsStates(recipe['jobs_states_path'])
+
+			if self._watcher.areJobsFinished():
+				break
+
+			time.sleep(10)
+
+		self._watcher.clearJobs()
+
+	def downloadSimulations(self, simulations):
+		'''
+		Download the generated simulations and add them to the manager.
+
+		Parameters
+		----------
+		simulations : list
+			List of simulations to download.
+		'''
+
+		simulations_to_add = []
+
+		for simulation in simulations:
+			tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
+			self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
+
+			simulation_to_add = copy.deepcopy(simulation)
+			simulation_to_add['folder'] = tmpdir
+			simulations_to_add.append(simulation_to_add)
+
+		self._manager.batchAdd(simulations_to_add)
