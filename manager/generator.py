@@ -54,15 +54,12 @@ class Generator():
 			List of simulations to add.
 		'''
 
-		if type(simulations) is dict:
-			self._simulations_to_generate.append(Simulation(self._folder, simulations))
-
-		elif type(simulations) is Simulation:
-			self._simulations_to_generate.append(simulations)
+		if type(simulations) is list:
+			for simulation in simulations:
+				self._simulations_to_generate.append(Simulation.ensureType(simulation, self._folder))
 
 		else:
-			for simulation in simulations:
-				self.add(simulation)
+			self.add([simulations])
 
 	def clear(self):
 		'''

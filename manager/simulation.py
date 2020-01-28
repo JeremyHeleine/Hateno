@@ -23,6 +23,30 @@ class Simulation():
 
 		self._raw_settings = None
 
+	@classmethod
+	def ensureType(cls, simulation, folder):
+		'''
+		Ensure a variable is a Simulation object.
+
+		Parameters
+		----------
+		simulation : dict|Simulation
+			The variable to check.
+
+		folder : Folder
+			The `Folder` instance to use in case we need to create a new object.
+
+		Returns
+		-------
+		simulation : Simulation
+			The simulation as a Simulation instance.
+		'''
+
+		if type(simulation) is cls:
+			return simulation
+
+		return cls(folder, simulation)
+
 	def __getitem__(self, key):
 		'''
 		Access to a user setting.

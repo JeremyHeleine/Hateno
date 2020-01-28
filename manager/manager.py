@@ -12,6 +12,7 @@ import re
 
 from utils import jsonfiles, string
 from manager.errors import *
+from manager.simulation import Simulation
 import manager.checkers as checkers
 
 class Manager():
@@ -265,7 +266,7 @@ class Manager():
 
 		Parameters
 		----------
-		simulation : Simulation
+		simulation : Simulation|dict
 			The simulation to add.
 
 		save_list : boolean
@@ -279,6 +280,8 @@ class Manager():
 		SimulationIntegrityCheckFailedError
 			At least one integrity check failed.
 		'''
+
+		simulation = Simulation.ensureType(simulation, self._folder)
 
 		if not(os.path.isdir(simulation['folder'])):
 			raise SimulationFolderNotFoundError(simulation['folder'])
@@ -302,7 +305,7 @@ class Manager():
 
 		Parameters
 		----------
-		simulation : Simulation
+		simulation : Simulation|dict
 			The simulation to delete.
 
 		save_list : boolean
@@ -314,6 +317,7 @@ class Manager():
 			The simulation does not exist in the list.
 		'''
 
+		simulation = Simulation.ensureType(simulation, self._folder)
 		simulation_name = string.hash(string.fromObject(simulation.settings))
 
 		if not(simulation_name in self._simulations_list):
@@ -331,7 +335,7 @@ class Manager():
 
 		Parameters
 		----------
-		simulation : Simulation
+		simulation : Simulation|dict
 			The simulation to extract.
 
 		Raises
@@ -343,6 +347,7 @@ class Manager():
 			The destination of extraction already exists.
 		'''
 
+		simulation = Simulation.ensureType(simulation, self._folder)
 		simulation_name = string.hash(string.fromObject(simulation.settings))
 
 		if not(simulation_name in self._simulations_list):
