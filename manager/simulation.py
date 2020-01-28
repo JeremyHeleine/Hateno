@@ -240,6 +240,8 @@ class Simulation():
 			elif settings_set['required']:
 				self._raw_settings.append(default_settings)
 
+		self.parseSettings()
+
 	def parseString(self, s):
 		'''
 		Parse a string to take into account possible settings.
@@ -258,6 +260,9 @@ class Simulation():
 		parsed : mixed
 			The parsed string, or a copy of the setting if the whole string is just one tag.
 		'''
+
+		if not(type(s) is str):
+			return s
 
 		settings = {
 			'setting': self.reduced_settings,
@@ -297,3 +302,12 @@ class Simulation():
 		self._parser_recursion_stack.clear()
 
 		return parsed
+
+	def parseSettings(self):
+		'''
+		Parse the settings to take into account possible other settings' values.
+		'''
+
+		for settings_set in self._settings:
+			for setting in settings_set:
+				setting['value'] = self.parseString(setting['value'])
