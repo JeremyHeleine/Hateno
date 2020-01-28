@@ -255,16 +255,23 @@ class Simulation():
 
 		Returns
 		-------
-		parsed : str
-			The parsed string.
+		parsed : mixed
+			The parsed string, or a copy of the setting if the whole string is just one tag.
 		'''
-
-		self._parser_recursion_stack.append(s)
 
 		settings = {
 			'setting': self.reduced_settings,
 			'globalsetting': self._user_settings
 		}
+
+		fullmatch = self._setting_tag_regex.fullmatch(s)
+
+		if fullmatch:
+			try:
+				return copy.deepcopy(settings[fullmatch.group('category')][fullmatch.group('name')])
+
+			except KeyError:
+				return s
 
 		parsed = ''
 		k0 = 0
@@ -281,6 +288,8 @@ class Simulation():
 			k0 = match.end()
 
 		parsed += s[k0:]
+
+		self._parser_recursion_stack.append(s)
 
 		if not(parsed in self._parser_recursion_stack):
 			return self.parseString(parsed)
