@@ -7,24 +7,42 @@ import stat
 import re
 from string import Template
 
-from manager.folder import Folder
 from manager.errors import *
+from manager.simulation import Simulation
 
-class Generator(Folder):
+class Generator():
 	'''
 	Generate some scripts to create a set of simulations.
 	Initialize the list of simulations to generate.
 
 	Parameters
 	----------
-	folder : str
+	folder : Folder
 		The folder to manage. Must contain a settings file.
 	'''
 
 	def __init__(self, folder):
-		super().__init__(folder)
+		self._folder = folder
 
 		self._simulations_to_generate = []
+
+		self._lists_regex_compiled = None
+
+	@property
+	def _lists_regex(self):
+		'''
+		Regex to detect the presence of lists blocks in a skeleton.
+
+		Returns
+		-------
+		regex : re.Pattern
+			The lists regex.
+		'''
+
+		if self._lists_regex_compiled is None:
+			self._lists_regex_compiled = re.compile(r'^[ \t]*#{3} BEGIN_(?P<tag>[A-Z_]+) #{3}$.+?^(?P<content>.+?)^[ \t]*#{3} END_\1 #{3}$.+?^', flags = re.MULTILINE | re.DOTALL)
+
+		return self._lists_regex_compiled
 
 	def add(self, simulations):
 		'''
@@ -32,15 +50,19 @@ class Generator(Folder):
 
 		Parameters
 		----------
-		simulations : list|dict
+		simulations : list|dict|Simulation
 			List of simulations to add.
 		'''
 
 		if type(simulations) is dict:
+			self._simulations_to_generate.append(Simulation(self._folder, simulations))
+
+		elif type(simulations) is Simulation:
 			self._simulations_to_generate.append(simulations)
 
 		else:
-			self._simulations_to_generate += simulations
+			for simulation in simulations:
+				self.add(simulation)
 
 	def clear(self):
 		'''
@@ -59,10 +81,7 @@ class Generator(Folder):
 			List of command lines, one per simulation to generate
 		'''
 
-		return [
-			' '.join([self._settings['exec']] + sum(self.generateSettings(simulation['settings'], as_strings = True), []))
-			for simulation in self._simulations_to_generate
-		]
+		return [simulation.command_line for simulation in self._simulations_to_generate]
 
 	def generateScriptFromSkeleton(self, skeleton_name, output_name, lists, variables, *, make_executable = False):
 		'''
@@ -92,7 +111,7 @@ class Generator(Folder):
 		script_content = ''
 		k0 = 0
 
-		for match in re.finditer(r'^[ \t]*#{3} BEGIN_(?P<tag>[A-Z_]+) #{3}$.+?^(?P<content>.+?)^[ \t]*#{3} END_\1 #{3}$.+?^', skeleton, flags = re.MULTILINE | re.DOTALL):
+		for match in self._lists_regex.finditer(skeleton):
 			if match.group('tag') in lists:
 				script_content += skeleton[k0:match.start()]
 
