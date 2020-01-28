@@ -9,6 +9,7 @@ import copy
 
 from utils import string
 
+from manager.folder import Folder
 from manager.manager import Manager
 from manager.generator import Generator
 from manager.remote import RemoteFolder
@@ -29,7 +30,7 @@ class Maker():
 	'''
 
 	def __init__(self, simulations_folder, remote_folder_conf):
-		self._simulations_folder = simulations_folder
+		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
 		self._manager_instance = None

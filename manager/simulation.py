@@ -49,6 +49,30 @@ class Simulation():
 		except KeyError:
 			raise KeyError('The key does not exist in the user settings')
 
+	def __setitem__(self, key, value):
+		'''
+		Change a user setting.
+
+		Parameters
+		----------
+		key : str
+			The key of the setting to change.
+
+		value : mixed
+			The new value of the setting.
+
+		Raises
+		------
+		KeyError
+			The key does not exist.
+		'''
+
+		try:
+			self._user_settings[key] = value
+
+		except KeyError:
+			raise KeyError('The key does not exist in the user settings')
+
 	@property
 	def _settings(self):
 		'''
