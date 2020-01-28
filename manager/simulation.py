@@ -25,6 +25,7 @@ class Simulation():
 		self._raw_settings = None
 
 		self._setting_tag_regex_compiled = None
+		self._parser_recursion_stack = []
 
 	@classmethod
 	def ensureType(cls, simulation, folder):
@@ -258,6 +259,8 @@ class Simulation():
 			The parsed string.
 		'''
 
+		self._parser_recursion_stack.append(s)
+
 		settings = {
 			'setting': self.reduced_settings,
 			'globalsetting': self._user_settings
@@ -279,7 +282,9 @@ class Simulation():
 
 		parsed += s[k0:]
 
-		if parsed != s:
+		if not(parsed in self._parser_recursion_stack):
 			return self.parseString(parsed)
+
+		self._parser_recursion_stack.clear()
 
 		return parsed
