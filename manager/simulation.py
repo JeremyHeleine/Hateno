@@ -3,6 +3,7 @@
 
 import copy
 import functools
+import re
 
 class Simulation():
 	'''
@@ -22,6 +23,8 @@ class Simulation():
 		self._user_settings = settings
 
 		self._raw_settings = None
+
+		self._setting_tag_regex_compiled = None
 
 	@classmethod
 	def ensureType(cls, simulation, folder):
@@ -173,6 +176,22 @@ class Simulation():
 
 		return ' '.join([self._folder.settings['exec']] + sum(self.settings_as_strings, []))
 
+	@property
+	def _setting_tag_regex(self):
+		'''
+		Regex to detect whether there is a setting or global setting tag in a string.
+
+		Returns
+		-------
+		regex : re.Pattern
+			The setting tag regex.
+		'''
+
+		if self._setting_tag_regex_compiled is None:
+			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting):(?P<name>[^}]+)\}')
+
+		return self._setting_tag_regex_compiled
+
 	def generateSettings(self):
 		'''
 		Generate the full list of settings, taking into account the user settings and the default values in the folder.
@@ -219,3 +238,43 @@ class Simulation():
 
 			elif settings_set['required']:
 				self._raw_settings.append(default_settings)
+
+	def parseString(self, s):
+		'''
+		Parse a string to take into account possible settings.
+		The tag `{setting:name}` is replaced by the value of the simulation's setting named `name`.
+		The tag `{globalsetting:name}` is replaced by the value of the global setting named `name`.
+
+		Parameters
+		----------
+		s : str
+			The string to parse.
+
+		Returns
+		-------
+		parsed : str
+			The parsed string.
+		'''
+
+		settings = {
+			'setting': self.reduced_settings,
+			'globalsetting': self._user_settings
+		}
+
+		parsed = ''
+		k0 = 0
+
+		for match in self._setting_tag_regex.finditer(s):
+			parsed += s[k0:match.start()]
+
+			try:
+				parsed += settings[match.group('category')][match.group('name')]
+
+			except KeyError:
+				parsed += match.group(0)
+
+			k0 = match.end()
+
+		parsed += s[k0:]
+
+		return parsed
