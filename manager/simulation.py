@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import copy
+import functools
 
 class Simulation():
 	'''
@@ -22,8 +23,43 @@ class Simulation():
 
 		self._raw_settings = None
 
+	def __getitem__(self, key):
+		'''
+		Access to a user setting.
+
+		Parameters
+		----------
+		key : str
+			The key of the setting to get.
+
+		Raises
+		------
+		KeyError
+			The key does not exist.
+
+		Returns
+		-------
+		value : mixed
+			The corresponding value.
+		'''
+
+		try:
+			return self._user_settings[key]
+
+		except KeyError:
+			raise KeyError('The key does not exist in the user settings')
+
 	@property
 	def _settings(self):
+		'''
+		Return (and generate if needed) the complete list of settings.
+
+		Returns
+		-------
+		raw_settings : list
+			The settings.
+		'''
+
 		if not(self._raw_settings):
 			self.generateSettings()
 
@@ -61,6 +97,20 @@ class Simulation():
 			[s['pattern'].format(name = s['name'], value = s['value']) for s in settings_set]
 			for settings_set in self._settings
 		]
+
+	@property
+	def reduced_settings(self):
+		'''
+		Return the list of settings, as a name: value dictionary.
+		Ignore multiple occurrences of the same setting.
+
+		Returns
+		-------
+		settings : dict
+			The settings.
+		'''
+
+		return functools.reduce(lambda a, b: {**a, **b}, self.settings)
 
 	@property
 	def command_line(self):

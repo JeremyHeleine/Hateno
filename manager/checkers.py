@@ -12,11 +12,8 @@ Convention: prefix the name of the function by `file_`.
 
 Parameters
 ----------
-simulation : dict
+simulation : Simulation
 	The simulation which has been generated, as defined by the user.
-
-full_settings : list
-	The full list of settings for this simulation, with default values when needed.
 
 filename : str
 	The name of the file to check (path relative to the simulation's folder).
@@ -45,7 +42,7 @@ tree : dict
 import os
 import glob
 
-def file_exists(simulation, settings, filename):
+def file_exists(simulation, filename):
 	'''
 	File checker.
 	Check if at least one file matching the pattern exists.
@@ -54,7 +51,7 @@ def file_exists(simulation, settings, filename):
 	matching_files = [entry for entry in glob.glob(os.path.join(simulation['folder'], filename)) if os.path.isfile(entry)]
 	return len(matching_files) > 0
 
-def file_notEmpty(simulation, settings, filename):
+def file_notEmpty(simulation, filename):
 	'''
 	File checker.
 	Check if all files matching the pattern are non empty.
@@ -63,7 +60,7 @@ def file_notEmpty(simulation, settings, filename):
 	nonempty_files = [entry for entry in glob.glob(os.path.join(simulation['folder'], filename)) if os.path.isfile(entry) and os.stat(entry).st_size != 0]
 	return len(nonempty_files) > 0
 
-def folder_exists(simulation, settings, foldername):
+def folder_exists(simulation, foldername):
 	'''
 	Folder check.
 	Check if at least one folder matching the pattern exists.
@@ -72,7 +69,7 @@ def folder_exists(simulation, settings, foldername):
 	matching_folders = [entry for entry in glob.glob(os.path.join(simulation['folder'], foldername)) if os.path.isdir(entry)]
 	return len(matching_folders) > 0
 
-def folder_notEmpty(simulation, settings, foldername):
+def folder_notEmpty(simulation, foldername):
 	'''
 	Folder check.
 	Check if the folder is not empty.
@@ -80,7 +77,7 @@ def folder_notEmpty(simulation, settings, foldername):
 
 	return len(os.listdir(os.path.join(simulation['folder'], foldername))) > 0
 
-def global_noMore(simulation, settings, tree):
+def global_noMore(simulation, tree):
 	'''
 	Global check.
 	Check if no other file than the listed ones is present.

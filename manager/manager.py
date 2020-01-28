@@ -8,36 +8,51 @@ import inspect
 import shutil
 import tarfile
 
-import functools
 import re
 
-from manager.folder import Folder
 from utils import jsonfiles, string
 from manager.errors import *
 import manager.checkers as checkers
 
-class Manager(Folder):
+class Manager():
 	'''
 	Manage a simulations folder: add, delete, extract or update simulations, based on their settings.
-	Initialize the manager with the folder to manage and load the current list of simulations.
 
 	Parameters
 	----------
-	folder : str
-		The folder to manage. Must contain a settings file.
+	folder : Folder
+		The folder to manage.
 	'''
 
 	def __init__(self, folder):
-		super().__init__(folder)
+		self._folder = folder
 
-		self._simulations_list_file = os.path.join(self._folder, '.simulations.list')
-		self._simulations_list = {}
+		self._simulations_list_file = os.path.join(self._folder.folder, '.simulations.list')
+		self._simulations_list_dict = None
 
-		if os.path.isfile(self._simulations_list_file):
-			self._simulations_list = jsonfiles.read(self._simulations_list_file)
+		self._checkers_regex_compiled = None
+		self._settings_regex_compiled = None
+		self._checkers_list = None
 
-		self.generateRegexes()
-		self.initCheckers()
+	@property
+	def _simulations_list(self):
+		'''
+		Return the simulations list.
+
+		Returns
+		-------
+		simulations_list : dict
+			A name: settings dictionary.
+		'''
+
+		if self._simulations_list_dict is None:
+			try:
+				self._simulations_list_dict = jsonfiles.read(self._simulations_list_file)
+
+			except FileNotFoundError:
+				self._simulations_list_dict = {}
+
+		return self._simulations_list_dict
 
 	def saveSimulationsList(self):
 		'''
@@ -46,24 +61,54 @@ class Manager(Folder):
 
 		jsonfiles.write(self._simulations_list, self._simulations_list_file)
 
-	def generateRegexes(self):
+	@property
+	def _checkers_regex(self):
 		'''
-		Compile in advance the regular expressions we use.
-		'''
+		Regex to determine whether a function's name corresponds to a checker.
 
-		# Used to parse a name of a file/folder with the value of a setting
-		self._settings_regex = re.compile(r'\{setting:([^}]+)\}')
-
-		# Used to determine if a function is a checker
-		self._checkers_regex = re.compile(r'^(file|folder|global)_([A-Za-z0-9_]+)$')
-
-	def initCheckers(self):
-		'''
-		Load the default checkers.
+		Returns
+		-------
+		regex : re.Pattern
+			The checkers regex.
 		'''
 
-		self._checkers = {cat: {} for cat in ['file', 'folder', 'global']}
-		self.loadCheckersFromModule(checkers)
+		if self._checkers_regex_compiled is None:
+			self._checkers_regex_compiled = re.compile(r'^(file|folder|global)_([A-Za-z0-9_]+)$')
+
+		return self._checkers_regex_compiled
+
+	@property
+	def _settings_regex(self):
+		'''
+		Regex to parse a string using some settings.
+
+		Returns
+		-------
+		regex : re.Pattern
+			The settings regex.
+		'''
+
+		if self._settings_regex_compiled is None:
+			self._settings_regex_compiled = re.compile(r'\{setting:([^}]+)\}')
+
+		return self._settings_regex_compiled
+
+	@property
+	def _checkers(self):
+		'''
+		Get the list of available checkers.
+
+		Returns
+		-------
+		checkers : dict
+			Checkers, sorted by category.
+		'''
+
+		if self._checkers_list is None:
+			self._checkers_list = {cat: {} for cat in ['file', 'folder', 'global']}
+			self.loadCheckersFromModule(checkers)
+
+		return self._checkers_list
 
 	def loadCheckersFromModule(self, module):
 		'''
@@ -123,17 +168,14 @@ class Manager(Folder):
 
 		del self._checkers[category][checker_name]
 
-	def checkIntegrity(self, simulation, full_settings):
+	def checkIntegrity(self, simulation):
 		'''
 		Check the integrity of a simulation.
 
 		Parameters
 		----------
-		simulation : dict
+		simulation : Simulation
 			The simulation to check.
-
-		full_settings : list
-			The full set of settings of this simulation.
 
 		Returns
 		-------
@@ -142,13 +184,11 @@ class Manager(Folder):
 		'''
 
 		# Parse a name (of file or folder), potentially with some settings values
-		# This function explicitely doesn't take into account multiple settings
-		settings_values = functools.reduce(lambda a, b: {**a, **b}, full_settings)
-
 		def parseName(name):
 			for setting_match in self._settings_regex.finditer(name):
 				try:
-					name = name.replace(setting_match.group(0), str(settings_values[setting_match.group(1)]))
+					name = name.replace(setting_match.group(0), str(simulation.reduced_settings[setting_match.group(1)]))
+
 				except KeyError:
 					pass
 
@@ -160,8 +200,8 @@ class Manager(Folder):
 			tree[output_entry] = []
 			checkers_cat = output_entry[:-1]
 
-			if output_entry in self._settings['output']:
-				for output in self._settings['output'][output_entry]:
+			if output_entry in self._folder.settings['output']:
+				for output in self._folder.settings['output'][output_entry]:
 					parsed_name = parseName(output['name'])
 					tree[output_entry].append(parsed_name)
 
@@ -170,15 +210,15 @@ class Manager(Folder):
 							if not(checker_name in self._checkers[checkers_cat]):
 								raise CheckerNotFoundError(checker_name, checkers_cat)
 
-							if not(self._checkers[checkers_cat][checker_name](simulation, full_settings, parsed_name)):
+							if not(self._checkers[checkers_cat][checker_name](simulation, parsed_name)):
 								return False
 
-		if 'checks' in self._settings['output']:
-			for checker_name in self._settings['output']['checks']:
+		if 'checks' in self._folder.settings['output']:
+			for checker_name in self._folder.settings['output']['checks']:
 				if not(checker_name in self._checkers['global']):
 					raise CheckerNotFoundError(checker_name, 'global')
 
-				if not(self._checkers['global'][checker_name](simulation, full_settings, tree)):
+				if not(self._checkers['global'][checker_name](simulation, tree)):
 					return False
 
 		return True
@@ -196,7 +236,7 @@ class Manager(Folder):
 			Name to use for the archive.
 		'''
 
-		with tarfile.open(os.path.join(self._folder, f'{simulation_name}.tar.bz2'), 'w:bz2') as tar:
+		with tarfile.open(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'), 'w:bz2') as tar:
 			tar.add(folder, arcname = simulation_name)
 
 		shutil.rmtree(folder)
@@ -214,10 +254,10 @@ class Manager(Folder):
 			Folder into which the files must go.
 		'''
 
-		with tarfile.open(os.path.join(self._folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
-			tar.extractall(path = self._folder)
+		with tarfile.open(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
+			tar.extractall(path = self._folder.folder)
 
-		shutil.move(os.path.join(self._folder, simulation_name), folder)
+		shutil.move(os.path.join(self._folder.folder, simulation_name), folder)
 
 	def add(self, simulation, save_list = True):
 		'''
@@ -225,7 +265,7 @@ class Manager(Folder):
 
 		Parameters
 		----------
-		simulation : dict
+		simulation : Simulation
 			The simulation to add.
 
 		save_list : boolean
@@ -243,11 +283,10 @@ class Manager(Folder):
 		if not(os.path.isdir(simulation['folder'])):
 			raise SimulationFolderNotFoundError(simulation['folder'])
 
-		full_settings = self.generateSettings(simulation['settings'])
-		settings_str = string.fromObject(full_settings)
+		settings_str = string.fromObject(simulation.settings)
 		simulation_name = string.hash(settings_str)
 
-		if not(self.checkIntegrity(simulation, full_settings)):
+		if not(self.checkIntegrity(simulation)):
 			raise SimulationIntegrityCheckFailedError(simulation['folder'])
 
 		self.compress(simulation['folder'], simulation_name)
@@ -263,7 +302,7 @@ class Manager(Folder):
 
 		Parameters
 		----------
-		simulation : dict
+		simulation : Simulation
 			The simulation to delete.
 
 		save_list : boolean
@@ -275,13 +314,12 @@ class Manager(Folder):
 			The simulation does not exist in the list.
 		'''
 
-		full_settings = self.generateSettings(simulation['settings'])
-		simulation_name = string.hash(string.fromObject(full_settings))
+		simulation_name = string.hash(string.fromObject(simulation.settings))
 
 		if not(simulation_name in self._simulations_list):
 			raise SimulationNotFoundError(simulation_name)
 
-		os.unlink(os.path.join(self._folder, f'{simulation_name}.tar.bz2'))
+		os.unlink(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'))
 		del self._simulations_list[simulation_name]
 
 		if save_list:
@@ -293,7 +331,7 @@ class Manager(Folder):
 
 		Parameters
 		----------
-		simulation : dict
+		simulation : Simulation
 			The simulation to extract.
 
 		Raises
@@ -305,8 +343,7 @@ class Manager(Folder):
 			The destination of extraction already exists.
 		'''
 
-		full_settings = self.generateSettings(simulation['settings'])
-		simulation_name = string.hash(string.fromObject(full_settings))
+		simulation_name = string.hash(string.fromObject(simulation.settings))
 
 		if not(simulation_name in self._simulations_list):
 			raise SimulationNotFoundError(simulation_name)
@@ -327,7 +364,7 @@ class Manager(Folder):
 		Parameters
 		----------
 		simulations : list
-			List of simulations, each being a dictionary.
+			List of simulations.
 
 		callback : function
 			Function to call. The simulation will be passed as the first parameter.
@@ -374,7 +411,7 @@ class Manager(Folder):
 		Parameters
 		----------
 		simulations : list
-			List of simulations, each being a dictionary.
+			List of simulations.
 
 		Returns
 		-------
@@ -391,7 +428,7 @@ class Manager(Folder):
 		Parameters
 		----------
 		simulations : list
-			List of simulations, each being a dictionary.
+			List of simulations.
 
 		Returns
 		-------
@@ -408,7 +445,7 @@ class Manager(Folder):
 		Parameters
 		----------
 		simulations : list
-			List of simulations, each being a dictionary.
+			List of simulations.
 
 		ignore_existing : boolean
 			Ignore simulations for which the destination folder already exists.
