@@ -245,6 +245,8 @@ class Simulation():
 		The tag `{setting:name}` is replaced by the value of the simulation's setting named `name`.
 		The tag `{globalsetting:name}` is replaced by the value of the global setting named `name`.
 
+		Tags are replaced recursively.
+
 		Parameters
 		----------
 		s : str
@@ -268,7 +270,7 @@ class Simulation():
 			parsed += s[k0:match.start()]
 
 			try:
-				parsed += settings[match.group('category')][match.group('name')]
+				parsed += str(settings[match.group('category')][match.group('name')])
 
 			except KeyError:
 				parsed += match.group(0)
@@ -276,5 +278,8 @@ class Simulation():
 			k0 = match.end()
 
 		parsed += s[k0:]
+
+		if parsed != s:
+			return self.parseString(parsed)
 
 		return parsed
