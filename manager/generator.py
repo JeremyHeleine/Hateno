@@ -179,7 +179,10 @@ class Generator():
 		command_lines_sets = [command_lines[k:k+recipe['max_simulations']] for k in range(0, len(command_lines), recipe['max_simulations'])]
 
 		data_lists = {}
-		data_variables = {}
+		data_variables = {
+			'JOBS_OUTPUT_FILENAME': recipe['jobs_output_filename'],
+			'JOBS_STATES_FILENAME': recipe['jobs_states_filename']
+		}
 
 		skeletons_calls = []
 		generated_scripts = []

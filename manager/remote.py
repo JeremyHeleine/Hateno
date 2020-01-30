@@ -182,7 +182,7 @@ class RemoteFolder():
 
 		return filename
 
-	def getFileContents(self, remote_path, as_json = True):
+	def getFileContents(self, remote_path, *, callback = None):
 		'''
 		Retrieve the content of a remote file.
 
@@ -191,22 +191,24 @@ class RemoteFolder():
 		remote_path : str
 			Path of the remote file to read.
 
-		as_json : boolean
-			`True` to interpret the content as JSON, `False` for raw text.
+		callback : function
+			Function to transform each line.
 
 		Returns
 		-------
-		content : str|dict|list
-			Content of the file, as a dictionary or list if interpreted as JSON.
+		content : list
+			Content of the file, as a list of lines.
 		'''
 
-		content = None
+		content = []
 
 		with self._sftp.open(remote_path, 'r') as f:
-			content = f.read()
+			if callback is None:
+				content = f.readlines()
 
-		if as_json:
-			content = json.loads(content)
+			else:
+				for line in f:
+					content.append(callback(line))
 
 		return content
 

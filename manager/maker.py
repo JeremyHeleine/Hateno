@@ -241,7 +241,7 @@ class Maker():
 		self._watcher.addJobsToWatch(jobs_ids)
 
 		while True:
-			self._watcher.updateJobsStates(recipe['jobs_states_path'])
+			self._watcher.updateJobsStates(recipe['jobs_states_filename'])
 
 			if self._watcher.areJobsFinished():
 				break

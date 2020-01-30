@@ -57,7 +57,7 @@ class Watcher():
 		'''
 
 		try:
-			known_states = self._remote_folder.getFileContents(states_path)
+			known_states = dict(self._remote_folder.getFileContents(states_path, callback = lambda l: tuple(map(lambda s: s.strip(), l.split(':')))))
 
 		except FileNotFoundError:
 			pass
