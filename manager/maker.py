@@ -172,6 +172,7 @@ class Maker():
 			jobs_ids = self.generateSimulations(unknown_simulations, generator_recipe, script_coords)
 			self.waitForJobs(jobs_ids, generator_recipe)
 			self.downloadSimulations(unknown_simulations)
+			self._remote_folder.deleteRemote([generator_recipe['basedir']])
 
 	def generateSimulations(self, simulations, recipe, script_coords):
 		'''
