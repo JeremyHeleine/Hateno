@@ -14,6 +14,7 @@ from manager.manager import Manager
 from manager.generator import Generator
 from manager.remote import RemoteFolder
 from manager.watcher import Watcher
+from manager.ui import UI
 from manager.errors import *
 
 class Maker():
@@ -37,6 +38,8 @@ class Maker():
 		self._generator_instance = None
 		self._remote_folder_instance = None
 		self._watcher_instance = None
+		self._ui_instance = None
+		self._ui_state_line = None
 
 	@property
 	def _manager(self):
@@ -50,7 +53,9 @@ class Maker():
 		'''
 
 		if not(self._manager_instance):
+			self.displayState('Creating the Manager…')
 			self._manager_instance = Manager(self._simulations_folder)
+			self.displayState('Manager created.')
 
 		return self._manager_instance
 
@@ -66,7 +71,9 @@ class Maker():
 		'''
 
 		if not(self._generator_instance):
+			self.displayState('Creating the Generator…')
 			self._generator_instance = Generator(self._simulations_folder)
+			self.displayState('Generator created.')
 
 		return self._generator_instance
 
@@ -82,8 +89,11 @@ class Maker():
 		'''
 
 		if not(self._remote_folder_instance):
+			self.displayState('Creating the RemoteFolder…')
 			self._remote_folder_instance = RemoteFolder(self._remote_folder_conf)
+			self.displayState('Connecting to the folder…')
 			self._remote_folder_instance.open()
+			self.displayState('Connection done.')
 
 		return self._remote_folder_instance
 
@@ -99,14 +109,34 @@ class Maker():
 		'''
 
 		if not(self._watcher_instance):
+			self.displayState('Creating the Watcher…')
 			self._watcher_instance = Watcher(self._remote_folder)
+			self.displayState('Watcher created.')
 
 		return self._watcher_instance
+
+	@property
+	def _ui(self):
+		'''
+		Returns the instance of UI used in the Maker.
+
+		Returns
+		-------
+		ui : UI
+			Current instance, or a new one if `None`.
+		'''
+
+		if not(self._ui_instance):
+			self._ui_instance = UI()
+
+		return self._ui_instance
 
 	def close(self):
 		'''
 		Clear all instances of the modules.
 		'''
+
+		self.displayState('Closing all instances…')
 
 		self._manager_instance = None
 		self._generator_instance = None
@@ -118,6 +148,22 @@ class Maker():
 			pass
 
 		self._remote_folder_instance = None
+
+	def displayState(self, state):
+		'''
+		Display a state message (creation of an instance, connection, …).
+
+		Parameters
+		----------
+		state : str
+			State to display.
+		'''
+
+		if self._ui_state_line is None:
+			self._ui_state_line = self._ui.addTextLine(state)
+
+		else:
+			self._ui.replaceTextLine(self._ui_state_line, state)
 
 	def parseScriptToLaunch(self, launch_option):
 		'''
@@ -133,6 +179,8 @@ class Maker():
 		script_to_launch : dict
 			"Coordinates" of the script to launch.
 		'''
+
+		self.displayState('Parsing the launch option…')
 
 		option_split = launch_option.rsplit(':', maxsplit = 2)
 		option_split_num = [string.intOrNone(s) for s in option_split]
@@ -164,6 +212,7 @@ class Maker():
 		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
 
 		while True:
+			self.displayState('Extracting the simulations…')
 			unknown_simulations = self._manager.batchExtract(simulations)
 
 			if not(unknown_simulations):
@@ -172,6 +221,7 @@ class Maker():
 			jobs_ids = self.generateSimulations(unknown_simulations, generator_recipe, script_coords)
 			self.waitForJobs(jobs_ids, generator_recipe)
 			self.downloadSimulations(unknown_simulations)
+			self.displayState('Deleting the scripts folder…')
 			self._remote_folder.deleteRemote([generator_recipe['basedir']])
 
 	def generateSimulations(self, simulations, recipe, script_coords):
@@ -199,6 +249,8 @@ class Maker():
 		jobs_ids : list
 			IDs of the jobs to wait.
 		'''
+
+		self.displayState('Generating the scripts…')
 
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
 		recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
@@ -241,6 +293,8 @@ class Maker():
 
 		self._watcher.addJobsToWatch(jobs_ids)
 
+		self.displayState('Waiting for jobs to finish…')
+
 		while True:
 			self._watcher.updateJobsStates(recipe['jobs_states_filename'])
 
@@ -260,6 +314,8 @@ class Maker():
 		simulations : list
 			List of simulations to download.
 		'''
+
+		self.displayState('Downloading the simulations…')
 
 		simulations_to_add = []
 
