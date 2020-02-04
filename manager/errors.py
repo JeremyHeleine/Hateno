@@ -152,3 +152,16 @@ class UITextLineNotFoundError(Error):
 
 	def __init__(self, id):
 		self.id = id
+
+class UIProgressBarNotFoundError(Error):
+	'''
+	Exception raised when we try to access to a UI progress bar which does not exist.
+
+	Parameters
+	----------
+	id : str
+		The ID of the unknown progress bar.
+	'''
+
+	def __init__(self, id):
+		self.id = id
