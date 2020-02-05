@@ -165,3 +165,16 @@ class UIProgressBarNotFoundError(Error):
 
 	def __init__(self, id):
 		self.id = id
+
+class UINonMovableLine(Error):
+	'''
+	Exception raised when we try to move a line which can't be moved.
+
+	Parameters
+	----------
+	pos : int
+		Position of the line.
+	'''
+
+	def __init__(self, pos):
+		self.pos = pos

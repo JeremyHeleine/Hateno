@@ -89,7 +89,8 @@ class UI():
 		line_id = hex(int(datetime.datetime.now().timestamp() * 1E6))[2:]
 		self._text_lines[line_id] = {
 			'position': self._cursor_vertical_pos,
-			'text': text
+			'text': text,
+			'length': len(text)
 		}
 
 		self._cursor_vertical_pos += 1
@@ -114,15 +115,18 @@ class UI():
 		self.moveCursorTo(self._last_line)
 
 		length_N = len(str(N))
-		leading_spaces = ' ' * (length_N - 1)
-		print(f'{leading_spaces}0/{N} ' + self._progress_bars_empty_char * self._progress_bars_length + '   0.0%')
+		pattern = f'{{n:>{length_N}d}}/{{N:d}} {{bar:{self._progress_bars_empty_char}<{self._progress_bars_length}}} {{p:>6.1%}}'
+		first_bar = pattern.format(n = 0, N = N, bar = '', p = 0)
+		print(first_bar)
 
 		bar_id = hex(int(datetime.datetime.now().timestamp() * 1E6))[2:]
 		self._progress_bars[bar_id] = {
 			'position': self._cursor_vertical_pos,
 			'n': 0,
 			'N': N,
-			'length_N': length_N
+			'length_N': length_N,
+			'pattern': pattern,
+			'length': len(first_bar)
 		}
 
 		self._cursor_vertical_pos += 1
@@ -156,9 +160,10 @@ class UI():
 		else:
 			self.moveCursorTo(text_line['position'])
 
-			print(' ' * len(text_line['text']), end = '\r')
+			print(' ' * text_line['length'], end = '\r')
 			print(new_text, end = '\r')
 			text_line['text'] = new_text
+			text_line['length'] = len(new_text)
 
 			self.moveCursorTo(self._last_line)
 
@@ -204,6 +209,64 @@ class UI():
 
 			self.moveCursorTo(self._last_line)
 
+	def moveUp(self, line):
+		'''
+		Move a line to the line above, assuming the above line is empty.
+
+		Parameters
+		----------
+		line : dict
+			Line to move.
+
+		Raises
+		------
+		UINonMovableLine
+			The line can't be moved.
+		'''
+
+		if line['position'] <= 0:
+			raise UINonMovableLine(line['position'])
+
+		self.moveCursorTo(line['position'])
+		print(' ' * line['length'], end = '\r')
+
+		text = ''
+		try:
+			text = line['text']
+
+		except KeyError:
+			percentage = line['n'] / line['N']
+			text = line['pattern'].format(n = line['n'], N = line['N'], bar = self._progress_bars_full_char * round(percentage * self._progress_bars_length), p = percentage)
+
+		finally:
+			self.moveCursorTo(line['position'] - 1)
+			print(text, end = '\r')
+			line['position'] -= 1
+
+	def moveUpFrom(self, pos):
+		'''
+		Move all lines starting at a given position.
+
+		Parameters
+		----------
+		pos : int
+			Position to start from.
+
+		Raises
+		------
+		UINonMovableLine
+			The line can't be moved.
+		'''
+
+		if pos <= 0:
+			raise UINonMovableLine(pos)
+
+		lines_to_move = [line for line in [*self._text_lines.values(), *self._progress_bars.values()] if line['position'] >= pos]
+		lines_to_move.sort(key = lambda line: line['position'])
+
+		for line in lines_to_move:
+			self.moveUp(line)
+
 	def removeTextLine(self, line_id):
 		'''
 		Remove a text line and move all the lines below.
@@ -229,15 +292,7 @@ class UI():
 			self.moveCursorTo(text_line['position'])
 			print(' ' * len(text_line['text']), end = '\r')
 
-			for line in sorted(self._text_lines.values(), key = lambda line: line['position']):
-				if line['position'] > text_line['position']:
-					self.moveCursorTo(line['position'])
-					print(' ' * len(line['text']), end = '\r')
-
-					self.moveCursorTo(line['position'] - 1)
-					print(line['text'], end = '\r')
-
-					line['position'] -= 1
+			self.moveUpFrom(text_line['position'] + 1)
 
 			del self._text_lines[line_id]
 			self.moveCursorTo(self._last_line)
