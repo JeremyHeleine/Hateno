@@ -165,7 +165,7 @@ class UI():
 
 			self.moveCursorTo(self._last_line)
 
-	def updateProgressBar(self, id, n):
+	def updateProgressBar(self, id, n = None):
 		'''
 		Update a progress bar.
 
@@ -175,7 +175,7 @@ class UI():
 			The ID of the bar to update.
 
 		n : int
-			The new value of the counter.
+			The new value of the counter. If `None`, increment the counter by one.
 
 		Raises
 		------
@@ -191,6 +191,9 @@ class UI():
 
 		else:
 			self.moveCursorTo(progress_bar['position'])
+
+			if n is None:
+				n = progress_bar['n'] + 1
 
 			percentage = n / progress_bar['N']
 			length_N = len(str(progress_bar['N']))
