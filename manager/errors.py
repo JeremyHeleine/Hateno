@@ -140,14 +140,14 @@ class ScriptNotFoundError(Error):
 	def __init__(self, script_coords):
 		self.script_coords = script_coords
 
-class UITextLineNotFoundError(Error):
+class UILineNotFoundError(Error):
 	'''
-	Exception raised when we try to access to a UI text line which does not exist.
+	Exception raised when we try to access to a UI line which does not exist.
 
 	Parameters
 	----------
 	id : str
-		The ID of the unknown text line.
+		The ID of the unknown line.
 	'''
 
 	def __init__(self, id):

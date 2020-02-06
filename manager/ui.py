@@ -267,6 +267,39 @@ class UI():
 		for line in lines_to_move:
 			self.moveUp(line)
 
+	def _removeLine(self, lines, id):
+		'''
+		Remove a line and move up all the lines below.
+
+		Parameters
+		----------
+		lines : dict
+			Dict where the lines are stored.
+
+		id : str
+			ID of the line to remove.
+
+		Raises
+		------
+		UILineNotFoundError
+			The ID does not refer to a known text line.
+		'''
+
+		try:
+			line = lines[id]
+
+		except KeyError:
+			raise UILineNotFoundError(id)
+
+		else:
+			self.moveCursorTo(line['position'])
+			print(' ' * line['length'], end = '\r')
+
+			self.moveUpFrom(line['position'] + 1)
+
+			del lines[id]
+			self.moveCursorTo(self._last_line)
+
 	def removeTextLine(self, line_id):
 		'''
 		Remove a text line and move all the lines below.
@@ -275,24 +308,18 @@ class UI():
 		----------
 		line_id : str
 			The ID of the line to remove.
-
-		Raises
-		------
-		UITextLineNotFoundError
-			The ID does not refer to a known text line.
 		'''
 
-		try:
-			text_line = self._text_lines[line_id]
+		self._removeLine(self._text_lines, line_id)
 
-		except KeyError:
-			raise UITextLineNotFoundError(line_id)
+	def removeProgressBar(self, line_id):
+		'''
+		Remove a progress bar and move all the lines below.
 
-		else:
-			self.moveCursorTo(text_line['position'])
-			print(' ' * len(text_line['text']), end = '\r')
+		Parameters
+		----------
+		line_id : str
+			The ID of the line to remove.
+		'''
 
-			self.moveUpFrom(text_line['position'] + 1)
-
-			del self._text_lines[line_id]
-			self.moveCursorTo(self._last_line)
+		self._removeLine(self._progress_bars, line_id)
