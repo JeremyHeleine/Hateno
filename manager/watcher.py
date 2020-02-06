@@ -48,6 +48,18 @@ class Watcher():
 
 		return self._jobs_to_watch == set([job for job, state in self._jobs_states.items() if state in ['succeed', 'failed']])
 
+	def getNumberOfFinishedJobs(self):
+		'''
+		Return the number of finished (either succeed or failed) jobs.
+
+		Returns
+		-------
+		finished : int
+			The number of finished jobs.
+		'''
+
+		return len(set([job for job, state in self._jobs_states.items() if state in ['succeed', 'failed']]))
+
 	def updateJobsStates(self, states_path):
 		'''
 		Remotely read the current states of the jobs.
