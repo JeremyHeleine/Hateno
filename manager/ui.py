@@ -14,15 +14,15 @@ class UI():
 	Represent the user interface. Make easy the display of lines that can be updated, and the creation of progress bars.
 	'''
 
-	def __init__(self):
+	def __init__(self, *, progress_bars_length = 40, progress_bars_empty_char = '░', progress_bars_full_char = '█'):
 		self._cursor_vertical_pos = 0
 
 		self._text_lines = {}
 
 		self._progress_bars = {}
-		self._progress_bars_length = 40
-		self._progress_bars_empty_char = '-'
-		self._progress_bars_full_char = '#'
+		self._progress_bars_length = progress_bars_length
+		self._progress_bars_empty_char = progress_bars_empty_char
+		self._progress_bars_full_char = progress_bars_full_char
 
 	@property
 	def _last_line(self):
@@ -114,8 +114,7 @@ class UI():
 
 		self.moveCursorTo(self._last_line)
 
-		length_N = len(str(N))
-		pattern = f'{{n:>{length_N}d}}/{{N:d}} {{bar:{self._progress_bars_empty_char}<{self._progress_bars_length}}} {{p:>6.1%}}'
+		pattern = f'{{n:>{len(str(N))}d}}/{{N:d}} {{bar:{self._progress_bars_empty_char}<{self._progress_bars_length}}} {{p:>6.1%}}'
 		first_bar = pattern.format(n = 0, N = N, bar = '', p = 0)
 		print(first_bar)
 
@@ -124,7 +123,6 @@ class UI():
 			'position': self._cursor_vertical_pos,
 			'n': 0,
 			'N': N,
-			'length_N': length_N,
 			'pattern': pattern,
 			'length': len(first_bar)
 		}
@@ -195,10 +193,11 @@ class UI():
 			self.moveCursorTo(progress_bar['position'])
 
 			percentage = n / progress_bar['N']
+			length_N = len(str(progress_bar['N']))
 
-			print(' ' * (progress_bar['length_N'] - len(str(n))) + str(n), end = '\r')
+			print(f'{{n:>{length_N}d}}'.format(n = n), end = '\r')
 
-			dx = progress_bar['length_N'] * 2 + 2
+			dx = length_N * 2 + 2
 			self.moveCursorRight(dx)
 			print(self._progress_bars_full_char * round(percentage * self._progress_bars_length), end = '\r')
 
