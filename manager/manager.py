@@ -362,7 +362,7 @@ class Manager():
 
 		self.uncompress(simulation_name, simulation['folder'])
 
-	def batchAction(self, simulations, callback, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error)):
+	def batchAction(self, simulations, action, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error), callback = None):
 		'''
 		Apply a callback function to each simulation of a given list.
 
@@ -371,7 +371,7 @@ class Manager():
 		simulations : list
 			List of simulations.
 
-		callback : function
+		action : function
 			Function to call. The simulation will be passed as the first parameter.
 
 		args : dict
@@ -386,6 +386,9 @@ class Manager():
 		errors_pass : tuple
 			List of exceptions that, when raised, do nothing.
 
+		callback : function
+			Function to call at the end of each action.
+
 		Returns
 		-------
 		errors : list
@@ -396,7 +399,7 @@ class Manager():
 
 		for simulation in simulations:
 			try:
-				callback(simulation, **args)
+				action(simulation, **args)
 
 			except errors_store:
 				errors.append(simulation)
@@ -404,12 +407,15 @@ class Manager():
 			except errors_pass:
 				pass
 
+			if not(callback is None):
+				callback()
+
 		if save_list:
 			self.saveSimulationsList()
 
 		return errors
 
-	def batchAdd(self, simulations):
+	def batchAdd(self, simulations, *, callback = None):
 		'''
 		Add multiple simulations to the list.
 
@@ -418,15 +424,18 @@ class Manager():
 		simulations : list
 			List of simulations.
 
+		callback : function
+			Function to call at the end of each addition.
+
 		Returns
 		-------
 		errors : list
 			List of simulations that were not added because they raised an error.
 		'''
 
-		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError))
+		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError), callback = callback)
 
-	def batchDelete(self, simulations):
+	def batchDelete(self, simulations, *, callback = None):
 		'''
 		Delete multiple simulations.
 
@@ -435,15 +444,18 @@ class Manager():
 		simulations : list
 			List of simulations.
 
+		callback : function
+			Function to call at the end of each deletion.
+
 		Returns
 		-------
 		errors : list
 			List of simulations that were not deleted because they raised an error.
 		'''
 
-		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError))
+		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
 
-	def batchExtract(self, simulations, *, ignore_existing = True):
+	def batchExtract(self, simulations, *, ignore_existing = True, callback = None):
 		'''
 		Extract multiple simulations.
 
@@ -454,6 +466,9 @@ class Manager():
 
 		ignore_existing : boolean
 			Ignore simulations for which the destination folder already exists.
+
+		callback : function
+			Function to call at the end of each extraction.
 
 		Returns
 		-------
@@ -469,4 +484,4 @@ class Manager():
 			errors_store = (SimulationNotFoundError, SimulationFolderAlreadyExistError)
 			errors_pass = ()
 
-		return self.batchAction(simulations, self.extract, save_list = False, errors_store = errors_store, errors_pass = errors_pass)
+		return self.batchAction(simulations, self.extract, save_list = False, errors_store = errors_store, errors_pass = errors_pass, callback = callback)
