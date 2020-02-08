@@ -205,7 +205,7 @@ class UI():
 			print(self._progress_bars_full_char * round(percentage * self._progress_bars_length), end = '\r')
 
 			self.moveCursorRight(dx + self._progress_bars_length + 1)
-			print(round(percentage * 100, 1), end = '\r')
+			print('{p:>6.1%}'.format(p = percentage), end = '\r')
 
 			progress_bar['n'] = n
 

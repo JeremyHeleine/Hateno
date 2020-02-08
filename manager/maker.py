@@ -53,9 +53,7 @@ class Maker():
 		'''
 
 		if not(self._manager_instance):
-			self.displayState('Creating the Manager…')
 			self._manager_instance = Manager(self._simulations_folder)
-			self.displayState('Manager created.')
 
 		return self._manager_instance
 
@@ -71,9 +69,7 @@ class Maker():
 		'''
 
 		if not(self._generator_instance):
-			self.displayState('Creating the Generator…')
 			self._generator_instance = Generator(self._simulations_folder)
-			self.displayState('Generator created.')
 
 		return self._generator_instance
 
@@ -89,7 +85,6 @@ class Maker():
 		'''
 
 		if not(self._remote_folder_instance):
-			self.displayState('Creating the RemoteFolder…')
 			self._remote_folder_instance = RemoteFolder(self._remote_folder_conf)
 			self.displayState('Connecting to the folder…')
 			self._remote_folder_instance.open()
@@ -109,9 +104,7 @@ class Maker():
 		'''
 
 		if not(self._watcher_instance):
-			self.displayState('Creating the Watcher…')
 			self._watcher_instance = Watcher(self._remote_folder)
-			self.displayState('Watcher created.')
 
 		return self._watcher_instance
 
@@ -136,7 +129,7 @@ class Maker():
 		Clear all instances of the modules.
 		'''
 
-		self.displayState('Closing all instances…')
+		self.displayState('Closing everything…')
 
 		self._manager_instance = None
 		self._generator_instance = None
@@ -212,8 +205,7 @@ class Maker():
 		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
 
 		while True:
-			self.displayState('Extracting the simulations…')
-			unknown_simulations = self._manager.batchExtract(simulations)
+			unknown_simulations = self.extractSimulations(simulations)
 
 			if not(unknown_simulations):
 				break
@@ -223,6 +215,30 @@ class Maker():
 			self.downloadSimulations(unknown_simulations)
 			self.displayState('Deleting the scripts folder…')
 			self._remote_folder.deleteRemote([generator_recipe['basedir']])
+
+	def extractSimulations(self, simulations):
+		'''
+		Extract a given set of simulations.
+
+		Parameters
+		----------
+		simulations : list
+			The list of simulations to extract.
+
+		Returns
+		-------
+		unknown_simulations : list
+			The list of simulations which do not exist (yet).
+		'''
+
+		self.displayState('Extracting the simulations…')
+		progress_bar = self._ui.addProgressBar(len(simulations))
+
+		unknown_simulations = self._manager.batchExtract(simulations, callback = lambda : self._ui.updateProgressBar(progress_bar))
+
+		self._ui.removeProgressBar(progress_bar)
+
+		return unknown_simulations
 
 	def generateSimulations(self, simulations, recipe, script_coords):
 		'''
@@ -291,17 +307,27 @@ class Maker():
 			Generator recipe to use.
 		'''
 
-		self._watcher.addJobsToWatch(jobs_ids)
-
 		self.displayState('Waiting for jobs to finish…')
+		progress_bar = self._ui.addProgressBar(len(jobs_ids))
+
+		statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
+		statuses_line = self._ui.addTextLine('')
+
+		self._watcher.addJobsToWatch(jobs_ids)
 
 		while True:
 			self._watcher.updateJobsStates(recipe['jobs_states_filename'])
+
+			self._ui.updateProgressBar(progress_bar, self._watcher.getNumberOfFinishedJobs())
+			self._ui.replaceTextLine(statuses_line, statuses.format(**self._watcher.getNumberOfJobsByStates(['waiting', 'running', 'succeed', 'failed'])))
 
 			if self._watcher.areJobsFinished():
 				break
 
 			time.sleep(10)
+
+		self._ui.removeProgressBar(progress_bar)
+		self._ui.removeTextLine(statuses_line)
 
 		self._watcher.clearJobs()
 
@@ -316,6 +342,7 @@ class Maker():
 		'''
 
 		self.displayState('Downloading the simulations…')
+		progress_bar = self._ui.addProgressBar(len(simulations))
 
 		simulations_to_add = []
 
@@ -327,4 +354,13 @@ class Maker():
 			simulation_to_add['folder'] = tmpdir
 			simulations_to_add.append(simulation_to_add)
 
-		self._manager.batchAdd(simulations_to_add)
+			self._ui.updateProgressBar(progress_bar)
+
+		self._ui.removeProgressBar(progress_bar)
+
+		self.displayState('Adding the simulations to the manager…')
+		progress_bar = self._ui.addProgressBar(len(simulations))
+
+		self._manager.batchAdd(simulations_to_add, callback = lambda : self._ui.updateProgressBar(progress_bar))
+
+		self._ui.removeProgressBar(progress_bar)
