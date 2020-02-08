@@ -28,9 +28,12 @@ class Maker():
 
 	remote_folder_conf : str
 		Path to the configuration file of the remote folder.
+
+	max_corrupted : int
+		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf):
+	def __init__(self, simulations_folder, remote_folder_conf, *, max_corrupted = -1):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -40,6 +43,9 @@ class Maker():
 		self._watcher_instance = None
 		self._ui_instance = None
 		self._ui_state_line = None
+
+		self._max_corrupted = max_corrupted
+		self._corruptions_counter = 0
 
 	@property
 	def _manager(self):
@@ -204,7 +210,9 @@ class Maker():
 
 		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
 
-		while True:
+		self._corruptions_counter = 0
+
+		while self._max_corrupted < 0 or self._corruptions_counter < self._max_corrupted:
 			unknown_simulations = self.extractSimulations(simulations)
 
 			if not(unknown_simulations):
@@ -212,7 +220,11 @@ class Maker():
 
 			jobs_ids = self.generateSimulations(unknown_simulations, generator_recipe, script_coords)
 			self.waitForJobs(jobs_ids, generator_recipe)
-			self.downloadSimulations(unknown_simulations)
+
+			success = self.downloadSimulations(unknown_simulations)
+			if not(success):
+				self._corruptions_counter += 1
+
 			self.displayState('Deleting the scripts folder…')
 			self._remote_folder.deleteRemote([generator_recipe['basedir']])
 
@@ -324,7 +336,7 @@ class Maker():
 			if self._watcher.areJobsFinished():
 				break
 
-			time.sleep(10)
+			time.sleep(0.5)
 
 		self._ui.removeProgressBar(progress_bar)
 		self._ui.removeTextLine(statuses_line)
@@ -339,6 +351,11 @@ class Maker():
 		----------
 		simulations : list
 			List of simulations to download.
+
+		Returns
+		-------
+		success : bool
+			`True` if all simulations has successfully been downloaded and added, `False` if there has been at least one issue.
 		'''
 
 		self.displayState('Downloading the simulations…')
@@ -361,6 +378,8 @@ class Maker():
 		self.displayState('Adding the simulations to the manager…')
 		progress_bar = self._ui.addProgressBar(len(simulations))
 
-		self._manager.batchAdd(simulations_to_add, callback = lambda : self._ui.updateProgressBar(progress_bar))
+		failed_to_add = self._manager.batchAdd(simulations_to_add, callback = lambda : self._ui.updateProgressBar(progress_bar))
 
 		self._ui.removeProgressBar(progress_bar)
+
+		return not(bool(failed_to_add))

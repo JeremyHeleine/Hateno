@@ -35,6 +35,7 @@ class Watcher():
 		'''
 
 		self._jobs_to_watch.clear()
+		self._jobs_states.clear()
 
 	def getJobsByStates(self, states):
 		'''
