@@ -7,6 +7,7 @@ import paramiko
 import json
 
 from utils import jsonfiles
+from manager.errors import *
 
 class RemoteFolder():
 	'''
@@ -163,6 +164,11 @@ class RemoteFolder():
 		delete : boolean
 			`True` to delete the remote file.
 
+		Raises
+		------
+		RemotePathNotFoundError
+			The remote file does not exist.
+
 		Returns
 		-------
 		filename : str
@@ -172,7 +178,11 @@ class RemoteFolder():
 		if not(filename):
 			filename = os.path.basename(remote_path)
 
-		self._sftp.get(remote_path, filename)
+		try:
+			self._sftp.get(remote_path, filename)
+
+		except FileNotFoundError:
+			raise RemotePathNotFoundError(remote_path)
 
 		if copy_permissions:
 			self.copyChmodToLocal(remote_path, filename)
@@ -300,11 +310,22 @@ class RemoteFolder():
 		empty_dest : boolean
 			`True` to ensure the destination folder is empty.
 
+		Raises
+		------
+		RemotePathNotFoundError
+			The remote directory does not exist.
+
 		Returns
 		-------
 		directory : str
 			Local path of the received directory.
 		'''
+
+		try:
+			stats = self._sftp.stat(remote_path)
+
+		except FileNotFoundError:
+			raise RemotePathNotFoundError(remote_path)
 
 		if not(directory):
 			directory = os.path.basename(os.path.normpath(remote_path))

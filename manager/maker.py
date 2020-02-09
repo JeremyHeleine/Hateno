@@ -31,9 +31,12 @@ class Maker():
 
 	max_corrupted : int
 		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
+
+	max_failures : int
+		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, max_corrupted = -1):
+	def __init__(self, simulations_folder, remote_folder_conf, *, max_corrupted = -1, max_failures = 0):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -46,6 +49,9 @@ class Maker():
 
 		self._max_corrupted = max_corrupted
 		self._corruptions_counter = 0
+
+		self._max_failures = max_failures
+		self._failures_counter = 0
 
 	@property
 	def _manager(self):
@@ -211,17 +217,22 @@ class Maker():
 		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
 
 		self._corruptions_counter = 0
+		self._failures_counter = 0
 
-		while self._max_corrupted < 0 or self._corruptions_counter < self._max_corrupted:
+		while (self._max_corrupted < 0 or self._corruptions_counter <= self._max_corrupted) and (self._max_failures < 0 or self._failures_counter <= self._max_failures):
 			unknown_simulations = self.extractSimulations(simulations)
 
 			if not(unknown_simulations):
 				break
 
 			jobs_ids = self.generateSimulations(unknown_simulations, generator_recipe, script_coords)
-			self.waitForJobs(jobs_ids, generator_recipe)
+			success = self.waitForJobs(jobs_ids, generator_recipe)
+
+			if not(success):
+				self._failures_counter += 1
 
 			success = self.downloadSimulations(unknown_simulations)
+
 			if not(success):
 				self._corruptions_counter += 1
 
@@ -317,10 +328,18 @@ class Maker():
 
 		recipe : dict
 			Generator recipe to use.
+
+		Returns
+		-------
+		success : bool
+			`True` is all jobs were finished normally, `False` if there was at least one failure.
 		'''
 
+		jobs_number = len(jobs_ids)
+		jobs_numbers_by_state = {}
+
 		self.displayState('Waiting for jobs to finish…')
-		progress_bar = self._ui.addProgressBar(len(jobs_ids))
+		progress_bar = self._ui.addProgressBar(jobs_number)
 
 		statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
 		statuses_line = self._ui.addTextLine('')
@@ -329,11 +348,13 @@ class Maker():
 
 		while True:
 			self._watcher.updateJobsStates(recipe['jobs_states_filename'])
+			jobs_numbers_by_state = self._watcher.getNumberOfJobsByStates(['waiting', 'running', 'succeed', 'failed'])
+			finished = jobs_numbers_by_state['succeed'] + jobs_numbers_by_state['failed']
 
-			self._ui.updateProgressBar(progress_bar, self._watcher.getNumberOfFinishedJobs())
-			self._ui.replaceTextLine(statuses_line, statuses.format(**self._watcher.getNumberOfJobsByStates(['waiting', 'running', 'succeed', 'failed'])))
+			self._ui.updateProgressBar(progress_bar, finished)
+			self._ui.replaceTextLine(statuses_line, statuses.format(**jobs_numbers_by_state))
 
-			if self._watcher.areJobsFinished():
+			if finished == jobs_number:
 				break
 
 			time.sleep(0.5)
@@ -342,6 +363,8 @@ class Maker():
 		self._ui.removeTextLine(statuses_line)
 
 		self._watcher.clearJobs()
+
+		return jobs_numbers_by_state['failed'] == 0
 
 	def downloadSimulations(self, simulations):
 		'''
@@ -365,7 +388,11 @@ class Maker():
 
 		for simulation in simulations:
 			tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
-			self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
+			try:
+				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
+
+			except RemotePathNotFoundError:
+				pass
 
 			simulation_to_add = copy.deepcopy(simulation)
 			simulation_to_add['folder'] = tmpdir

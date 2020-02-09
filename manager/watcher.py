@@ -54,30 +54,6 @@ class Watcher():
 
 		return [job for job, state in self._jobs_states.items() if state in states]
 
-	def areJobsFinished(self):
-		'''
-		Determine whether all jobs are finished or not.
-
-		Returns
-		-------
-		jobs_finished : boolean
-			`True` if all jobs are finished, `False` if there is still at least one running.
-		'''
-
-		return self._jobs_to_watch == set(self.getJobsByStates(['succeed', 'failed']))
-
-	def getNumberOfFinishedJobs(self):
-		'''
-		Return the number of finished (either succeed or failed) jobs.
-
-		Returns
-		-------
-		finished : int
-			The number of finished jobs.
-		'''
-
-		return len(self.getJobsByStates(['succeed', 'failed']))
-
 	def getNumberOfJobsByState(self, state):
 		'''
 		Return the number of jobs in a given state.

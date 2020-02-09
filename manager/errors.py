@@ -140,6 +140,19 @@ class ScriptNotFoundError(Error):
 	def __init__(self, script_coords):
 		self.script_coords = script_coords
 
+class RemotePathNotFoundError(Error):
+	'''
+	Exception raised when we try to access a remote path/directory which does not exist.
+
+	Parameters
+	----------
+	remote_path : str
+		The path.
+	'''
+
+	def __init__(self, remote_path):
+		self.remote_path = remote_path
+
 class UILineNotFoundError(Error):
 	'''
 	Exception raised when we try to access to a UI line which does not exist.
