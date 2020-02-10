@@ -116,7 +116,7 @@ class Maker():
 		'''
 
 		if not(self._watcher_instance):
-			self._watcher_instance = Watcher(self._remote_folder)
+			self._watcher_instance = Watcher(remote_folder = self._remote_folder)
 
 		return self._watcher_instance
 
@@ -345,9 +345,10 @@ class Maker():
 		statuses_line = self._ui.addTextLine('')
 
 		self._watcher.addJobsToWatch(jobs_ids)
+		self._watcher.setJobsStatesPath(recipe['jobs_states_filename'])
 
 		while True:
-			self._watcher.updateJobsStates(recipe['jobs_states_filename'])
+			self._watcher.updateJobsStates()
 			jobs_numbers_by_state = self._watcher.getNumberOfJobsByStates(['waiting', 'running', 'succeed', 'failed'])
 			finished = jobs_numbers_by_state['succeed'] + jobs_numbers_by_state['failed']
 

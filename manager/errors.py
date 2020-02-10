@@ -191,3 +191,31 @@ class UINonMovableLine(Error):
 
 	def __init__(self, pos):
 		self.pos = pos
+
+class WatcherNoConfigFoundError(Error):
+	'''
+	Exception raised when nothing is used to configure the watcher.
+	'''
+
+	pass
+
+class WatcherTooManyConfigError(Error):
+	'''
+	Exception raised when there is more than one configuration for the watcher.
+	'''
+
+	pass
+
+class WatcherNoRemoteFolderError(Error):
+	'''
+	Exception raised when we try to use the watcher's remote folder while there is no one set.
+	'''
+
+	pass
+
+class WatcherNoStatesPathError(Error):
+	'''
+	Exception raised when we try to access the file containing the jobs states and there is no one set.
+	'''
+
+	pass

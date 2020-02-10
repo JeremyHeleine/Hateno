@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import imaplib
+
+from manager.errors import *
+
 class Watcher():
 	'''
 	Watch for events to detect the end of some simulations.
@@ -9,13 +13,33 @@ class Watcher():
 	----------
 	remote_folder : RemoteFolder
 		A RemoteFolder instance to use to search for notifications.
+
+	mail_config : str
+		Path to the configuration file of the mailbox.
+
+	Raises
+	------
+	WatcherNoConfigFoundError
+		Nothing used to configure the watcher.
+
+	WatcherTooManyConfigError
+		More than one configuration used.
 	'''
 
-	def __init__(self, remote_folder):
+	def __init__(self, *, remote_folder = None, states_path = '', mail_config = None):
 		self._jobs_to_watch = set()
 		self._jobs_states = {}
 
 		self._remote_folder = remote_folder
+		self._states_path = states_path
+
+		self._mail_config = mail_config
+
+		if self._remote_folder is None and self._mail_config is None:
+			raise WatcherNoConfigFoundError()
+
+		if not(self._remote_folder is None) and not(self._mail_config is None):
+			raise WatcherTooManyConfigError()
 
 	def addJobsToWatch(self, jobs):
 		'''
@@ -88,16 +112,41 @@ class Watcher():
 
 		return {state: self.getNumberOfJobsByState(state) for state in states}
 
-	def updateJobsStates(self, states_path):
+	def setJobsStatesPath(self, states_path):
+		'''
+		Set the path to the remote file where we can find the jobs states.
+
+		Parameters
+		----------
+		states_path : str
+			Path to the remote file containing the jobs states.
+
+		Raises
+		------
+		WatcherNoRemoteFolderError
+			There is no RemoteFolder set.
+		'''
+
+		if self._remote_folder is None:
+			raise WatcherNoRemoteFolderError()
+
+		self._states_path = states_path
+
+	def updateJobsStates(self):
 		'''
 		Remotely read the current states of the jobs.
 
-		states_path : str
-			Path to the remote file containing the jobs states.
+		Raises
+		------
+		WatcherNoStatesPathError
+			There is no path to look for the states.
 		'''
 
+		if not(self._states_path):
+			raise WatcherNoStatesPathError()
+
 		try:
-			known_states = dict(self._remote_folder.getFileContents(states_path, callback = lambda l: tuple(map(lambda s: s.strip(), l.split(':')))))
+			known_states = dict(self._remote_folder.getFileContents(self._states_path, callback = lambda l: tuple(map(lambda s: s.strip(), l.split(':')))))
 
 		except FileNotFoundError:
 			pass
