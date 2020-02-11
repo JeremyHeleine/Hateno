@@ -68,17 +68,38 @@ class Generator():
 
 		self._simulations_to_generate.clear()
 
-	def parse(self):
+	def parse(self, simulations_set = None):
 		'''
-		Parse the current list of simulations to generate the corresponding command lines.
+		Parse a set of simulations to generate the corresponding command lines and other variables.
+
+		Parameters
+		----------
+		simulations_set : list
+			The set of simulations to parse. If `None`, default to the whole list.
 
 		Returns
 		-------
-		command_lines : list
-			List of command lines, one per simulation to generate
+		variables : dict
+			The list of command lines, and variables corresponding to the simulations' global settings.
 		'''
 
-		return [simulation.command_line for simulation in self._simulations_to_generate]
+		if simulations_set is None:
+			simulations_set = self._simulations_to_generate
+
+		globalsettings_names = [(setting['name'], setting['name'].upper()) for setting in self._folder.settings['globalsettings']]
+
+		variables = {
+			'data_lists': {'COMMAND_LINES': [], **{name_upper: [] for name, name_upper in globalsettings_names}},
+			'data_variables': {}
+		}
+
+		for simulation in simulations_set:
+			variables['data_lists']['COMMAND_LINES'].append(simulation.command_line)
+
+			for name, name_upper in globalsettings_names:
+				variables['data_lists'][name_upper].append(simulation[name])
+
+		return variables
 
 	def generateScriptFromSkeleton(self, skeleton_name, output_name, lists, variables, *, make_executable = False):
 		'''
@@ -171,12 +192,10 @@ class Generator():
 		else:
 			os.makedirs(dest_folder)
 
-		command_lines = self.parse()
-
 		if not('max_simulations' in recipe) or recipe['max_simulations'] <= 0:
-			recipe['max_simulations'] = len(command_lines)
+			recipe['max_simulations'] = len(self._simulations_to_generate)
 
-		command_lines_sets = [command_lines[k:k+recipe['max_simulations']] for k in range(0, len(command_lines), recipe['max_simulations'])]
+		simulations_sets = [self._simulations_to_generate[k:k+recipe['max_simulations']] for k in range(0, len(self._simulations_to_generate), recipe['max_simulations'])]
 
 		data_lists = {}
 		data_variables = {
@@ -190,18 +209,18 @@ class Generator():
 		if 'subgroups_skeletons' in recipe:
 			skeletons_calls += [
 				{
-					'command_lines': command_lines_set,
 					'skeleton_name_joiner': f'-{k}.',
-					'skeletons': recipe['subgroups_skeletons']
+					'skeletons': recipe['subgroups_skeletons'],
+					**self.parse(simulations_set)
 				}
-				for k, command_lines_set in enumerate(command_lines_sets)
+				for k, simulations_set in enumerate(simulations_sets)
 			]
 
 		if 'wholegroup_skeletons' in recipe:
 			skeletons_calls.append({
-				'command_lines': command_lines,
 				'skeleton_name_joiner': '.',
-				'skeletons': recipe['wholegroup_skeletons']
+				'skeletons': recipe['wholegroup_skeletons'],
+				**self.parse()
 			})
 
 		if not('make_executable' in recipe):
@@ -210,7 +229,9 @@ class Generator():
 		scripts_basedir = dest_folder if not('basedir' in recipe) else recipe['basedir']
 
 		for skeletons_call in skeletons_calls:
-			data_lists['COMMAND_LINES'] = skeletons_call['command_lines']
+			data_lists.update(skeletons_call['data_lists'])
+			data_variables.update(skeletons_call['data_variables'])
+
 			generated_scripts.append([])
 
 			for skeleton_name in skeletons_call['skeletons']:
