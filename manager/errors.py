@@ -219,3 +219,17 @@ class WatcherNoStatesPathError(Error):
 	'''
 
 	pass
+
+class WatcherNoMailConfigError(Error):
+	'''
+	Exception raised when we try to connect to the mailbox and no configuration file is given.
+	'''
+
+	pass
+
+class WatcherNoMailNotificationsConfigError(Error):
+	'''
+	Exception raised when we try to access the mails notifications configuration without any configuration file provided.
+	'''
+
+	pass

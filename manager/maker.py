@@ -29,6 +29,12 @@ class Maker():
 	remote_folder_conf : str
 		Path to the configuration file of the remote folder.
 
+	mail_config : str
+		Path to the configuration file of the mailbox.
+
+	mail_notifications_config : str
+		Path to the mails notifications configuration file.
+
 	max_corrupted : int
 		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
 
@@ -36,7 +42,7 @@ class Maker():
 		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, max_corrupted = -1, max_failures = 0):
+	def __init__(self, simulations_folder, remote_folder_conf, *, mail_config = None, mail_notifications_config = '', max_corrupted = -1, max_failures = 0):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -46,6 +52,9 @@ class Maker():
 		self._watcher_instance = None
 		self._ui_instance = None
 		self._ui_state_line = None
+
+		self._mail_config = mail_config
+		self._mail_notifications_config = mail_notifications_config
 
 		self._max_corrupted = max_corrupted
 		self._corruptions_counter = 0
@@ -116,7 +125,11 @@ class Maker():
 		'''
 
 		if not(self._watcher_instance):
-			self._watcher_instance = Watcher(remote_folder = self._remote_folder)
+			if self._mail_config is None:
+				self._watcher_instance = Watcher(remote_folder = self._remote_folder)
+
+			else:
+				self._watcher_instance = Watcher(mail_config = self._mail_config, mail_notifications_config = self._mail_notifications_config)
 
 		return self._watcher_instance
 
@@ -153,6 +166,14 @@ class Maker():
 			pass
 
 		self._remote_folder_instance = None
+
+		try:
+			self._watcher_instance.close()
+
+		except AttributeError:
+			pass
+
+		self._watcher_instance = None
 
 	def displayState(self, state):
 		'''
@@ -345,7 +366,9 @@ class Maker():
 		statuses_line = self._ui.addTextLine('')
 
 		self._watcher.addJobsToWatch(jobs_ids)
-		self._watcher.setJobsStatesPath(recipe['jobs_states_filename'])
+
+		if self._mail_config is None:
+			self._watcher.setJobsStatesPath(recipe['jobs_states_filename'])
 
 		while True:
 			self._watcher.updateJobsStates()

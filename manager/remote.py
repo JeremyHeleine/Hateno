@@ -4,7 +4,6 @@
 import os
 import stat
 import paramiko
-import json
 
 from utils import jsonfiles
 from manager.errors import *
