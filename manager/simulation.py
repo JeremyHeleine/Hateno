@@ -22,6 +22,7 @@ class Simulation():
 		self._folder = folder
 		self._user_settings = settings
 
+		self._raw_globalsettings = None
 		self._raw_settings = None
 
 		self._setting_tag_regex_compiled = None
@@ -53,7 +54,7 @@ class Simulation():
 
 	def __getitem__(self, key):
 		'''
-		Access to a user setting.
+		Access to a global setting.
 
 		Parameters
 		----------
@@ -72,14 +73,14 @@ class Simulation():
 		'''
 
 		try:
-			return self._user_settings[key]
+			return self.reduced_globalsettings[key]
 
 		except KeyError:
-			raise KeyError('The key does not exist in the user settings')
+			raise KeyError('The key does not exist in the global settings')
 
 	def __setitem__(self, key, value):
 		'''
-		Change a user setting.
+		Change a global setting.
 
 		Parameters
 		----------
@@ -96,10 +97,29 @@ class Simulation():
 		'''
 
 		try:
-			self._user_settings[key] = value
+			setting = [setting for setting in self._globalsettings if setting['name'] == key][0]
 
-		except KeyError:
-			raise KeyError('The key does not exist in the user settings')
+		except IndexError:
+			raise KeyError('The key does not exist in the global settings')
+
+		else:
+			setting['value'] = value
+
+	@property
+	def _globalsettings(self):
+		'''
+		Return (and generate if needed) the complete list of global settings.
+
+		Returns
+		-------
+		raw_globalsettings : list
+			The global settings.
+		'''
+
+		if not(self._raw_globalsettings):
+			self.generateGlobalSettings()
+
+		return self._raw_globalsettings
 
 	@property
 	def _settings(self):
@@ -151,6 +171,19 @@ class Simulation():
 		]
 
 	@property
+	def reduced_globalsettings(self):
+		'''
+		Return the list of global settings, as a name: value dictionary.
+
+		Returns
+		-------
+		settings : dict
+			The global settings.
+		'''
+
+		return {setting['name']: setting['value'] for setting in self._globalsettings}
+
+	@property
 	def reduced_settings(self):
 		'''
 		Return the list of settings, as a name: value dictionary.
@@ -192,6 +225,21 @@ class Simulation():
 			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting):(?P<name>[^}]+)\}')
 
 		return self._setting_tag_regex_compiled
+
+	def generateGlobalSettings(self):
+		'''
+		Generate the full list of global settings.
+		'''
+
+		self._raw_globalsettings = []
+
+		for setting in self._folder.settings['globalsettings']:
+			self._raw_globalsettings.append({
+				'name': setting['name'],
+				'value': self._user_settings[setting['name']] if setting['name'] in self._user_settings else setting['default']
+			})
+
+		self.parseGlobalSettings()
 
 	def generateSettings(self):
 		'''
@@ -266,7 +314,7 @@ class Simulation():
 
 		settings = {
 			'setting': self.reduced_settings,
-			'globalsetting': self._user_settings
+			'globalsetting': self.reduced_globalsettings
 		}
 
 		fullmatch = self._setting_tag_regex.fullmatch(s)
@@ -302,6 +350,14 @@ class Simulation():
 		self._parser_recursion_stack.clear()
 
 		return parsed
+
+	def parseGlobalSettings(self):
+		'''
+		Parse the global settings to take into account possible other settings' values.
+		'''
+
+		for setting in self._globalsettings:
+			setting['value'] = self.parseString(setting['value'])
 
 	def parseSettings(self):
 		'''
