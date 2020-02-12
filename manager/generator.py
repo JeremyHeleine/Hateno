@@ -330,6 +330,11 @@ class Generator():
 			data_lists.update(skeletons_call['data_lists'])
 			data_variables.update(skeletons_call['data_variables'])
 
+			if 'data_variables_cases' in recipe:
+				for varname, varparams in recipe['data_variables_cases'].items():
+					vartest = data_variables[varparams['variable']]
+					data_variables[varname] = [value for bound, value in zip(varparams['bounds'], varparams['values']) if bound <= vartest][-1]
+
 			generated_scripts.append([])
 
 			for skeleton_name in skeletons_call['skeletons']:
