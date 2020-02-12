@@ -289,9 +289,17 @@ class Generator():
 
 		data_lists = {}
 		data_variables = {
-			'JOBS_OUTPUT_FILENAME': recipe['jobs_output_filename'],
-			'JOBS_STATES_FILENAME': recipe['jobs_states_filename']
+			'JOBS_OUTPUT_FILENAME': recipe['jobs_output_filename']
 		}
+
+		if 'jobs_states_filename' in recipe:
+			data_variables['JOBS_STATES_FILENAME'] = recipe['jobs_states_filename']
+
+		if 'data_lists' in recipe:
+			data_lists.update(recipe['data_lists'])
+
+		if 'data_variables' in recipe:
+			data_variables.update(recipe['data_variables'])
 
 		skeletons_calls = []
 		generated_scripts = []
