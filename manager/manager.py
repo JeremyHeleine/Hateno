@@ -32,7 +32,6 @@ class Manager():
 		self._simulations_list_dict = None
 
 		self._checkers_regex_compiled = None
-		self._settings_regex_compiled = None
 		self._checkers_list = None
 
 	@property
@@ -77,22 +76,6 @@ class Manager():
 			self._checkers_regex_compiled = re.compile(r'^(file|folder|global)_([A-Za-z0-9_]+)$')
 
 		return self._checkers_regex_compiled
-
-	@property
-	def _settings_regex(self):
-		'''
-		Regex to parse a string using some settings.
-
-		Returns
-		-------
-		regex : re.Pattern
-			The settings regex.
-		'''
-
-		if self._settings_regex_compiled is None:
-			self._settings_regex_compiled = re.compile(r'\{setting:([^}]+)\}')
-
-		return self._settings_regex_compiled
 
 	@property
 	def _checkers(self):
@@ -184,17 +167,6 @@ class Manager():
 			`True` if the integrity check is successful, `False` otherwise.
 		'''
 
-		# Parse a name (of file or folder), potentially with some settings values
-		def parseName(name):
-			for setting_match in self._settings_regex.finditer(name):
-				try:
-					name = name.replace(setting_match.group(0), str(simulation.reduced_settings[setting_match.group(1)]))
-
-				except KeyError:
-					pass
-
-			return name
-
 		tree = {}
 
 		for output_entry in ['files', 'folders']:
@@ -203,7 +175,7 @@ class Manager():
 
 			if output_entry in self._folder.settings['output']:
 				for output in self._folder.settings['output'][output_entry]:
-					parsed_name = parseName(output['name'])
+					parsed_name = str(simulation.parseString(output['name']))
 					tree[output_entry].append(parsed_name)
 
 					if 'checks' in output:
