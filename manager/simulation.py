@@ -4,6 +4,10 @@
 import copy
 import functools
 import re
+import inspect
+
+from manager.errors import *
+import manager.fixers as fixers
 
 class Simulation():
 	'''
@@ -24,6 +28,9 @@ class Simulation():
 
 		self._raw_globalsettings = None
 		self._raw_settings = None
+
+		self._fixers_regex_compiled = None
+		self._fixers_list = None
 
 		self._setting_tag_regex_compiled = None
 		self._parser_recursion_stack = []
@@ -211,6 +218,22 @@ class Simulation():
 		return ' '.join([self._folder.settings['exec']] + sum(self.settings_as_strings, []))
 
 	@property
+	def _fixers_regex(self):
+		'''
+		Regex to detect whether a function's name corresponds to a value fixer.
+
+		Returns
+		-------
+		regex : re.Pattern
+			The fixers regex.
+		'''
+
+		if self._fixers_regex_compiled is None:
+			self._fixers_regex_compiled = re.compile(r'^fixer_([A-Za-z0-9_]+)$')
+
+		return self._fixers_regex_compiled
+
+	@property
 	def _setting_tag_regex(self):
 		'''
 		Regex to detect whether there is a setting or global setting tag in a string.
@@ -226,6 +249,69 @@ class Simulation():
 
 		return self._setting_tag_regex_compiled
 
+	@property
+	def _fixers(self):
+		'''
+		Get the list of available values fixers.
+
+		Returns
+		-------
+		fixers : dict
+			The values fixers.
+		'''
+
+		if self._fixers_list is None:
+			self._fixers_list = {}
+			self.loadFixersFromModule(fixers)
+
+		return self._fixers_list
+
+	def loadFixersFromModule(self, module):
+		'''
+		Load all values fixers in a given module.
+
+		Parameters
+		----------
+		module : Module
+			Module (already loaded) where are defined the fixers.
+		'''
+
+		for function in inspect.getmembers(module, inspect.isfunction):
+			fixer_match = self._fixers_regex.match(function[0])
+
+			if fixer_match:
+				self.setFixer(fixer_match.group(1), function[1])
+
+	def setFixer(self, fixer_name, fixer):
+		'''
+		Set (add or replace) a value fixer.
+
+		Parameters
+		----------
+		fixer_name : str
+			Name of the fixer.
+
+		fixer : function
+			Fixer to register.
+		'''
+
+		self._fixers[fixer_name] = fixer
+
+	def removeFixer(self, fixer_name):
+		'''
+		Remove a value fixer.
+
+		Parameters
+		----------
+		fixer_name : str
+			Name of the fixer to remove.
+		'''
+
+		if not(fixer_name in self._fixers):
+			raise FixerNotFoundError(fixer_name)
+
+		del self._fixers[fixer_name]
+
 	def generateGlobalSettings(self):
 		'''
 		Generate the full list of global settings.
@@ -236,7 +322,7 @@ class Simulation():
 		for setting in self._folder.settings['globalsettings']:
 			self._raw_globalsettings.append({
 				'name': setting['name'],
-				'value': self._user_settings[setting['name']] if setting['name'] in self._user_settings else setting['default']
+				'value': self.fixValue(self._user_settings[setting['name']]) if setting['name'] in self._user_settings else setting['default']
 			})
 
 		self.parseGlobalSettings()
@@ -278,7 +364,7 @@ class Simulation():
 
 					for setting in set_to_add:
 						try:
-							setting['value'] = values_set[setting['name']]
+							setting['value'] = self.fixValue(values_set[setting['name']])
 
 						except KeyError:
 							pass
@@ -289,6 +375,30 @@ class Simulation():
 				self._raw_settings.append(default_settings)
 
 		self.parseSettings()
+
+	def fixValue(self, value):
+		'''
+		Fix a value to prevent false duplicates (e.g. this prevent to consider `0.0` and `0` as different values).
+
+		Parameters
+		----------
+		value : mixed
+			The value to fix.
+
+		Returns
+		-------
+		fixed : mixed
+			The same value, fixed.
+		'''
+
+		if 'fixes' in self._folder.settings:
+			for fixer in self._folder.settings['fixes']:
+				if not(fixer in self._fixers):
+					raise FixerNotFoundError(fixer)
+
+				value = self._fixers[fixer](value)
+
+		return value
 
 	def parseString(self, s):
 		'''

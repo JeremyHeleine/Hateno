@@ -64,6 +64,19 @@ class VariableGeneratorNotFoundError(Error):
 	def __init__(self, generator_name):
 		self.generator_name = generator_name
 
+class FixerNotFoundError(Error):
+	'''
+	Exception raised when we try to access a value fixer which does not exist.
+
+	Parameters
+	----------
+	fixer_name : str
+		Name of the fixer which has not been found.
+	'''
+
+	def __init__(self, fixer_name):
+		self.fixer_name = fixer_name
+
 class SimulationIntegrityCheckFailedError(Error):
 	'''
 	Exception raised when a folder fails to pass an integrity check.
