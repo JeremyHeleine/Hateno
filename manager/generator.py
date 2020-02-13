@@ -301,14 +301,17 @@ class Generator():
 		if 'data_variables' in recipe:
 			data_variables.update(recipe['data_variables'])
 
+		n_subgroups_skeletons = len(recipe['subgroups_skeletons'])
+		n_skeletons = n_subgroups_skeletons + len(recipe['wholegroup_skeletons'])
+
 		skeletons_calls = []
-		generated_scripts = []
+		generated_scripts = [[]] * n_skeletons
 
 		if 'subgroups_skeletons' in recipe:
 			skeletons_calls += [
 				{
 					'skeleton_name_joiner': f'-{k}.',
-					'skeletons': recipe['subgroups_skeletons'],
+					'skeletons': enumerate(recipe['subgroups_skeletons']),
 					**self.parse(simulations_set)
 				}
 				for k, simulations_set in enumerate(simulations_sets)
@@ -317,7 +320,7 @@ class Generator():
 		if 'wholegroup_skeletons' in recipe:
 			skeletons_calls.append({
 				'skeleton_name_joiner': '.',
-				'skeletons': recipe['wholegroup_skeletons'],
+				'skeletons': [(n_subgroups_skeletons + j, s) for j, s in enumerate(recipe['wholegroup_skeletons'])],
 				**self.parse()
 			})
 
@@ -335,9 +338,7 @@ class Generator():
 					vartest = data_variables[varparams['variable']]
 					data_variables[varname] = [value for bound, value in zip(varparams['bounds'], varparams['values']) if bound <= vartest][-1]
 
-			generated_scripts.append([])
-
-			for skeleton_name in skeletons_call['skeletons']:
+			for j, skeleton_name in skeletons_call['skeletons']:
 				skeleton_basename_parts = os.path.basename(skeleton_name).rsplit('.skeleton.', maxsplit = 1)
 				skeleton_tag = re.sub('[^A-Z_]+', '_', skeleton_basename_parts[0].upper())
 				script_name = skeletons_call['skeleton_name_joiner'].join(skeleton_basename_parts)
@@ -353,6 +354,6 @@ class Generator():
 				except KeyError:
 					data_lists[skeleton_tag] = [script_finalpath]
 
-				generated_scripts[-1].append({'name': script_name, 'localpath': script_localpath, 'finalpath': script_finalpath})
+				generated_scripts[j].append({'name': script_name, 'localpath': script_localpath, 'finalpath': script_finalpath})
 
 		return generated_scripts
