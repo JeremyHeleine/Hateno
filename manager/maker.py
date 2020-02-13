@@ -40,9 +40,12 @@ class Maker():
 
 	max_failures : int
 		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
+
+	ui : bool
+		`True` to show different informations in the UI, `False` to show nothing.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, mail_config = None, mail_notifications_config = '', max_corrupted = -1, max_failures = 0):
+	def __init__(self, simulations_folder, remote_folder_conf, *, mail_config = None, mail_notifications_config = '', max_corrupted = -1, max_failures = 0, ui = True):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -61,6 +64,8 @@ class Maker():
 
 		self._max_failures = max_failures
 		self._failures_counter = 0
+
+		self._show_ui = ui
 
 	@property
 	def _manager(self):
@@ -144,7 +149,7 @@ class Maker():
 			Current instance, or a new one if `None`.
 		'''
 
-		if not(self._ui_instance):
+		if not(self._ui_instance) and self._show_ui:
 			self._ui_instance = UI()
 
 		return self._ui_instance
@@ -175,6 +180,59 @@ class Maker():
 
 		self._watcher_instance = None
 
+	def displayTextLine(self, text):
+		'''
+		Display a new text line.
+
+		Parameters
+		----------
+		text : str
+			Text to display.
+
+		Returns
+		-------
+		text_line : str
+			ID of the text line.
+		'''
+
+		if not(self._show_ui):
+			return None
+
+		return self._ui.addTextLine(text)
+
+	def updateTextLine(self, text_line, new_text):
+		'''
+		Update a text line.
+
+		Parameters
+		----------
+		text_line : str
+			ID of the text line to update.
+
+		new_text : str
+			New text to display.
+		'''
+
+		if not(self._show_ui):
+			return
+
+		self._ui.replaceTextLine(text_line, new_text)
+
+	def removeTextLine(self, text_line):
+		'''
+		Remove a text line.
+
+		Parameters
+		----------
+		text_line : str
+			ID of the text line to remove.
+		'''
+
+		if not(self._show_ui):
+			return
+
+		self._ui.removeTextLine(text_line)
+
 	def displayState(self, state):
 		'''
 		Display a state message (creation of an instance, connection, …).
@@ -185,11 +243,67 @@ class Maker():
 			State to display.
 		'''
 
+		if not(self._show_ui):
+			return
+
 		if self._ui_state_line is None:
-			self._ui_state_line = self._ui.addTextLine(state)
+			self._ui_state_line = self.displayTextLine(state)
 
 		else:
-			self._ui.replaceTextLine(self._ui_state_line, state)
+			self.updateTextLine(self._ui_state_line, state)
+
+	def displayProgressBar(self, N):
+		'''
+		Add a new progress bar.
+
+		Parameters
+		----------
+		N : int
+			Final number to reach.
+
+		Returns
+		-------
+		progress_bar : str
+			ID of the progress bar.
+		'''
+
+		if not(self._show_ui):
+			return None
+
+		return self._ui.addProgressBar(N)
+
+	def updateProgressBar(self, progress_bar, n = None):
+		'''
+		Update a progress bar.
+
+		Parameters
+		----------
+		progress_bar : str
+			ID of the progress bar to update.
+
+		n : int
+			New number to display (`None` to increment by one).
+		'''
+
+		if not(self._show_ui):
+			return
+
+		self._ui.updateProgressBar(progress_bar, n)
+
+	def removeProgressBar(self, progress_bar):
+		'''
+		Remove a progress bar.
+
+		Parameters
+		----------
+		progress_bar : str
+			ID of the progress bar to remove.
+		'''
+
+		if not(self._show_ui):
+			return
+
+		self._ui.removeProgressBar(progress_bar)
 
 	def parseScriptToLaunch(self, launch_option):
 		'''
@@ -276,11 +390,11 @@ class Maker():
 		'''
 
 		self.displayState('Extracting the simulations…')
-		progress_bar = self._ui.addProgressBar(len(simulations))
+		progress_bar = self.displayProgressBar(len(simulations))
 
-		unknown_simulations = self._manager.batchExtract(simulations, callback = lambda : self._ui.updateProgressBar(progress_bar))
+		unknown_simulations = self._manager.batchExtract(simulations, callback = lambda : self.updateProgressBar(progress_bar))
 
-		self._ui.removeProgressBar(progress_bar)
+		self.removeProgressBar(progress_bar)
 
 		return unknown_simulations
 
@@ -360,10 +474,10 @@ class Maker():
 		jobs_numbers_by_state = {}
 
 		self.displayState('Waiting for jobs to finish…')
-		progress_bar = self._ui.addProgressBar(jobs_number)
+		progress_bar = self.displayProgressBar(jobs_number)
 
 		statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
-		statuses_line = self._ui.addTextLine('')
+		statuses_line = self.displayTextLine('')
 
 		self._watcher.addJobsToWatch(jobs_ids)
 
@@ -375,16 +489,16 @@ class Maker():
 			jobs_numbers_by_state = self._watcher.getNumberOfJobsByStates(['waiting', 'running', 'succeed', 'failed'])
 			finished = jobs_numbers_by_state['succeed'] + jobs_numbers_by_state['failed']
 
-			self._ui.updateProgressBar(progress_bar, finished)
-			self._ui.replaceTextLine(statuses_line, statuses.format(**jobs_numbers_by_state))
+			self.updateProgressBar(progress_bar, finished)
+			self.updateTextLine(statuses_line, statuses.format(**jobs_numbers_by_state))
 
 			if finished == jobs_number:
 				break
 
 			time.sleep(0.5)
 
-		self._ui.removeProgressBar(progress_bar)
-		self._ui.removeTextLine(statuses_line)
+		self.removeProgressBar(progress_bar)
+		self.removeTextLine(statuses_line)
 
 		self._watcher.clearJobs()
 
@@ -406,7 +520,7 @@ class Maker():
 		'''
 
 		self.displayState('Downloading the simulations…')
-		progress_bar = self._ui.addProgressBar(len(simulations))
+		progress_bar = self.displayProgressBar(len(simulations))
 
 		simulations_to_add = []
 
@@ -422,15 +536,15 @@ class Maker():
 			simulation_to_add['folder'] = tmpdir
 			simulations_to_add.append(simulation_to_add)
 
-			self._ui.updateProgressBar(progress_bar)
+			self.updateProgressBar(progress_bar)
 
-		self._ui.removeProgressBar(progress_bar)
+		self.removeProgressBar(progress_bar)
 
 		self.displayState('Adding the simulations to the manager…')
-		progress_bar = self._ui.addProgressBar(len(simulations))
+		progress_bar = self.displayProgressBar(len(simulations))
 
-		failed_to_add = self._manager.batchAdd(simulations_to_add, callback = lambda : self._ui.updateProgressBar(progress_bar))
+		failed_to_add = self._manager.batchAdd(simulations_to_add, callback = lambda : self.updateProgressBar(progress_bar))
 
-		self._ui.removeProgressBar(progress_bar)
+		self.removeProgressBar(progress_bar)
 
 		return not(bool(failed_to_add))
