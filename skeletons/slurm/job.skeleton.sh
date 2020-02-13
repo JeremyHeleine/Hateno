@@ -14,6 +14,4 @@ cd $SLURM_SUBMIT_DIR
 source /etc/profile.d/modules.sh
 module load openmpi/gcc/64/1.10.7
 
-### BEGIN_PARALLEL ###
-mpirun -np $SLURM_NNODES $ITEM_VALUE
-### END_PARALLEL ###
+mpirun -np $SLURM_NNODES $PARALLEL
