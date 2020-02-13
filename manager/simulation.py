@@ -393,10 +393,13 @@ class Simulation():
 
 		if 'fixes' in self._folder.settings:
 			for fixer in self._folder.settings['fixes']:
-				if not(fixer in self._fixers):
-					raise FixerNotFoundError(fixer)
+				if not(type(fixer) is list):
+					fixer = [fixer]
 
-				value = self._fixers[fixer](value)
+				if not(fixer[0] in self._fixers):
+					raise FixerNotFoundError(fixer[0])
+
+				value = self._fixers[fixer[0]](value, *fixer[1:])
 
 		return value
 
