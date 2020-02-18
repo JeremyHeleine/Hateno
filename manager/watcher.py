@@ -17,11 +17,14 @@ class Watcher():
 	remote_folder : RemoteFolder
 		A RemoteFolder instance to use to search for notifications.
 
-	mail_config : str
-		Path to the configuration file of the mailbox.
+	states_path : str
+		Path to the remote file where the states are stored.
 
-	mail_notifications_config : str
-		Path to the mails notifications configuration file.
+	mail_config : dict
+		Configuration of the mailbox.
+
+	mail_notifications_config : dict
+		Mails notifications configuration.
 
 	Raises
 	------
@@ -32,7 +35,7 @@ class Watcher():
 		More than one configuration used.
 	'''
 
-	def __init__(self, *, remote_folder = None, states_path = '', mail_config = None, mail_notifications_config = ''):
+	def __init__(self, *, remote_folder = None, states_path = '', mail_config = None, mail_notifications_config = None):
 		self._jobs_to_watch = set()
 		self._jobs_states = {}
 
@@ -40,8 +43,8 @@ class Watcher():
 		self._states_path = states_path
 
 		self._mail_config = mail_config
-		self._mail_notifications_config_file = mail_notifications_config
-		self._mail_notifications_config_dict = None
+		self._mail_notifications_config_dict = mail_notifications_config
+		self._mail_notifications_config_compiled = False
 		self._mailbox_instance = None
 
 		if self._remote_folder is None and self._mail_config is None:
@@ -67,16 +70,9 @@ class Watcher():
 		'''
 
 		if self._mailbox_instance is None:
-			try:
-				mail_config = jsonfiles.read(self._mail_config)
-
-			except FileNotFoundError:
-				raise WatcherNoMailConfigError()
-
-			else:
-				self._mailbox_instance = imaplib.IMAP4(mail_config['host'], mail_config['port'])
-				self._mailbox_instance.login(mail_config['user'], mail_config['password'])
-				self._mailbox_instance.select('INBOX')
+			self._mailbox_instance = imaplib.IMAP4(self._mail_config['host'], self._mail_config['port'])
+			self._mailbox_instance.login(self._mail_config['user'], self._mail_config['password'])
+			self._mailbox_instance.select('INBOX')
 
 		return self._mailbox_instance
 
@@ -96,16 +92,11 @@ class Watcher():
 			The mail notifications configuration.
 		'''
 
-		if self._mail_notifications_config_dict is None:
-			try:
-				self._mail_notifications_config_dict = jsonfiles.read(self._mail_notifications_config_file)
+		if not(self._mail_notifications_config_compiled):
+			self._mail_notifications_config_dict['search'] = '"' + self._mail_notifications_config_dict['search'] + '"'
+			self._mail_notifications_config_dict['infos_extraction']['subject_regex'] = re.compile(self._mail_notifications_config_dict['infos_extraction']['subject'])
 
-			except FileNotFoundError:
-				raise WatcherNoMailNotificationsConfigError()
-
-			else:
-				self._mail_notifications_config_dict['search'] = '"' + self._mail_notifications_config_dict['search'] + '"'
-				self._mail_notifications_config_dict['infos_extraction']['subject_regex'] = re.compile(self._mail_notifications_config_dict['infos_extraction']['subject'])
+			self._mail_notifications_config_compiled = True
 
 		return self._mail_notifications_config_dict
 

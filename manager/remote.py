@@ -14,8 +14,8 @@ class RemoteFolder():
 
 	Parameters
 	----------
-	folder_conf : str
-		Path to the configuration file of the remote folder.
+	folder_conf : dict
+		Configuration of the remote folder.
 
 	Raises
 	------
@@ -24,12 +24,7 @@ class RemoteFolder():
 	'''
 
 	def __init__(self, folder_conf):
-		self._configuration_file = folder_conf
-
-		if not(os.path.isfile(self._configuration_file)):
-			raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self._configuration_file)
-
-		self._configuration = jsonfiles.read(self._configuration_file)
+		self._configuration = folder_conf
 
 	def open(self):
 		'''

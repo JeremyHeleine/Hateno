@@ -5,10 +5,6 @@ import datetime
 
 from manager.errors import *
 
-def LOG(*args):
-	with open('lines.txt', 'a') as f:
-		f.write(' '.join(map(str, args)) + '\n')
-
 class UI():
 	'''
 	Represent the user interface. Make easy the display of lines that can be updated, and the creation of progress bars.
