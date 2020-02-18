@@ -65,3 +65,34 @@ def hash(s):
 	b = codecs.encode(codecs.decode(h.encode('utf-8'), 'hex'), 'base64').decode()
 
 	return b[:-1].replace('+', '-').replace('/', '_')[:-2]
+
+def plural(n, if_single, if_plural, *, add_n = True):
+	'''
+	Return a string or another, depending on a number.
+
+	Parameters
+	----------
+	n : int
+		The number to test.
+
+	if_single : str
+		The string to return if `n` is lower or equal than 1.
+
+	if_plural : str
+		The string to return if `n` is greater than 1.
+
+	add_n : bool
+		`True` to prepend the string by the number, `False` to only get the string.
+
+	Returns
+	-------
+	s : str
+		The single or plural string, depending on the test.
+	'''
+
+	s = if_plural if n > 1 else if_single
+
+	if add_n:
+		s = f'{n} {s}'
+
+	return s

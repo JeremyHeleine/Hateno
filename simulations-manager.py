@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script simply uses the Manager class to manage simulations of a folder.
+'''
+
+import argparse
+
+from utils import jsonfiles, string
+from manager.ui import UI
+from manager.folder import Folder
+from manager.manager import Manager
+
+parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
+
+parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
+parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
+parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
+parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list to add/delete/extract can be found')
+
+args = parser.parse_args()
+
+folder = Folder(args.folder_path)
+manager = Manager(folder)
+ui = UI()
+
+simulations = jsonfiles.read(args.simulations_list.name)
+
+modes_configs = {
+	'add': {
+		'action': 'Adding',
+		'done': 'added',
+		'function': manager.batchAdd
+	},
+
+	'delete': {
+		'action': 'Deleting',
+		'done': 'deleted',
+		'function': manager.batchDelete
+	},
+
+	'extract': {
+		'action': 'Extracting',
+		'done': 'extracted',
+		'function': manager.batchExtract
+	}
+}
+
+infos_line = ui.addTextLine(f'{modes_configs[args.mode]["action"]} {string.plural(len(simulations), "simulation", "simulations")}…')
+progress_bar = ui.addProgressBar(len(simulations))
+
+issues = modes_configs[args.mode]['function'](simulations, callback = lambda : ui.updateProgressBar(progress_bar))
+
+ui.removeProgressBar(progress_bar)
+
+if issues and args.errors:
+	jsonfiles.write(issues, args.errors)
+
+final_update = string.plural(len(simulations) - len(issues), 'simulation', 'simulations')
+final_update += ' ' + modes_configs[args.mode]['done']
+
+if issues:
+	final_update += ', ' + string.plural(len(issues), 'error', 'errors')
+
+ui.replaceTextLine(infos_line, final_update)
