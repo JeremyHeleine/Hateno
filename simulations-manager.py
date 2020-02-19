@@ -25,7 +25,7 @@ folder = Folder(args.folder_path)
 manager = Manager(folder)
 ui = UI()
 
-simulations = jsonfiles.read(args.simulations_list.name)
+simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 
 modes_configs = {
 	'add': {

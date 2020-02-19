@@ -25,7 +25,7 @@ args = parser.parse_args()
 folder = Folder(args.folder_path)
 generator = Generator(folder)
 
-simulations = jsonfiles.read(args.simulations_list.name)
+simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 generator.add(simulations)
 
 if args.recipe is None or args.output_dir is None:

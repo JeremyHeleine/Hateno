@@ -34,7 +34,7 @@ try:
 except KeyError:
 	pass
 
-simulations = jsonfiles.read(args.simulations_list.name)
+simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 
 maker = Maker(args.folder_path, settings['remote_folder'], **maker_settings)
 maker.run(simulations, settings['generator_recipe'])
