@@ -344,6 +344,46 @@ class RemoteFolder():
 
 		return directory
 
+	def send(self, local_path, remote_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
+		'''
+		Send a file or a directory.
+
+		Parameters
+		----------
+		local_path : str
+			Path of the file/directory to send.
+
+		remote_path : str
+			Path of the remote file/directory to create.
+
+		copy_permissions : boolean
+			`True` to copy the chmod from the local file/directory.
+
+		delete : boolean
+			`True` to delete the local file/directory, once sent.
+
+		empty_dest : boolean
+			`True` to ensure the destination folder is empty in the case of a directory.
+
+		Returns
+		-------
+		remote_path : str
+			Remote path of the sent file/directory.
+		'''
+
+		kwargs = {
+			'copy_permissions': copy_permissions,
+			'delete': delete
+		}
+
+		send = self.sendFile
+
+		if os.path.isdir(local_path):
+			send = self.sendDir
+			kwargs['empty_dest'] = empty_dest
+
+		return send(local_path, remote_path, **kwargs)
+
 	def deleteRemote(self, entries):
 		'''
 		Recursively delete some remote entries.

@@ -24,7 +24,6 @@ remote_folder_conf = jsonfiles.read(args.remote_folder.name)
 remote_folder = RemoteFolder(remote_folder_conf)
 remote_folder.open()
 
-send = remote_folder.sendFile if os.path.isfile(args.to_send) else remote_folder.sendDir
-send(args.to_send, args.remote_path, delete = args.delete)
+remote_folder.send(args.to_send, args.remote_path, delete = args.delete)
 
 remote_folder.close()
