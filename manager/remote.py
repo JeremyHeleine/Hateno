@@ -384,6 +384,46 @@ class RemoteFolder():
 
 		return send(local_path, remote_path, **kwargs)
 
+	def receive(self, remote_path, local_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
+		'''
+		Receive (download) a file/directory.
+
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote file/directory to receive.
+
+		local_path : str
+			Name of the file/directory to create.
+
+		copy_permissions : boolean
+			`True` to copy the chmod from the remote file/directory.
+
+		delete : boolean
+			`True` to delete the remote file/directory.
+
+		empty_dest : boolean
+			`True` to ensure the destination folder is empty in the case of a directory.
+
+		Returns
+		-------
+		local_path : str
+			Local path of the received file/directory.
+		'''
+
+		kwargs = {
+			'copy_permissions': copy_permissions,
+			'delete': delete
+		}
+
+		receive = self.receiveFile
+
+		if stat.S_ISDIR(self._sftp.stat(remote_path).st_mode):
+			receive = self.receiveDir
+			kwargs['empty_dest'] = empty_dest
+
+		return receive(remote_path, local_path, **kwargs)
+
 	def deleteRemote(self, entries):
 		'''
 		Recursively delete some remote entries.
