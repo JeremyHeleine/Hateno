@@ -159,8 +159,6 @@ class Maker():
 		Clear all instances of the modules.
 		'''
 
-		self.displayState('Closing everything…')
-
 		self._manager_instance = None
 		self._generator_instance = None
 
@@ -347,6 +345,11 @@ class Maker():
 
 		generator_recipe : dict
 			Recipe to use in the generator to generate the scripts.
+
+		Returns
+		-------
+		unknown_simulations : list
+			List of simulations that failed to be generated.
 		'''
 
 		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
@@ -373,6 +376,14 @@ class Maker():
 
 			self.displayState('Deleting the scripts folder…')
 			self._remote_folder.deleteRemote([generator_recipe['basedir']])
+
+		if unknown_simulations:
+			self.displayState(string.plural(len(unknown_simulations), 'simulation still does not exist', 'simulations still do not exist'))
+
+		else:
+			self.displayState('All simulations have successfully been extracted')
+
+		return unknown_simulations
 
 	def extractSimulations(self, simulations):
 		'''
