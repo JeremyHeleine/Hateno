@@ -7,6 +7,7 @@ import stat
 import re
 import functools
 import inspect
+import copy
 from string import Template
 
 from manager.errors import *
@@ -30,6 +31,7 @@ class Generator():
 		self._simulations_to_generate = []
 
 		self._lists_regex_compiled = None
+		self._lists_items_regex_compiled = None
 
 		self._variables_generators_regex_compiled = None
 		self._variables_generators_list = None
@@ -65,6 +67,22 @@ class Generator():
 			self._lists_regex_compiled = re.compile(r'^[ \t]*#{3} BEGIN_(?P<tag>[A-Z_]+) #{3}$.+?^(?P<content>.+?)^[ \t]*#{3} END_\1 #{3}$.+?^', flags = re.MULTILINE | re.DOTALL)
 
 		return self._lists_regex_compiled
+
+	@property
+	def _lists_items_regex(self):
+		'''
+		Regex to detect the presence of lists items as variables names.
+
+		Returns
+		-------
+		regex : re.Pattern
+			The lists items regex.
+		'''
+
+		if self._lists_items_regex_compiled is None:
+			self._lists_items_regex_compiled = re.compile(r'^(?P<list>[A-Z_]+)__(?P<index>[0-9]+)$')
+
+		return self._lists_items_regex_compiled
 
 	@property
 	def _variables_generators(self):
@@ -231,7 +249,17 @@ class Generator():
 
 		script_content += skeleton[k0:]
 
-		script_content = Template(script_content).safe_substitute(**variables)
+		variables = copy.deepcopy(variables)
+		script_content_template = Template(script_content)
+
+		for match in script_content_template.pattern.finditer(script_content_template.template):
+			if match.group('braced'):
+				submatch = self._lists_items_regex.match(match.group('braced'))
+
+				if submatch:
+					variables[submatch.group(0)] = lists[submatch.group('list')][int(submatch.group('index'))]
+
+		script_content = script_content_template.safe_substitute(**variables)
 
 		with open(output_name, 'w') as f:
 			f.write(script_content)
