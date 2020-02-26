@@ -5,11 +5,11 @@ import os
 import stat
 import time
 import tempfile
-import copy
 
 from utils import string
 
 from manager.folder import Folder
+from manager.simulation import Simulation
 from manager.manager import Manager
 from manager.generator import Generator
 from manager.remote import RemoteFolder
@@ -536,6 +536,8 @@ class Maker():
 		simulations_to_add = []
 
 		for simulation in simulations:
+			simulation = Simulation.ensureType(simulation, self._simulations_folder)
+
 			tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
 			try:
 				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
@@ -543,9 +545,8 @@ class Maker():
 			except RemotePathNotFoundError:
 				pass
 
-			simulation_to_add = copy.deepcopy(simulation)
-			simulation_to_add['folder'] = tmpdir
-			simulations_to_add.append(simulation_to_add)
+			simulation['folder'] = tmpdir
+			simulations_to_add.append(simulation)
 
 			self.updateProgressBar(progress_bar)
 
