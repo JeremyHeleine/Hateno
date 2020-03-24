@@ -7,10 +7,10 @@ This script uses the Generator class to generate the scripts corresponding to so
 
 import argparse
 
-from utils import jsonfiles
-from manager.folder import Folder
-from manager.generator import Generator
-from manager.errors import *
+from hateno import jsonfiles
+from hateno.folder import Folder
+from hateno.generator import Generator
+from hateno.errors import *
 
 parser = argparse.ArgumentParser(description = 'Generate command lines and scripts to create simulations.')
 

@@ -1,0 +1,12 @@
+{
+	"folder": "test",
+	"settings": [
+		{
+			"set": "range",
+			"settings": {
+				"from": 2016,
+				"to": 2021
+			}
+		}
+	]
+}

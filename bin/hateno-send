@@ -5,11 +5,10 @@
 This script uses the RemoteFolder class to send files or directory.
 '''
 
-import os
 import argparse
 
-from utils import jsonfiles
-from manager.remote import RemoteFolder
+from hateno import jsonfiles
+from hateno.remote import RemoteFolder
 
 parser = argparse.ArgumentParser(description = 'Send files or directory to a remote folder.')
 

@@ -3,7 +3,7 @@
 
 import datetime
 
-from manager.errors import *
+from .errors import *
 
 class UI():
 	'''

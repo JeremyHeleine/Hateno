@@ -10,9 +10,9 @@ import inspect
 import copy
 from string import Template
 
-from manager.errors import *
-from manager.simulation import Simulation
-import manager.generators as generators
+from .errors import *
+from .simulation import Simulation
+from . import generators
 
 class Generator():
 	'''

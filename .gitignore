@@ -1,1 +1,5 @@
 __pycache__
+.venv
+
+examples/*/.simulations.list
+examples/*/*.tar.bz2

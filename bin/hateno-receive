@@ -7,8 +7,8 @@ This script uses the RemoteFolder class to receive files or directory.
 
 import argparse
 
-from utils import jsonfiles
-from manager.remote import RemoteFolder
+from hateno import jsonfiles
+from hateno.remote import RemoteFolder
 
 parser = argparse.ArgumentParser(description = 'Receive files or directory from a remote folder.')
 

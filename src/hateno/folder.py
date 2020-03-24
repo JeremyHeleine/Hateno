@@ -3,7 +3,7 @@
 
 import os
 
-from utils import jsonfiles
+from . import jsonfiles
 
 class Folder():
 	'''

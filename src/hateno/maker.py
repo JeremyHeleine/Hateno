@@ -6,16 +6,16 @@ import stat
 import time
 import tempfile
 
-from utils import string
+from . import string
 
-from manager.folder import Folder
-from manager.simulation import Simulation
-from manager.manager import Manager
-from manager.generator import Generator
-from manager.remote import RemoteFolder
-from manager.watcher import Watcher
-from manager.ui import UI
-from manager.errors import *
+from .folder import Folder
+from .simulation import Simulation
+from .manager import Manager
+from .generator import Generator
+from .remote import RemoteFolder
+from .watcher import Watcher
+from .ui import UI
+from .errors import *
 
 class Maker():
 	'''

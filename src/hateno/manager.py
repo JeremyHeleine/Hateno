@@ -10,10 +10,10 @@ import tarfile
 
 import re
 
-from utils import jsonfiles, string
-from manager.errors import *
-from manager.simulation import Simulation
-import manager.checkers as checkers
+from . import jsonfiles, string
+from .errors import *
+from .simulation import Simulation
+from . import checkers
 
 class Manager():
 	'''

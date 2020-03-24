@@ -5,8 +5,8 @@ import os
 import stat
 import paramiko
 
-from utils import jsonfiles
-from manager.errors import *
+from . import jsonfiles
+from .errors import *
 
 class RemoteFolder():
 	'''

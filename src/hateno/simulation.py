@@ -6,8 +6,8 @@ import functools
 import re
 import inspect
 
-from manager.errors import *
-import manager.fixers as fixers
+from .errors import *
+from . import fixers
 
 class Simulation():
 	'''

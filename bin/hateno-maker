@@ -7,8 +7,8 @@ This script uses the Maker class to extract/generate simulations.
 
 import argparse
 
-from utils import jsonfiles
-from manager.maker import Maker
+from hateno import jsonfiles
+from hateno.maker import Maker
 
 parser = argparse.ArgumentParser(description = 'Extract, and generate if needed, some simulations.')
 

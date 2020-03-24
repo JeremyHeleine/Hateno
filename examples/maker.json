@@ -1,0 +1,25 @@
+{
+	"remote_folder": {
+		"host": "192.168.0.14",
+		"user": "pi",
+		"working_directory": "Hateno_tests"
+	},
+
+	"generator_recipe": {
+		"max_simulations": 4,
+		"make_executable": true,
+		"subgroups_skeletons": ["examples/skeletons/basic/simulations.skeleton.sh"],
+		"wholegroup_skeletons": ["examples/skeletons/basic/launch.skeleton.sh"],
+		"launch": "examples/skeletons/basic/launch.skeleton.sh",
+		"jobs_output_filename": "job.out",
+		"jobs_states_filename": "jobs.txt",
+		"data_lists": {},
+		"data_variables": {},
+		"data_variables_cases": {}
+	},
+
+	"settings": {
+		"max_corrupted": -1,
+		"max_failures": 0
+	}
+}

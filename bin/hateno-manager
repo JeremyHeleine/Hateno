@@ -7,10 +7,10 @@ This script simply uses the Manager class to manage simulations of a folder.
 
 import argparse
 
-from utils import jsonfiles, string
-from manager.ui import UI
-from manager.folder import Folder
-from manager.manager import Manager
+from hateno import jsonfiles, string
+from hateno.ui import UI
+from hateno.folder import Folder
+from hateno.manager import Manager
 
 parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
 

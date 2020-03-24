@@ -5,8 +5,8 @@ import re
 import imaplib
 import email
 
-from manager.errors import *
-from utils import jsonfiles
+from . import jsonfiles
+from .errors import *
 
 class Watcher():
 	'''
