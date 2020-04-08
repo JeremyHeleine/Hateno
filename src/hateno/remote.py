@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import io
 import os
 import stat
+import shutil
+import subprocess
 import paramiko
 
 from . import jsonfiles
@@ -25,18 +28,23 @@ class RemoteFolder():
 
 	def __init__(self, folder_conf):
 		self._configuration = folder_conf
+		self._local = (self._configuration['host'] == 'local')
 
 	def open(self):
 		'''
 		Open the connection.
 		'''
 
-		self._ssh = paramiko.SSHClient()
-		self._ssh.load_system_host_keys()
-		self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-		self._ssh.connect(self._configuration['host'], username = self._configuration['user'])
+		if self._local:
+			self._sftp = LocalSFTP()
 
-		self._sftp = self._ssh.open_sftp()
+		else:
+			self._ssh = paramiko.SSHClient()
+			self._ssh.load_system_host_keys()
+			self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+			self._ssh.connect(self._configuration['host'], username = self._configuration['user'])
+
+			self._sftp = self._ssh.open_sftp()
 
 		if 'working_directory' in self._configuration:
 			self._sftp.chdir(self._configuration['working_directory'])
@@ -70,8 +78,15 @@ class RemoteFolder():
 		if 'working_directory' in self._configuration:
 			cmd = f'cd {self._configuration["working_directory"]}; {cmd}'
 
-		stdin, stdout, stderr = self._ssh.exec_command(cmd)
-		return stdout
+		if self._local:
+			p = subprocess.run(cmd, shell = True, stdout = subprocess.PIPE)
+
+			stdout = io.StringIO(p.stdout.decode())
+			return stdout
+
+		else:
+			stdin, stdout, stderr = self._ssh.exec_command(cmd)
+			return stdout
 
 	def copyChmodToRemote(self, filename, remote_path):
 		'''
@@ -454,3 +469,180 @@ class RemoteFolder():
 
 		for entry in entries:
 			(shutil.rmtree if os.path.isdir(entry) else os.unlink)(entry)
+
+class LocalSFTP():
+	'''
+	Implement some actions on local files, with the same methods names than paramiko.SFTP.
+
+	Parameters
+	----------
+	wd : str
+		Working directory (base directory to use for the files).
+	'''
+
+	def __init__(self, wd = '.'):
+		self._wd = wd
+
+	def chdir(self, wd):
+		'''
+		Change the working directory.
+
+		Parameters
+		----------
+		wd : str
+			Working directory to use.
+		'''
+
+		self._wd = wd
+
+	def path(self, path):
+		'''
+		Prepend a path with the working directory.
+
+		Parameters
+		----------
+		path : str
+			Path to prepend.
+
+		Returns
+		-------
+		complete_path : str
+			The complete path, prepended.
+		'''
+
+		return os.path.join(self._wd, path)
+
+	def put(self, local_path, remote_path):
+		'''
+		Copy a file into the working directory.
+
+		Parameters
+		----------
+		local_path : str
+			Path to the file to copy.
+
+		remote_path : str
+			Path of the copied file.
+		'''
+
+		shutil.copy(local_path, self.path(remote_path))
+
+	def get(self, remote_path, local_path):
+		'''
+		Copy a file from the working directory.
+
+		Parameters
+		----------
+		remote_path : str
+			Path to the file to copy.
+
+		local_path : str
+			Path of the copied file.
+		'''
+
+		shutil.copy(self.path(remote_path), local_path)
+
+	def remove(self, path):
+		'''
+		Remove a file.
+
+		Parameters
+		----------
+		path : str
+			Path to the file to remove.
+		'''
+
+		os.unlink(self.path(path))
+
+	def mkdir(self, dir):
+		'''
+		Create a directory.
+
+		Parameters
+		----------
+		dir : str
+			Path to the directory to create.
+		'''
+
+		os.mkdir(self.path(dir))
+
+	def rmdir(self, dir):
+		'''
+		Remove a directory.
+
+		Parameters
+		----------
+		dir : str
+			Path to the directory to remove.
+		'''
+
+		os.rmdir(self.path(dir))
+
+	def stat(self, path):
+		'''
+		Get some numbers about a file.
+
+		Parameters
+		----------
+		path : str
+			Path of the file.
+
+		Returns
+		-------
+		res : os.stat_result
+			Result of the stat function.
+		'''
+
+		return os.stat(self.path(path))
+
+	def chmod(self, path, mode):
+		'''
+		Change the mode of a file.
+
+		Parameters
+		----------
+		path : str
+			Path to the file to alter.
+
+		mode : int
+			New mode to apply.
+		'''
+
+		os.chmod(self.path(path), mode)
+
+	def listdir(self, dir):
+		'''
+		List a directory.
+
+		Parameters
+		----------
+		dir : str
+			Path of the directory to list.
+
+		Returns
+		-------
+		content : list
+			Entries contained in the directory.
+		'''
+
+		return os.listdir(self.path(dir))
+
+	def open(self, path, mode):
+		'''
+		Open a file.
+
+		Parameters
+		----------
+		path : str
+			Path to the file to open.
+
+		mode : str
+			Opening mode.
+
+		Returns
+		-------
+		fid : TextIOWrapper
+			Opened file.
+		'''
+
+		return open(self.path(path), mode)
