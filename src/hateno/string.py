@@ -5,6 +5,7 @@ import re
 import codecs
 import base64
 import hashlib
+import uuid
 import json
 
 def intOrNone(s):
@@ -65,6 +66,18 @@ def hash(s):
 	b = codecs.encode(codecs.decode(h.encode('utf-8'), 'hex'), 'base64').decode()
 
 	return b[:-1].replace('+', '-').replace('/', '_')[:-2]
+
+def uniqueID():
+	'''
+	Generate a unique ID.
+
+	Returns
+	-------
+	id : str
+		The generated ID, as a 32-character hexadecimal string.
+	'''
+
+	return uuid.uuid4().hex
 
 def plural(n, if_single, if_plural, *, add_n = True):
 	'''

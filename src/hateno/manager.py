@@ -259,14 +259,18 @@ class Manager():
 			raise SimulationFolderNotFoundError(simulation['folder'])
 
 		settings_str = string.fromObject(simulation.settings)
-		simulation_name = string.hash(settings_str)
+		settings_hashed = string.hash(settings_str)
+		simulation_name = string.uniqueID()
 
 		if not(self.checkIntegrity(simulation)):
 			raise SimulationIntegrityCheckFailedError(simulation['folder'])
 
 		self.compress(simulation['folder'], simulation_name)
 
-		self._simulations_list[simulation_name] = settings_str
+		self._simulations_list[settings_hashed] = {
+			'name': simulation_name,
+			'settings': settings_str
+		}
 
 		if save_list:
 			self.saveSimulationsList()
@@ -290,13 +294,15 @@ class Manager():
 		'''
 
 		simulation = Simulation.ensureType(simulation, self._folder)
-		simulation_name = string.hash(string.fromObject(simulation.settings))
+		settings_hashed = string.hash(string.fromObject(simulation.settings))
 
-		if not(simulation_name in self._simulations_list):
-			raise SimulationNotFoundError(simulation_name)
+		if not(settings_hashed in self._simulations_list):
+			raise SimulationNotFoundError(settings_hashed)
+
+		simulation_name = self._simulations_list[settings_hashed]['name']
 
 		os.unlink(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'))
-		del self._simulations_list[simulation_name]
+		del self._simulations_list[settings_hashed]
 
 		if save_list:
 			self.saveSimulationsList()
@@ -320,13 +326,15 @@ class Manager():
 		'''
 
 		simulation = Simulation.ensureType(simulation, self._folder)
-		simulation_name = string.hash(string.fromObject(simulation.settings))
+		settings_hashed = string.hash(string.fromObject(simulation.settings))
 
-		if not(simulation_name in self._simulations_list):
-			raise SimulationNotFoundError(simulation_name)
+		if not(settings_hashed in self._simulations_list):
+			raise SimulationNotFoundError(settings_hashed)
 
 		if os.path.exists(simulation['folder']):
 			raise SimulationFolderAlreadyExistError(simulation['folder'])
+
+		simulation_name = self._simulations_list[settings_hashed]['name']
 
 		destination_path = os.path.dirname(os.path.normpath(simulation['folder']))
 		if destination_path and not(os.path.isdir(destination_path)):
