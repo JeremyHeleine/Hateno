@@ -27,6 +27,9 @@ ui = UI()
 
 simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 
+if not(type(simulations) is list):
+	simulations = [simulations]
+
 modes_configs = {
 	'add': {
 		'action': 'Adding',
