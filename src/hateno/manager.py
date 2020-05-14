@@ -232,6 +232,18 @@ class Manager():
 
 		shutil.move(os.path.join(self._folder.folder, simulation_name), folder)
 
+	def getSimulationsNumber(self):
+		'''
+		Returns the total number of simulations stored in the folder.
+
+		Returns
+		-------
+		n : int
+			The number of simulations.
+		'''
+
+		return len(self._simulations_list)
+
 	def add(self, simulation, save_list = True):
 		'''
 		Add a simulation to the list.
@@ -466,10 +478,15 @@ class Manager():
 
 		return self.batchAction(simulations, self.extract, save_list = False, errors_store = errors_store, errors_pass = errors_pass, callback = callback)
 
-	def checkSimulationsList(self):
+	def checkSimulationsList(self, callback = None):
 		'''
 		Check whether the simulations list has the right format.
 		If it has the old one, update all the necessary files.
+
+		Parameters
+		----------
+		callback : function
+			Function to call at each treated simulation.
 		'''
 
 		test_infos = self._simulations_list[list(self._simulations_list.keys())[0]]
@@ -489,6 +506,9 @@ class Manager():
 					'name': simulation_name,
 					'settings': settings_str
 				}
+
+				if not(callback is None):
+					callback()
 
 			self._simulations_list_dict = new_simulations_list
 			self.saveSimulationsList()

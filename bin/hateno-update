@@ -22,5 +22,9 @@ manager = Manager(folder)
 ui = UI()
 
 infos_line = ui.addTextLine('Checking the simulations list…')
-manager.checkSimulationsList()
+progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+
+manager.checkSimulationsList(callback = lambda : ui.updateProgressBar(progress_bar))
+
+ui.removeProgressBar(progress_bar)
 ui.replaceTextLine(infos_line, 'Simulations list checked')
