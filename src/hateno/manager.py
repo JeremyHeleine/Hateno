@@ -465,3 +465,30 @@ class Manager():
 			errors_pass = ()
 
 		return self.batchAction(simulations, self.extract, save_list = False, errors_store = errors_store, errors_pass = errors_pass, callback = callback)
+
+	def checkSimulationsList(self):
+		'''
+		Check whether the simulations list has the right format.
+		If it has the old one, update all the necessary files.
+		'''
+
+		test_infos = self._simulations_list[list(self._simulations_list.keys())[0]]
+
+		if not(type(test_infos) is dict) or not('name' in test_infos and 'settings' in test_infos):
+			new_simulations_list = {}
+
+			for settings_hashed, settings_str in self._simulations_list.items():
+				simulation_name = string.uniqueID()
+				tmp_path = os.path.join(self._folder.folder, simulation_name)
+
+				self.uncompress(settings_hashed, tmp_path)
+				os.unlink(os.path.join(self._folder.folder, f'{settings_hashed}.tar.bz2'))
+				self.compress(tmp_path, simulation_name)
+
+				new_simulations_list[settings_hashed] = {
+					'name': simulation_name,
+					'settings': settings_str
+				}
+
+			self._simulations_list_dict = new_simulations_list
+			self.saveSimulationsList()
