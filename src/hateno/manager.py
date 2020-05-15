@@ -244,6 +244,32 @@ class Manager():
 
 		return len(self._simulations_list)
 
+	def settingsOf(self, simulation_name):
+		'''
+		Return the whole settings set of a simulation.
+
+		Parameters
+		----------
+		simulation_name : str
+			Name of the simulation.
+
+		Raises
+		------
+		SimulationNotFoundError
+			The simulation does not exist in the list.
+
+		Returns
+		-------
+		settings : dict
+			Settings of the simulation.
+		'''
+
+		try:
+			return string.toObject(self._simulations_list[simulation_name]['settings'])
+
+		except KeyError:
+			raise SimulationNotFoundError(simulation_name)
+
 	def add(self, simulation, save_list = True):
 		'''
 		Add a simulation to the list.

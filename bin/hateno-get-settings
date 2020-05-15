@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script simply uses the Manager class to extract the settings of a simulation.
+'''
+
+import argparse
+import pprint
+
+from hateno.folder import Folder
+from hateno.manager import Manager
+
+parser = argparse.ArgumentParser(description = 'Extract the settings of a simulation.')
+
+parser.add_argument('folder_path', type = str, help = 'path to the managed folder')
+parser.add_argument('simulation_name', type = str, help = 'name of the simulation')
+
+args = parser.parse_args()
+
+folder = Folder(args.folder_path)
+manager = Manager(folder)
+
+settings = manager.settingsOf(args.simulation_name)
+pprint.pprint(settings, width = 1)
