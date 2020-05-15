@@ -379,6 +379,15 @@ class Simulation():
 		Each set of settings is a list of all settings in this set.
 		'''
 
+		if type(self._user_settings['settings']) is list:
+			user_settings = {
+				setting_set_name: [s['settings'] for s in self._user_settings['settings'] if s['set'] == setting_set_name]
+				for setting_set_name in set([s['set'] for s in self._user_settings['settings']])
+			}
+
+		else:
+			user_settings = self._user_settings['settings']
+
 		self._raw_settings_dict = {}
 		default_pattern = self._folder.settings['setting_pattern']
 
@@ -393,9 +402,17 @@ class Simulation():
 				for s in settings_set['settings']
 			]
 
-			values_sets = [s['settings'] for s in self._user_settings['settings'] if s['set'] == settings_set['set']]
+			try:
+				values_sets = user_settings[settings_set['set']]
 
-			if values_sets:
+			except KeyError:
+				if settings_set['required']:
+					self._raw_settings_dict[settings_set['set']] = [default_settings]
+
+			else:
+				if not(type(values_sets) is list):
+					values_sets = [values_sets]
+
 				self._raw_settings_dict[settings_set['set']] = []
 
 				for values_set in values_sets:
@@ -409,9 +426,6 @@ class Simulation():
 							pass
 
 					self._raw_settings_dict[settings_set['set']].append(set_to_add)
-
-			elif settings_set['required']:
-				self._raw_settings_dict[settings_set['set']] = [default_settings]
 
 		self._raw_settings = sum(self._raw_settings_dict.values(), [])
 		self.parseSettings()
