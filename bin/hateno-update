@@ -28,3 +28,11 @@ manager.checkSimulationsList(callback = lambda : ui.updateProgressBar(progress_b
 
 ui.removeProgressBar(progress_bar)
 ui.replaceTextLine(infos_line, 'Simulations list checked')
+
+ui.replaceTextLine(infos_line, 'Updating the simulations list…')
+progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+
+manager.update(callback = lambda : ui.updateProgressBar(progress_bar))
+
+ui.removeProgressBar(progress_bar)
+ui.replaceTextLine(infos_line, 'Simulations list updated')

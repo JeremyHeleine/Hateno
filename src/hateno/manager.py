@@ -538,3 +538,35 @@ class Manager():
 
 			self._simulations_list_dict = new_simulations_list
 			self.saveSimulationsList()
+
+	def update(self, callback = None):
+			'''
+			Update the simulations list to take into account new settings.
+
+			Parameters
+			----------
+			callback : function
+				Function to call at each treated simulation.
+			'''
+
+			new_simulations_list = {}
+
+			for settings_hashed, infos in self._simulations_list.items():
+				simulation = Simulation.ensureType({
+					'folder': '',
+					'settings': string.toObject(infos['settings'])
+				}, self._folder)
+
+				settings_str = string.fromObject(simulation.settings_dict)
+				settings_hashed = string.hash(settings_str)
+
+				new_simulations_list[settings_hashed] = {
+					'name': infos['name'],
+					'settings': settings_str
+				}
+
+				if not(callback is None):
+					callback()
+
+			self._simulations_list_dict = new_simulations_list
+			self.saveSimulationsList()
