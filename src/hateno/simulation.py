@@ -28,6 +28,7 @@ class Simulation():
 
 		self._raw_globalsettings = None
 		self._raw_settings = None
+		self._raw_settings_dict = None
 
 		self._fixers_regex_compiled = None
 		self._fixers_list = None
@@ -145,6 +146,22 @@ class Simulation():
 		return self._raw_settings
 
 	@property
+	def _settings_dict(self):
+		'''
+		Return (and generate if needed) the complete list of settings as a dictionary.
+
+		Returns
+		-------
+		raw_settings : dict
+			The settings.
+		'''
+
+		if not(self._raw_settings_dict):
+			self.generateSettings()
+
+		return self._raw_settings_dict
+
+	@property
 	def settings(self):
 		'''
 		Return the complete list of sets of settings to use, as dictionaries.
@@ -160,6 +177,26 @@ class Simulation():
 			{s['name']: s['value'] for s in settings_set if not(s['exclude'])}
 			for settings_set in self._settings
 		]
+
+	@property
+	def settings_dict(self):
+		'''
+		Return a dictionary with the complete list of sets of settings to use, as dictionaries.
+		The settings with `exclude` to `True` are ignored.
+
+		Returns
+		-------
+		settings : dict
+			List of sets of settings.
+		'''
+
+		return {
+			settings_set_name: [
+				{s['name']: s['value'] for s in settings_set if not(s['exclude'])}
+				for settings_set in settings_sets
+			]
+			for settings_set_name, settings_sets in self._settings_dict.items()
+		}
 
 	@property
 	def settings_as_strings(self):
@@ -342,7 +379,7 @@ class Simulation():
 		Each set of settings is a list of all settings in this set.
 		'''
 
-		self._raw_settings = []
+		self._raw_settings_dict = {}
 		default_pattern = self._folder.settings['setting_pattern']
 
 		for settings_set in self._folder.settings['settings']:
@@ -359,6 +396,8 @@ class Simulation():
 			values_sets = [s['settings'] for s in self._user_settings['settings'] if s['set'] == settings_set['set']]
 
 			if values_sets:
+				self._raw_settings_dict[settings_set['set']] = []
+
 				for values_set in values_sets:
 					set_to_add = copy.deepcopy(default_settings)
 
@@ -369,11 +408,12 @@ class Simulation():
 						except KeyError:
 							pass
 
-					self._raw_settings.append(set_to_add)
+					self._raw_settings_dict[settings_set['set']].append(set_to_add)
 
 			elif settings_set['required']:
-				self._raw_settings.append(default_settings)
+				self._raw_settings_dict[settings_set['set']] = [default_settings]
 
+		self._raw_settings = sum(self._raw_settings_dict.values(), [])
 		self.parseSettings()
 
 	def fixValue(self, value):
