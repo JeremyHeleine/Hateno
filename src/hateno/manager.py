@@ -296,7 +296,7 @@ class Manager():
 		if not(os.path.isdir(simulation['folder'])):
 			raise SimulationFolderNotFoundError(simulation['folder'])
 
-		settings_str = string.fromObject(simulation.settings)
+		settings_str = string.fromObject(simulation.settings_dict)
 		settings_hashed = string.hash(settings_str)
 		simulation_name = string.uniqueID()
 
@@ -332,7 +332,7 @@ class Manager():
 		'''
 
 		simulation = Simulation.ensureType(simulation, self._folder)
-		settings_hashed = string.hash(string.fromObject(simulation.settings))
+		settings_hashed = string.hash(string.fromObject(simulation.settings_dict))
 
 		if not(settings_hashed in self._simulations_list):
 			raise SimulationNotFoundError(settings_hashed)
@@ -364,7 +364,7 @@ class Manager():
 		'''
 
 		simulation = Simulation.ensureType(simulation, self._folder)
-		settings_hashed = string.hash(string.fromObject(simulation.settings))
+		settings_hashed = string.hash(string.fromObject(simulation.settings_dict))
 
 		if not(settings_hashed in self._simulations_list):
 			raise SimulationNotFoundError(settings_hashed)
