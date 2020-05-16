@@ -202,6 +202,7 @@ class Simulation():
 	def settings_as_strings(self):
 		'''
 		Return the complete list of sets of settings to use, as strings.
+		Take into account the `only_if` parameter.
 
 		Returns
 		-------
@@ -210,7 +211,11 @@ class Simulation():
 		'''
 
 		return [
-			[s['pattern'].format(name = s['name'], value = s['value']) for s in settings_set]
+			[
+				s['pattern'].format(name = s['name'], value = s['value'])
+				for s in settings_set
+				if not('only_if' in s) or s['value'] == s['only_if']
+			]
 			for settings_set in self._settings
 		]
 
@@ -397,7 +402,8 @@ class Simulation():
 					'name': s['name'],
 					'value': s['default'],
 					'exclude': 'exclude' in s and s['exclude'],
-					'pattern': s['pattern'] if 'pattern' in s else default_pattern
+					'pattern': s['pattern'] if 'pattern' in s else default_pattern,
+					**({'only_if': s['only_if']} if 'only_if' in s else {})
 				}
 				for s in settings_set['settings']
 			]

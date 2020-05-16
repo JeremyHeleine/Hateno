@@ -8,7 +8,11 @@ a = int(sys.argv[sys.argv.index('-from')+1])
 b = int(sys.argv[sys.argv.index('-to')+1])
 h = int(sys.argv[sys.argv.index('-step')+1])
 
-output = '\n'.join(map(str, range(a, b, h)))
+joiner = '\n'
+if '-spaces' in sys.argv:
+	joiner = ' '
+
+output = joiner.join(map(str, range(a, b, h)))
 
 dir = sys.argv[sys.argv.index('-dir')+1]
 os.makedirs(dir)
