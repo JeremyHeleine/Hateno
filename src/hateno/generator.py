@@ -8,6 +8,7 @@ import re
 import functools
 import inspect
 import copy
+from math import ceil
 from string import Template
 
 from .errors import *
@@ -312,6 +313,9 @@ class Generator():
 
 		if not('max_simulations' in recipe) or recipe['max_simulations'] <= 0:
 			recipe['max_simulations'] = len(self._simulations_to_generate)
+
+		if 'max_subgroups' in recipe and len(self._simulations_to_generate) / recipe['max_simulations'] > recipe['max_subgroups']:
+			recipe['max_simulations'] = ceil(len(self._simulations_to_generate) / recipe['max_subgroups'])
 
 		simulations_sets = [self._simulations_to_generate[k:k+recipe['max_simulations']] for k in range(0, len(self._simulations_to_generate), recipe['max_simulations'])]
 

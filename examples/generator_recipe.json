@@ -1,5 +1,6 @@
 {
 	"max_simulations": 4,
+	"max_subgroups": 2,
 	"make_executable": true,
 	"subgroups_skeletons": ["examples/skeletons/basic/simulations.skeleton.sh"],
 	"wholegroup_skeletons": ["examples/skeletons/basic/launch.skeleton.sh"],
