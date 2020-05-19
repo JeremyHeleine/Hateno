@@ -169,7 +169,7 @@ class Simulation():
 		'''
 
 		return [
-			{s['name']: s['value'] for s in settings_set if not(s['exclude'])}
+			{s.name: s.value for s in settings_set if not(s.exclude)}
 			for settings_set in self._settings
 		]
 
@@ -187,7 +187,7 @@ class Simulation():
 
 		return {
 			settings_set_name: [
-				{s['name']: s['value'] for s in settings_set if not(s['exclude'])}
+				{s.name: s.value for s in settings_set if not(s.exclude)}
 				for settings_set in settings_sets
 			]
 			for settings_set_name, settings_sets in self._settings_dict.items()
@@ -206,11 +206,7 @@ class Simulation():
 		'''
 
 		return [
-			[
-				s['pattern'].format(name = s['name'], value = s['value'])
-				for s in settings_set
-				if not('only_if' in s) or s['value'] == s['only_if']
-			]
+			[str(s) for s in settings_set if s.shouldBeDisplayed()]
 			for settings_set in self._settings
 		]
 
@@ -288,15 +284,7 @@ class Simulation():
 	def generateSettings(self):
 		'''
 		Generate the full list of settings, taking into account the user settings and the default values in the folder.
-		The "raw settings" are generated. Each setting is a dictionary:
-		```
-		{
-			'name': 'name of the setting',
-			'value': 'value of the setting (initialized with the default one)',
-			'exclude': 'boolean to determine if we should exclude this setting for the comparison things',
-			'pattern': 'the pattern to use when we generate the corresponding string'
-		}
-		```
+		The "raw settings" are generated.
 		Each set of settings is a list of all settings in this set.
 		'''
 
@@ -314,13 +302,7 @@ class Simulation():
 
 		for settings_set in self._folder.settings['settings']:
 			default_settings = [
-				{
-					'name': s['name'],
-					'value': s['default'],
-					'exclude': 'exclude' in s and s['exclude'],
-					'pattern': s['pattern'] if 'pattern' in s else default_pattern,
-					**({'only_if': s['only_if']} if 'only_if' in s else {})
-				}
+				SimulationSetting(self._folder, settings_set['set'], s['name'])
 				for s in settings_set['settings']
 			]
 
@@ -342,7 +324,7 @@ class Simulation():
 
 					for setting in set_to_add:
 						try:
-							setting['value'] = self._folder.applyFixers(values_set[setting['name']])
+							setting.value = values_set[setting.name]
 
 						except KeyError:
 							pass
@@ -428,7 +410,7 @@ class Simulation():
 
 		for settings_set in self._settings:
 			for setting in settings_set:
-				setting['value'] = self.parseString(setting['value'])
+				setting.value = self.parseString(setting.value)
 
 class SimulationSetting():
 	'''
@@ -486,6 +468,31 @@ class SimulationSetting():
 		if self._use_only_if:
 			self._only_if_value = setting_dict['only_if']
 
+	def __str__(self):
+		'''
+		Return a string representing the setting and its value, according to the pattern.
+
+		Returns
+		-------
+		setting : str
+			The representation of the setting.
+		'''
+
+		return self._pattern.format(name = self.name, value = self.value)
+
+	@property
+	def name(self):
+		'''
+		Getter for the setting name.
+
+		Returns
+		-------
+		name : str
+			Name of the setting.
+		'''
+
+		return self._name
+
 	@property
 	def value(self):
 		'''
@@ -511,3 +518,29 @@ class SimulationSetting():
 		'''
 
 		self._value = self._folder.applyFixers(new_value)
+
+	@property
+	def exclude(self):
+		'''
+		Return `True` if the setting should be excluded to define a simulation.
+
+		Returns
+		-------
+		exclude : bool
+			Exclusion parameter.
+		'''
+
+		return self._exclude_for_db
+
+	def shouldBeDisplayed(self):
+		'''
+		Return `True` if the setting can be displayed/used for the execution.
+		This check is based on the `only_if` parameter.
+
+		Returns
+		-------
+		should_be_displayed : bool
+			The result of the check.
+		'''
+
+		return not(self._use_only_if) or self.value == self._only_if_value
