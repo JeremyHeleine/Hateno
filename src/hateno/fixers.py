@@ -33,3 +33,28 @@ def fixer_round(value, n_digits):
 		return round(value, n_digits)
 
 	return value
+
+def fixer_sortlist(value):
+	'''
+	Sort a list.
+	'''
+
+	if type(value) is list:
+		return sorted(value)
+
+	return value
+
+def fixer_list2str(value, separator = ', '):
+	'''
+	Convert a list into a string.
+
+	Parameters
+	----------
+	separator : str
+		String to place between each list item.
+	'''
+
+	if type(value) is list:
+		return separator.join(map(str, value))
+
+	return value
