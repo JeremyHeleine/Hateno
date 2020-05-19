@@ -8,6 +8,36 @@ class Error(Exception):
 
 	pass
 
+class SettingsSetNotFoundError(Error):
+	'''
+	Exception raised when a settings set has not been found.
+
+	Parameters
+	----------
+	set_name : str
+		Name of the set.
+	'''
+
+	def __init__(self, set_name):
+		self.set_name = set_name
+
+class SettingNotFoundError(Error):
+	'''
+	Exception raise when a setting has not been found in a given set.
+
+	Parameters
+	----------
+	set_name : str
+		Name of the set.
+
+	setting_name : str
+		Name of the setting
+	'''
+
+	def __init__(self, set_name, setting_name):
+		self.set_name = set_name
+		self.setting_name = setting_name
+
 class SimulationFolderNotFoundError(Error):
 	'''
 	Exception raised when we try to add a simulation to the manager, but the indicated folder does not exist.

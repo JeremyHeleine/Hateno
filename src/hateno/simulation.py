@@ -540,3 +540,59 @@ class Simulation():
 		for settings_set in self._settings:
 			for setting in settings_set:
 				setting['value'] = self.parseString(setting['value'])
+
+class SimulationSetting():
+	'''
+	Represent a simulation setting.
+
+	Parameters
+	----------
+	folder : Folder
+		The simulations folder this setting is part of.
+
+	set_name : str
+		Name of the set this setting is part of.
+
+	setting_name : str
+		Name of this setting.
+
+	Raises
+	------
+	SettingsSetNotFoundError
+		The settings set has not been found.
+
+	SettingNotFoundError
+		The setting has not been found in the set.
+	'''
+
+	def __init__(self, folder, set_name, setting_name):
+		self._folder = folder
+
+		try:
+			settings_set_dict = [
+				settings_set
+				for settings_set in self._folder.settings['settings']
+				if settings_set['set'] == set_name
+			][0]
+
+		except IndexError:
+			raise SettingsSetNotFoundError(set_name)
+
+		try:
+			setting_dict = [
+				setting
+				for setting in settings_set_dict['settings']
+				if setting['name'] == setting_name
+			][0]
+
+		except IndexError:
+			raise SettingNotFoundError(set_name, setting_name)
+
+		self._name = setting_dict['name']
+		self._value = setting_dict['default']
+		self._exclude_for_db = 'exclude' in setting_dict and setting_dict['exclude']
+		self._pattern = setting_dict['pattern'] if 'pattern' in setting_dict else self._folder.settings['setting_pattern']
+
+		self._use_only_if = 'only_if' in setting_dict
+		if self._use_only_if:
+			self._only_if_value = setting_dict['only_if']
