@@ -148,14 +148,21 @@ class Folder():
 
 		del self._fixers[fixer_name]
 
-	def applyFixers(self, value):
+	def applyFixers(self, value, before = [], after = []):
 		'''
 		Fix a value to prevent false duplicates (e.g. this prevents to consider `0.0` and `0` as different values).
+		Each item of a list of fixers is either a fixer's name or a list beginning with the fixer's name and followed by the arguments to pass to the fixer.
 
 		Parameters
 		----------
 		value : mixed
 			The value to fix.
+
+		before : list
+			List of fixers to apply before the global ones.
+
+		after : list
+			List of fixers to apply after the global ones.
 
 		Returns
 		-------
@@ -168,7 +175,7 @@ class Folder():
 			The fixer's name has not been found.
 		'''
 
-		for fixer in self.settings['fixes']:
+		for fixer in before + self.settings['fixes'] + after:
 			if not(type(fixer) is list):
 				fixer = [fixer]
 

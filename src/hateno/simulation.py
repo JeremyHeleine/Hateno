@@ -468,6 +468,14 @@ class SimulationSetting():
 		if self._use_only_if:
 			self._only_if_value = setting_dict['only_if']
 
+		self._fixers = {'before': [], 'after': []}
+		for when in ['before', 'after']:
+			try:
+				self._fixers[when] = setting_dict[f'fixes_{when}']
+
+			except KeyError:
+				pass
+
 	def __str__(self):
 		'''
 		Return a string representing the setting and its value, according to the pattern.
@@ -517,7 +525,7 @@ class SimulationSetting():
 			New value of the setting
 		'''
 
-		self._value = self._folder.applyFixers(new_value)
+		self._value = self._folder.applyFixers(new_value, **self._fixers)
 
 	@property
 	def exclude(self):
