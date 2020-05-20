@@ -99,4 +99,4 @@ def global_noMore(simulation, tree):
 		for output_entry, patterns in tree.items()
 	}
 
-	return set(folder_tree['folders']) == set(matching_tree['folders']) and set(folder_tree['files']) == set(matching_tree['files'])
+	return set(folder_tree['folders']) <= set(matching_tree['folders']) and set(folder_tree['files']) <= set(matching_tree['files'])
