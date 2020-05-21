@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4 - 2020-05-21
+
+* Fixers can be applied to specific settings only
+* New default fixers for lists
+* Limits for the generator can be set by subgroups number only
+* Fix: global checker noMore is not too greedy anymore
+
 ## 0.3 - 2020-05-16
 
 * New structure in the simulations list
