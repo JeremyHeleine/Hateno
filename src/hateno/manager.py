@@ -7,6 +7,7 @@ import inspect
 
 import shutil
 import tarfile
+import tempfile
 
 import re
 
@@ -229,6 +230,9 @@ class Manager():
 
 		with tarfile.open(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
 			tar.extractall(path = self._folder.folder)
+
+		if os.path.isdir(folder):
+			os.rmdir(folder)
 
 		shutil.move(os.path.join(self._folder.folder, simulation_name), folder)
 
@@ -570,3 +574,46 @@ class Manager():
 
 		self._simulations_list_dict = new_simulations_list
 		self.saveSimulationsList()
+
+	def transform(self, transformation, simulations_settings = None, callback = None):
+		'''
+		Apply a transformation operation to a given list of simulations, e.g. to store new informations.
+
+		Parameters
+		----------
+		transformation : function
+			Transformation to apply. This function must accept the following parameters.
+
+				simulation : Simulation
+					A Simulation object representing the settings of the current simulation.
+
+			Returned value is ignored.
+
+		simulations_settings : list
+			List of simulations to transform (only their settings). If `None`, will transform all the stored simulations.
+
+		callback : function
+			Function to call once a simulation has been transformed.
+		'''
+
+		if simulations_settings is None:
+			simulations_settings = [string.toObject(infos['settings']) for infos in self._simulations_list.values()]
+
+		for settings in simulations_settings:
+			simulation_dir = tempfile.mkdtemp(prefix = 'simulation_')
+
+			simulation = Simulation.ensureType({
+				'folder': simulation_dir,
+				'settings': settings
+			}, self._folder)
+
+			settings_hashed = string.hash(string.fromObject(simulation.settings_dict))
+			simulation_name = self._simulations_list[settings_hashed]['name']
+
+			self.uncompress(simulation_name, simulation_dir)
+			transformation(simulation)
+			os.unlink(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'))
+			self.compress(simulation_dir, simulation_name)
+
+			if not(callback is None):
+				callback()
