@@ -1,8 +1,6 @@
 {
 	"remote_folder": {
-		"host": "192.168.0.14",
-		"user": "pi",
-		"working_directory": "Hateno_tests"
+		"host": "local"
 	},
 
 	"generator_recipe": {
