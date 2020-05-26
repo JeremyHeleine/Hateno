@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5 - 2020-05-26
+
+* Simulations can be transformed
+* Settings file can be added to extracted simulations
+
 ## 0.4 - 2020-05-21
 
 * Fixers can be applied to specific settings only
