@@ -15,6 +15,8 @@ from hateno.manager import Manager
 parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
 
 parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
+parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
+parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extarcted simulations')
 parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
 parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
 parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list to add/delete/extract can be found')
@@ -34,26 +36,29 @@ modes_configs = {
 	'add': {
 		'action': 'Adding',
 		'done': 'added',
-		'function': manager.batchAdd
+		'function': manager.batchAdd,
+		'args': {}
 	},
 
 	'delete': {
 		'action': 'Deleting',
 		'done': 'deleted',
-		'function': manager.batchDelete
+		'function': manager.batchDelete,
+		'args': {}
 	},
 
 	'extract': {
 		'action': 'Extracting',
 		'done': 'extracted',
-		'function': manager.batchExtract
+		'function': manager.batchExtract,
+		'args': {'settings_file': args.settings_file} if args.store_settings else {}
 	}
 }
 
 infos_line = ui.addTextLine(f'{modes_configs[args.mode]["action"]} {string.plural(len(simulations), "simulation", "simulations")}…')
 progress_bar = ui.addProgressBar(len(simulations))
 
-issues = modes_configs[args.mode]['function'](simulations, callback = lambda : ui.updateProgressBar(progress_bar))
+issues = modes_configs[args.mode]['function'](simulations, callback = lambda : ui.updateProgressBar(progress_bar), **modes_configs[args.mode]['args'])
 
 ui.removeProgressBar(progress_bar)
 

@@ -349,7 +349,7 @@ class Manager():
 		if save_list:
 			self.saveSimulationsList()
 
-	def extract(self, simulation):
+	def extract(self, simulation, settings_file = None):
 		'''
 		Extract a simulation.
 
@@ -357,6 +357,9 @@ class Manager():
 		----------
 		simulation : Simulation|dict
 			The simulation to extract.
+
+		settings_file : str
+			Name of the file to create to store the simulation's settings.
 
 		Raises
 		------
@@ -383,6 +386,9 @@ class Manager():
 			os.makedirs(destination_path)
 
 		self.uncompress(simulation_name, simulation['folder'])
+
+		if settings_file:
+			jsonfiles.write(simulation.settings_dict, os.path.join(simulation['folder'], settings_file))
 
 	def batchAction(self, simulations, action, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error), callback = None):
 		'''
@@ -477,7 +483,7 @@ class Manager():
 
 		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
 
-	def batchExtract(self, simulations, *, ignore_existing = True, callback = None):
+	def batchExtract(self, simulations, *, settings_file = None, ignore_existing = True, callback = None):
 		'''
 		Extract multiple simulations.
 
@@ -506,7 +512,7 @@ class Manager():
 			errors_store = (SimulationNotFoundError, SimulationFolderAlreadyExistError)
 			errors_pass = ()
 
-		return self.batchAction(simulations, self.extract, save_list = False, errors_store = errors_store, errors_pass = errors_pass, callback = callback)
+		return self.batchAction(simulations, self.extract, {'settings_file': settings_file}, save_list = False, errors_store = errors_store, errors_pass = errors_pass, callback = callback)
 
 	def checkSimulationsList(self, callback = None):
 		'''
