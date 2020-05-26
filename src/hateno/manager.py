@@ -596,7 +596,7 @@ class Manager():
 			Function to call once a simulation has been transformed.
 		'''
 
-		if simulations_settings is None:
+		if not(simulations_settings):
 			simulations_settings = [string.toObject(infos['settings']) for infos in self._simulations_list.values()]
 
 		for settings in simulations_settings:

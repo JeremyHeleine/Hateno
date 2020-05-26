@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script simply uses the Manager class to transform some simulations.
+'''
+
+import sys
+import importlib.util
+import argparse
+
+from hateno import jsonfiles, string
+from hateno.ui import UI
+from hateno.folder import Folder
+from hateno.manager import Manager
+
+parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
+
+parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
+parser.add_argument('transform_script', type = argparse.FileType('r'), help = 'path to the script where the transformation function is defined')
+parser.add_argument('simulations_list', type = argparse.FileType('r'), nargs = '?', help = 'path to the file where the simulations list to transform can be found')
+
+args = parser.parse_args()
+
+folder = Folder(args.folder_path)
+manager = Manager(folder)
+ui = UI()
+
+simulations = None
+if args.simulations_list:
+	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+
+	if not(type(simulations) is list):
+		simulations = [simulations]
+
+	# We only want a list of simulations settings, without the global settings
+	# Then, we test the first item: if it seems to contain global settings, we remove them
+	if type(simulations[0]) is dict and 'settings' in simulations[0]:
+		simulations = [s['settings'] for s in simulations]
+
+n_simulations = len(simulations) if not(simulations is None) else manager.getSimulationsNumber()
+
+infos_line = ui.addTextLine(f'Transforming {string.plural(n_simulations, "simulation", "simulations")}…')
+progress_bar = ui.addProgressBar(n_simulations)
+
+module_name = 'tmpsimulationstransformation'
+spec = importlib.util.spec_from_file_location(module_name, args.transform_script.name)
+module = importlib.util.module_from_spec(spec)
+sys.modules[module_name] = module
+spec.loader.exec_module(module)
+
+manager.transform(module.transform, simulations, callback = lambda : ui.updateProgressBar(progress_bar))
+
+ui.removeProgressBar(progress_bar)
+ui.replaceTextLine(infos_line, f'{string.plural(n_simulations, "simulation", "simulations")} transformed')
