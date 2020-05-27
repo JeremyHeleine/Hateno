@@ -353,8 +353,21 @@ class Simulation():
 			The parsed string, or a copy of the setting if the whole string is just one tag.
 		'''
 
+		# If the string is not a string, we don't have anything to do (seems reasonable!)
+		# Then, we test if the string represents a number, so we can cast it
+
 		if not(type(s) is str):
 			return s
+
+		try:
+			return float(s)
+
+		except ValueError:
+			pass
+
+		s = s.strip()
+
+		# We search for settings tags in the string, and recursively replace them
 
 		settings = {
 			'setting': self.reduced_settings,
