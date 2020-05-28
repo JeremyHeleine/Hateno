@@ -303,7 +303,7 @@ class Simulation():
 
 		for settings_set in self._folder.settings['settings']:
 			default_settings = [
-				SimulationSetting(self._folder, settings_set['set'], s['name'])
+				SimulationSetting(self._folder, settings_set['set'], s['name'], self)
 				for s in settings_set['settings']
 			]
 
@@ -451,6 +451,9 @@ class SimulationSetting():
 	setting_name : str
 		Name of this setting.
 
+	simulation : Simulation
+		Simulation that uses this setting.
+
 	Raises
 	------
 	SettingsSetNotFoundError
@@ -460,8 +463,9 @@ class SimulationSetting():
 		The setting has not been found in the set.
 	'''
 
-	def __init__(self, folder, set_name, setting_name):
+	def __init__(self, folder, set_name, setting_name, simulation = None):
 		self._folder = folder
+		self._simulation = simulation
 
 		try:
 			settings_set_dict = [
@@ -490,7 +494,7 @@ class SimulationSetting():
 
 		self._use_only_if = 'only_if' in setting_dict
 		if self._use_only_if:
-			self._only_if_value = setting_dict['only_if']
+			self._only_if_value = str(setting_dict['only_if']).strip()
 
 		self._fixers = {'before': [], 'after': []}
 		for when in ['before', 'after']:
@@ -567,7 +571,11 @@ class SimulationSetting():
 	def shouldBeDisplayed(self):
 		'''
 		Return `True` if the setting can be displayed/used for the execution.
-		This check is based on the `only_if` parameter.
+		This check is based on the `only_if` parameter. There are several cases for the test string.
+
+		1. It is a full test (e.g. `a < b`): we execute it as it is.
+		2. It begins by a conditional operator (<, <=, >, >=, ==, !=, in): we test against the setting value.
+		3. It does not contain any conditional operator: we test the equality against the setting value.
 
 		Returns
 		-------
@@ -575,4 +583,15 @@ class SimulationSetting():
 			The result of the check.
 		'''
 
-		return not(self._use_only_if) or self.value == self._only_if_value
+		if not(self._use_only_if):
+			return True
+
+		first_operator_match = re.search(r'([<>]=?|[!=]=|in)', self._only_if_value)
+
+		if first_operator_match:
+			if first_operator_match.start() > 0:
+				return self._simulation.parseString(self._only_if_value)
+
+			return self._simulation.parseString(f'{self.value} {self._only_if_value}')
+
+		return self.value == self._simulation.parseString(self._only_if_value)

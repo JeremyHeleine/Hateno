@@ -135,6 +135,7 @@ def safeEval(expr):
 	* Numbers (of any kind: 1, 2.3, 5e-4, etc.)
 	* Normal strings
 	* Lists
+	* Booleans
 	* Arithmetic operators:
 		+, -, *, /, //, %, **
 	* Conditional operators:
@@ -156,7 +157,7 @@ def safeEval(expr):
 		The expression contains an unallowed token.
 	'''
 
-	whitelist_sample = '0 - 1 <= 1**2 < 1 + 1 > 1.5 * 2 >= 2 / 2 and 1 // 2 == 0 or not(1 % 2 != 0) or "a" in ["a", "b"]'
+	whitelist_sample = 'False - True <= 1**2 < 1 + 1 > 1.5 * 2 >= 2 / 2 and 1 // 2 == 0 or not(1 % 2 != 0) or "a" in ["a", "b"]'
 	nodes_whitelist = set([x.__class__.__name__ for x in ast.walk(ast.parse(whitelist_sample))])
 
 	nodes = set([x.__class__.__name__ for x in ast.walk(ast.parse(expr))])
