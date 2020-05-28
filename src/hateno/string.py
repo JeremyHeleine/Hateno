@@ -7,6 +7,7 @@ import base64
 import hashlib
 import uuid
 import json
+import ast
 
 def intOrNone(s):
 	'''
@@ -127,3 +128,40 @@ def plural(n, if_single, if_plural, *, add_n = True):
 		s = f'{n} {s}'
 
 	return s
+
+def safeEval(expr):
+	'''
+	Safely evaluate an expression by allowing only certain tokens. The following is allowed.
+	* Numbers (of any kind: 1, 2.3, 5e-4, etc.)
+	* Normal strings
+	* Lists
+	* Arithmetic operators:
+		+, -, *, /, //, %, **
+	* Conditional operators:
+		==, !=, <, <=, >, >=, and, or, not(), in
+
+	Parameters
+	----------
+	expr : str
+		Expression to evaluate.
+
+	Returns
+	-------
+	res : mixed
+		The result of the expression.
+
+	Raises
+	------
+	ValueError
+		The expression contains an unallowed token.
+	'''
+
+	whitelist_sample = '0 - 1 <= 1**2 < 1 + 1 > 1.5 * 2 >= 2 / 2 and 1 // 2 == 0 or not(1 % 2 != 0) or "a" in ["a", "b"]'
+	nodes_whitelist = set([x.__class__.__name__ for x in ast.walk(ast.parse(whitelist_sample))])
+
+	nodes = set([x.__class__.__name__ for x in ast.walk(ast.parse(expr))])
+
+	if nodes - nodes_whitelist:
+		raise ValueError(f'Unallowed expression `{expr}`')
+
+	return eval(expr)

@@ -6,6 +6,7 @@ import functools
 import re
 
 from .errors import *
+from . import string
 
 class Simulation():
 	'''
@@ -405,6 +406,16 @@ class Simulation():
 			return self.parseString(parsed)
 
 		self._parser_recursion_stack.clear()
+
+		# Final step: we try to evaluate the string to apply allowed operations, if any.
+		# ValueError is raised if the string contains any unallowed operation, like the use of exec() or other evil functions.
+		# The use of variables is not allowed. In particular, if the string is just a string, it will be interpreted as variable names so the exception will be raised.
+
+		try:
+			parsed = string.safeEval(parsed)
+
+		except ValueError:
+			pass
 
 		return parsed
 
