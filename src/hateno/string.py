@@ -9,6 +9,8 @@ import uuid
 import json
 import ast
 
+from math import sqrt, cos, sin
+
 def intOrNone(s):
 	'''
 	Convert a string into either an integer or a `None`.
@@ -140,6 +142,8 @@ def safeEval(expr):
 		+, -, *, /, //, %, **
 	* Conditional operators:
 		==, !=, <, <=, >, >=, and, or, not(), in
+	* Mathematical functions:
+		abs, sqrt, cos, sin, tan
 
 	Parameters
 	----------
@@ -157,12 +161,14 @@ def safeEval(expr):
 		The expression contains an unallowed token.
 	'''
 
-	whitelist_sample = 'False - True <= 1**2 < 1 + 1 > 1.5 * 2 >= 2 / 2 and 1 // 2 == 0 or not(1 % 2 != 0) or "a" in ["a", "b"]'
+	whitelist_sample = 'False - True <= -1**2 < 1 + f(1) > 1.5 * 2 >= 2 / 2 and 1 // 2 == 0 or not(1 % 2 != 0) or "a" in ["a", "b"]'
 	nodes_whitelist = set([x.__class__.__name__ for x in ast.walk(ast.parse(whitelist_sample))])
+	names_whitelist = set(['abs', 'sqrt', 'cos', 'sin', 'tan'])
 
 	nodes = set([x.__class__.__name__ for x in ast.walk(ast.parse(expr))])
+	names = set([x.id for x in ast.walk(ast.parse(expr)) if x.__class__.__name__ == 'Name'])
 
-	if nodes - nodes_whitelist:
+	if (nodes - nodes_whitelist) | (names - names_whitelist):
 		raise ValueError(f'Unallowed expression `{expr}`')
 
 	return eval(expr)
