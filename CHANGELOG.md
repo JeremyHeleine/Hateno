@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6 - 2020-06-02
+
+* More tests allowed in `only_if`, comparisons with other settings, arithmetic operations, etc.
+
 ## 0.5 - 2020-05-26
 
 * Simulations can be transformed
