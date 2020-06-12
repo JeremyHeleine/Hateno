@@ -157,6 +157,9 @@ def safeEval(expr):
 
 	Raises
 	------
+	SyntaxError
+		Raised by ast.parse() when the string cannot be interpreted.
+
 	ValueError
 		The expression contains an unallowed token.
 	'''

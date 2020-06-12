@@ -414,7 +414,7 @@ class Simulation():
 		try:
 			parsed = string.safeEval(parsed)
 
-		except ValueError:
+		except (SyntaxError, ValueError):
 			pass
 
 		return parsed
