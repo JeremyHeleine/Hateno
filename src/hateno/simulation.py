@@ -30,6 +30,7 @@ class Simulation():
 		self._raw_settings_dict = None
 
 		self._setting_tag_regex_compiled = None
+		self._eval_tag_regex_compiled = None
 		self._parser_recursion_stack = []
 
 	@classmethod
@@ -267,6 +268,25 @@ class Simulation():
 
 		return self._setting_tag_regex_compiled
 
+	@property
+	def _eval_tag_regex(self):
+		'''
+		Regex to detect whether we need to evaluate a part of a string.
+
+		Returns
+		-------
+		regex : re.Pattern
+			The eval tag regex.
+		'''
+
+		# The `\)*` part is needed so we don't have troubles with functions calls right before the end of a string.
+		# Without this, such calls (e.g. in "((sqrt(16)))") end the string prematurely.
+
+		if self._eval_tag_regex_compiled is None:
+			self._eval_tag_regex_compiled = re.compile(r'\(\((.*?\)*)\)\)')
+
+		return self._eval_tag_regex_compiled
+
 	def generateGlobalSettings(self):
 		'''
 		Generate the full list of global settings.
@@ -407,14 +427,19 @@ class Simulation():
 
 		self._parser_recursion_stack.clear()
 
-		# Final step: we try to evaluate the string to apply allowed operations, if any.
+		# Final step: we try to evaluate the needed parts of the string to apply allowed operations, if any.
 		# ValueError is raised if the string contains any unallowed operation, like the use of exec() or other evil functions.
-		# The use of variables is not allowed. In particular, if the string is just a string, it will be interpreted as variable names so the exception will be raised.
 
 		try:
-			parsed = string.safeEval(parsed)
+			parsed = self._eval_tag_regex.sub(lambda m: str(string.safeEval(m.group(1))), parsed)
 
 		except (SyntaxError, ValueError):
+			pass
+
+		try:
+			return float(parsed)
+
+		except ValueError:
 			pass
 
 		return parsed

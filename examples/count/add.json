@@ -3,7 +3,7 @@
 	"settings": {
 		"range": {
 			"from": 2016,
-			"to": 2021
+			"to": "(({setting:from} + 5))"
 		}
 	}
 }
