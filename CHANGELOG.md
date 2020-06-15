@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 - 2020-06-15
+
+* Evaluation delimiters
+
 ## 0.6 - 2020-06-02
 
 * More tests allowed in `only_if`, comparisons with other settings, arithmetic operations, etc.
