@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2 - 2020-06-17
+
+* Fix: wrong behavior in some `only_if` tests
+
 ## 0.6.1 - 2020-06-15
 
 * Evaluation delimiters
