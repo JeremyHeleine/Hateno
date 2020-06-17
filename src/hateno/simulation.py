@@ -431,15 +431,15 @@ class Simulation():
 		# ValueError is raised if the string contains any unallowed operation, like the use of exec() or other evil functions.
 
 		try:
-			parsed = self._eval_tag_regex.sub(lambda m: str(string.safeEval(m.group(1))), parsed)
+			fullmatch = self._eval_tag_regex.fullmatch(parsed)
+
+			if fullmatch:
+				parsed = string.safeEval(fullmatch.group(1))
+
+			else:
+				parsed = self._eval_tag_regex.sub(lambda m: str(string.safeEval(m.group(1))), parsed)
 
 		except (SyntaxError, ValueError):
-			pass
-
-		try:
-			return float(parsed)
-
-		except ValueError:
 			pass
 
 		return parsed
@@ -519,7 +519,7 @@ class SimulationSetting():
 
 		self._use_only_if = 'only_if' in setting_dict
 		if self._use_only_if:
-			self._only_if_value = str(setting_dict['only_if']).strip()
+			self._only_if_value = setting_dict['only_if']
 
 		self._fixers = {'before': [], 'after': []}
 		for when in ['before', 'after']:
@@ -611,12 +611,15 @@ class SimulationSetting():
 		if not(self._use_only_if):
 			return True
 
-		first_operator_match = re.search(r'([<>]=?|[!=]=|in)', self._only_if_value)
+		if type(self._only_if_value) is str:
+			first_operator_match = re.search(r'([<>]=?|[!=]=|in)', self._only_if_value.strip())
 
-		if first_operator_match:
-			if first_operator_match.start() > 0:
-				return self._simulation.parseString(self._only_if_value)
+			if first_operator_match:
+				if first_operator_match.start() > 0:
+					return self._simulation.parseString(f'(({self._only_if_value}))')
 
-			return self._simulation.parseString(f'{self.value} {self._only_if_value}')
+				return self._simulation.parseString(f'(({self.value} {self._only_if_value}))')
 
-		return self.value == self._simulation.parseString(self._only_if_value)
+			return self.value == self._simulation.parseString(self._only_if_value)
+
+		return self.value == self._only_if_value
