@@ -404,21 +404,29 @@ class Simulation():
 			except KeyError:
 				return s
 
-		parsed = ''
-		k0 = 0
+		def replaceSettingTag(match):
+			'''
+			Replace a setting tag by the value of the right setting.
+			To be called by `re.sub()`.
 
-		for match in self._setting_tag_regex.finditer(s):
-			parsed += s[k0:match.start()]
+			Parameters
+			----------
+			match : re.Match
+				Match object corresponding to a setting tag.
+
+			Returns
+			-------
+			setting_value : str
+				The value of the setting.
+			'''
 
 			try:
-				parsed += str(settings[match.group('category')][match.group('name')])
+				return str(settings[match.group('category')][match.group('name')])
 
 			except KeyError:
-				parsed += match.group(0)
+				return match.group(0)
 
-			k0 = match.end()
-
-		parsed += s[k0:]
+		parsed = self._setting_tag_regex.sub(replaceSettingTag, s)
 
 		self._parser_recursion_stack.append(s)
 

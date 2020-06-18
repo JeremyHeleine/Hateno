@@ -235,20 +235,35 @@ class Generator():
 		with open(skeleton_name, 'r') as f:
 			skeleton = f.read()
 
-		script_content = ''
-		k0 = 0
+		def replaceListBlock(match):
+			'''
+			Replace a list block by the content of the right list.
+			To be called by `re.sub()`.
 
-		for match in self._lists_regex.finditer(skeleton):
-			if match.group('tag') in lists:
-				script_content += skeleton[k0:match.start()]
+			Parameters
+			----------
+			match : re.Match
+				Match object corresponding to a list block.
 
+			Returns
+			-------
+			list_content : str
+				The content of the list, formatted as asked.
+			'''
+
+			try:
+				list_content = ''
 				loop_content_template = Template(match.group('content'))
+
 				for index, value in enumerate(lists[match.group('tag')]):
-					script_content += loop_content_template.safe_substitute(ITEM_INDEX = index, ITEM_VALUE = value)
+					list_content += loop_content_template.safe_substitute(ITEM_INDEX = index, ITEM_VALUE = value)
 
-				k0 = match.end()
+				return list_content
 
-		script_content += skeleton[k0:]
+			except KeyError:
+				return match.group(0)
+
+		script_content = self._lists_regex.sub(replaceListBlock, skeleton)
 
 		variables = copy.deepcopy(variables)
 		script_content_template = Template(script_content)
