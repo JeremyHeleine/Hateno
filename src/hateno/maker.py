@@ -45,7 +45,7 @@ class Maker():
 		`True` to show different informations in the UI, `False` to show nothing.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, mail_config = None, mail_notifications_config = None, max_corrupted = -1, max_failures = 0, ui = False):
+	def __init__(self, simulations_folder, remote_folder_conf, *, settings_file = None, mail_config = None, mail_notifications_config = None, max_corrupted = -1, max_failures = 0, ui = False):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -55,6 +55,8 @@ class Maker():
 		self._watcher_instance = None
 		self._ui_instance = None
 		self._ui_state_line = None
+
+		self._settings_file = settings_file
 
 		self._mail_config = mail_config
 		self._mail_notifications_config = mail_notifications_config
@@ -403,7 +405,7 @@ class Maker():
 		self.displayState('Extracting the simulations…')
 		progress_bar = self.displayProgressBar(len(simulations))
 
-		unknown_simulations = self._manager.batchExtract(simulations, callback = lambda : self.updateProgressBar(progress_bar))
+		unknown_simulations = self._manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self.updateProgressBar(progress_bar))
 
 		self.removeProgressBar(progress_bar)
 

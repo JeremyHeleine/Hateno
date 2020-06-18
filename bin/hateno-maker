@@ -37,6 +37,9 @@ except KeyError:
 
 simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 
+if not(type(simulations) is list):
+	simulations = [simulations]
+
 maker = Maker(args.folder_path, settings['remote_folder'], **maker_settings)
 unknown_simulations = maker.run(simulations, settings['generator_recipe'])
 
