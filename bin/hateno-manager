@@ -32,6 +32,11 @@ simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 if not(type(simulations) is list):
 	simulations = [simulations]
 
+# We want a list of simulations dictionaries
+# Then, we test the first item: if it seems to not contain global settings, we add them
+if not(type(simulations[0]) is dict) or not('settings' in simulations[0]):
+	simulations = [{'folder': '', 'settings': s} for s in simulations]
+
 modes_configs = {
 	'add': {
 		'action': 'Adding',
