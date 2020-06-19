@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7 - 2020-06-19
+
+* Transformation script/method can be used to change the settings of a simulation
+* A simulation can be deleted from its settings file
+* Maker generates the settings file
+
 ## 0.6.2 - 2020-06-17
 
 * Fix: wrong behavior in some `only_if` tests
