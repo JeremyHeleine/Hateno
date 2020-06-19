@@ -593,7 +593,8 @@ class Manager():
 				simulation : Simulation
 					A Simulation object representing the settings of the current simulation.
 
-			Returned value is ignored.
+			The function returns the new settings of the simulation.
+			If `None`, the settings are not changed.
 
 		simulations_settings : list
 			List of simulations to transform (only their settings). If `None`, will transform all the stored simulations.
@@ -617,9 +618,27 @@ class Manager():
 			simulation_name = self._simulations_list[settings_hashed]['name']
 
 			self.uncompress(simulation_name, simulation_dir)
-			transformation(simulation)
+			new_settings = transformation(simulation)
 			os.unlink(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'))
 			self.compress(simulation_dir, simulation_name)
+
+			if not(new_settings is None):
+				new_simulation = Simulation.ensureType({
+					'folder': simulation_dir,
+					'settings': new_settings
+				}, self._folder)
+
+				new_settings_str = string.fromObject(new_simulation.settings_dict)
+				new_settings_hashed = string.hash(new_settings_str)
+
+				del self._simulations_list[settings_hashed]
+
+				self._simulations_list[new_settings_hashed] = {
+					'name': simulation_name,
+					'settings': new_settings_str
+				}
+
+				self.saveSimulationsList()
 
 			if not(callback is None):
 				callback()
