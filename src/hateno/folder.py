@@ -28,6 +28,7 @@ class Folder():
 
 	def __init__(self, folder):
 		self._folder = folder
+		self._conf_folder_path = os.path.join(self._folder, '.hateno')
 		self._settings_file = os.path.join(self._folder, '.simulations.conf')
 
 		if not(os.path.isfile(self._settings_file)):
@@ -50,6 +51,19 @@ class Folder():
 		'''
 
 		return self._folder
+
+	@property
+	def conf_folder(self):
+		'''
+		Return the configuration folder path.
+
+		Returns
+		-------
+		path : str
+			The path.
+		'''
+
+		return self._conf_folder_path
 
 	@property
 	def settings(self):
