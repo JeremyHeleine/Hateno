@@ -13,6 +13,7 @@ import re
 
 from . import jsonfiles, string
 from .errors import *
+from .folder import Folder
 from .simulation import Simulation
 from . import checkers
 
@@ -22,12 +23,12 @@ class Manager():
 
 	Parameters
 	----------
-	folder : Folder
-		The folder to manage.
+	folder : Folder|string
+		The folder to manage. Either a `Folder` instance or the path to the folder (used to create a `Folder` instance).
 	'''
 
 	def __init__(self, folder):
-		self._folder = folder
+		self._folder = folder if type(folder) is Folder else Folder(folder)
 
 		self._simulations_list_file = os.path.join(self._folder.folder, '.simulations.list')
 		self._simulations_list_dict = None

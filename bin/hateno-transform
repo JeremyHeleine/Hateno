@@ -11,7 +11,6 @@ import argparse
 
 from hateno import jsonfiles, string
 from hateno.ui import UI
-from hateno.folder import Folder
 from hateno.manager import Manager
 
 parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
@@ -22,8 +21,7 @@ parser.add_argument('simulations_list', type = argparse.FileType('r'), nargs = '
 
 args = parser.parse_args()
 
-folder = Folder(args.folder_path)
-manager = Manager(folder)
+manager = Manager(args.folder_path)
 ui = UI()
 
 simulations = None

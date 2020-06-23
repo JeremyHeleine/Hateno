@@ -8,7 +8,6 @@ This script simply uses the Manager class to extract the settings of a simulatio
 import argparse
 import pprint
 
-from hateno.folder import Folder
 from hateno.manager import Manager
 
 parser = argparse.ArgumentParser(description = 'Extract the settings of a simulation.')
@@ -18,8 +17,7 @@ parser.add_argument('simulation_name', type = str, help = 'name of the simulatio
 
 args = parser.parse_args()
 
-folder = Folder(args.folder_path)
-manager = Manager(folder)
+manager = Manager(args.folder_path)
 
 settings = manager.settingsOf(args.simulation_name)
 pprint.pprint(settings, width = 1)
