@@ -12,6 +12,7 @@ from math import ceil
 from string import Template
 
 from .errors import *
+from .folder import Folder
 from .simulation import Simulation
 from . import generators
 
@@ -22,12 +23,12 @@ class Generator():
 
 	Parameters
 	----------
-	folder : Folder
-		The folder to manage. Must contain a settings file.
+	folder : Folder|string
+		The folder to manage. Either a `Folder` instance or the path to the folder (used to create a `Folder` instance).
 	'''
 
 	def __init__(self, folder):
-		self._folder = folder
+		self._folder = folder if type(folder) is Folder else Folder(folder)
 
 		self._simulations_to_generate = []
 
