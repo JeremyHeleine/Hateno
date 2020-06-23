@@ -4,6 +4,7 @@
 import os
 import re
 import inspect
+import errno
 
 from . import jsonfiles
 from .errors import *
