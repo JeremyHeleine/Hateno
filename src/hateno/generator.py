@@ -39,6 +39,19 @@ class Generator():
 		self._variables_generators_list = None
 
 	@property
+	def folder(self):
+		'''
+		Return the `Folder` instance.
+
+		Returns
+		-------
+		folder : Folder
+			The instance used by the generator.
+		'''
+
+		return self._folder
+
+	@property
 	def _variables_generators_regex(self):
 		'''
 		Regex to determine whether a function's name corresponds to a variable generator.
