@@ -70,7 +70,20 @@ class Maker():
 		self._show_ui = ui
 
 	@property
-	def _manager(self):
+	def folder(self):
+		'''
+		Return the `Folder` instance.
+
+		Returns
+		-------
+		folder : Folder
+			The instance used by the maker.
+		'''
+
+		return self._simulations_folder
+
+	@property
+	def manager(self):
 		'''
 		Returns the instance of Manager used in the Maker.
 
@@ -86,7 +99,7 @@ class Maker():
 		return self._manager_instance
 
 	@property
-	def _generator(self):
+	def generator(self):
 		'''
 		Returns the instance of Generator used in the Maker.
 
@@ -405,7 +418,7 @@ class Maker():
 		self.displayState('Extracting the simulations…')
 		progress_bar = self.displayProgressBar(len(simulations))
 
-		unknown_simulations = self._manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self.updateProgressBar(progress_bar))
+		unknown_simulations = self.manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self.updateProgressBar(progress_bar))
 
 		self.removeProgressBar(progress_bar)
 
@@ -442,9 +455,9 @@ class Maker():
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
 		recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
 
-		self._generator.add(simulations)
-		generated_scripts = self._generator.generate(scripts_dir, recipe, empty_dest = True)
-		self._generator.clear()
+		self.generator.add(simulations)
+		generated_scripts = self.generator.generate(scripts_dir, recipe, empty_dest = True)
+		self.generator.clear()
 
 		possible_skeletons_to_launch = [k for k, s in enumerate(recipe['subgroups_skeletons'] + recipe['wholegroup_skeletons']) if s == script_coords['name']]
 
@@ -557,7 +570,7 @@ class Maker():
 		self.displayState('Adding the simulations to the manager…')
 		progress_bar = self.displayProgressBar(len(simulations))
 
-		failed_to_add = self._manager.batchAdd(simulations_to_add, callback = lambda : self.updateProgressBar(progress_bar))
+		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self.updateProgressBar(progress_bar))
 
 		self.removeProgressBar(progress_bar)
 
