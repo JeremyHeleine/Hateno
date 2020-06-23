@@ -37,6 +37,19 @@ class Manager():
 		self._checkers_list = None
 
 	@property
+	def folder(self):
+		'''
+		Return the `Folder` instance.
+
+		Returns
+		-------
+		folder : Folder
+			The instance used by the manager.
+		'''
+
+		return self._folder
+
+	@property
 	def _simulations_list(self):
 		'''
 		Return the simulations list.
