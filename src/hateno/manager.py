@@ -30,7 +30,7 @@ class Manager():
 	def __init__(self, folder):
 		self._folder = folder if type(folder) is Folder else Folder(folder)
 
-		self._simulations_list_file = os.path.join(self._folder.folder, '.simulations.list')
+		self._simulations_list_file = self._folder.confFilePath('simulations.list')
 		self._simulations_list_dict = None
 
 		self._checkers_regex_compiled = None
