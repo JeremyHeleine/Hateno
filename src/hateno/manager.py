@@ -262,14 +262,14 @@ class Manager():
 
 		return len(self._simulations_list)
 
-	def settingsOf(self, simulation_name):
+	def settingsOf(self, simulation_id):
 		'''
 		Return the whole settings set of a simulation.
 
 		Parameters
 		----------
-		simulation_name : str
-			Name of the simulation.
+		simulation_id : str
+			Identifier of the simulation, either its name or its hashed settings.
 
 		Raises
 		------
@@ -283,10 +283,17 @@ class Manager():
 		'''
 
 		try:
-			return string.toObject(self._simulations_list[simulation_name]['settings'])
+			if len(simulation_id) == 32:
+				settings_str = [infos['settings'] for infos in self._simulations_list.values() if infos['name'] == simulation_id][0]
 
-		except KeyError:
-			raise SimulationNotFoundError(simulation_name)
+			else:
+				settings_str = self._simulations_list[simulation_id]['settings']
+
+		except (IndexError, KeyError):
+			raise SimulationNotFoundError(simulation_id)
+
+		else:
+			return string.toObject(settings_str)
 
 	def add(self, simulation, save_list = True):
 		'''
