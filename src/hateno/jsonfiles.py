@@ -39,7 +39,7 @@ def read(filename, *, allow_generator = False):
 
 		return module.generate()
 
-def write(obj, filename):
+def write(obj, filename, *, sort_keys = True):
 	'''
 	Save an object into a JSON file.
 
@@ -50,7 +50,10 @@ def write(obj, filename):
 
 	filename : str
 		Path to the JSON file.
+
+	sort_keys : bool
+		`True` to sort the keys before writing the file.
 	'''
 
 	with open(filename, 'w') as f:
-		json.dump(obj, f, sort_keys = True, indent = 4, separators = (',', ': '))
+		json.dump(obj, f, sort_keys = sort_keys, indent = '\t', separators = (',', ': '))

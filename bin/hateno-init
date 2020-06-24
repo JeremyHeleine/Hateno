@@ -72,4 +72,4 @@ jsonfiles.write({
         }
     ],
     'fixes': ['intFloats']
-}, config_file)
+}, config_file, sort_keys = False)
