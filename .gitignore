@@ -5,5 +5,5 @@ build
 dist
 src/hateno.egg-info
 
-examples/*/.simulations.list
+examples/*/.hateno/simulations.list
 examples/*/*.tar.bz2
