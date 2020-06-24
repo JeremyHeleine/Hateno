@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script initializes a folder by creating the configuration folder and file.
+'''
+
+import os
+import argparse
+
+from hateno import jsonfiles
+
+parser = argparse.ArgumentParser(description = 'Initialize a simulations folder.')
+
+parser.add_argument('folder_path', type = str, nargs = '?', help = 'path to the folder to manage (default to the current directory)')
+
+args = parser.parse_args()
+
+config_folder = '.hateno'
+
+if not(args.folder_path is None):
+    config_folder = os.path.join(args.folder_path, config_folder)
+
+config_file = os.path.join(config_folder, 'simulations.conf')
+
+try:
+    os.makedirs(config_folder)
+
+except FileExistsError:
+    pass
+
+if os.path.isfile(config_file):
+    print('This folder already has a configuration file.')
+    exit()
+
+jsonfiles.write({
+    'name': 'program-name',
+    'description': 'A description of the program.',
+    'exec': './program',
+    'setting_pattern': '-{name} {value}',
+    'output': {
+        'files': [
+            {
+                'name': 'output.txt',
+                'checks': ['exists', 'notEmpty']
+            }
+        ],
+        'checks': ['noMore']
+    },
+    'globalsettings': [
+        {
+            'name': 'folder',
+            'default': 'simulation'
+        }
+    ],
+    'settings': [
+        {
+            'set': 'example_set',
+            'required': True,
+            'settings': [
+                {
+                    'name': 'example-setting',
+                    'default': 0
+                },
+                {
+                    'name': 'example-flag',
+                    'default': False,
+                    'pattern': '-{name}',
+                    'only_if': True
+                }
+            ]
+        }
+    ],
+    'fixes': ['intFloats']
+}, config_file)
