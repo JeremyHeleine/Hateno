@@ -23,13 +23,13 @@ class Folder():
 	Raises
 	------
 	FileNotFoundError
-		No `.simulations.conf` file found in folder.
+		No `simulations.conf` file found in the configuration folder.
 	'''
 
 	def __init__(self, folder):
 		self._folder = folder
 		self._conf_folder_path = os.path.join(self._folder, '.hateno')
-		self._settings_file = os.path.join(self._folder, '.simulations.conf')
+		self._settings_file = self.confFilePath('simulations.conf')
 
 		if not(os.path.isfile(self._settings_file)):
 			raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self._settings_file)
@@ -64,6 +64,23 @@ class Folder():
 		'''
 
 		return self._conf_folder_path
+
+	def confFilePath(self, filename):
+		'''
+		Return the path to a configuration file, with a given filename.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file.
+
+		Returns
+		-------
+		path : str
+			Path to the file.
+		'''
+
+		return os.path.join(self._conf_folder_path, filename)
 
 	@property
 	def settings(self):
