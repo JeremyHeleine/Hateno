@@ -10,6 +10,7 @@ import tarfile
 import tempfile
 
 import re
+import datetime
 
 from . import jsonfiles, string
 from .errors import *
@@ -35,6 +36,17 @@ class Manager():
 
 		self._checkers_regex_compiled = None
 		self._checkers_list = None
+
+		# Add a file into the configuration folder to indicate a Manager instance is currently running
+		with open(self._folder.confFilePath('manager.running'), 'w') as f:
+			f.write(str(datetime.datetime.now()))
+
+	def __del__(self):
+		'''
+		Delete the "running indicator" when this instance is destroyed.
+		'''
+
+		os.unlink(self._folder.confFilePath('manager.running'))
 
 	@property
 	def folder(self):
