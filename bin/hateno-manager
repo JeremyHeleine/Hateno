@@ -11,67 +11,70 @@ from hateno import jsonfiles, string
 from hateno.ui import UI
 from hateno.manager import Manager
 
-parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
+def addArguments(parser):
+	parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
+	parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
+	parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
+	parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
+	parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
+	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list to add/delete/extract can be found')
 
-parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
-parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
-parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
-parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
-parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
-parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list to add/delete/extract can be found')
+def action(args):
+	manager = Manager(args.folder_path)
+	ui = UI()
 
-args = parser.parse_args()
+	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 
-manager = Manager(args.folder_path)
-ui = UI()
+	if not(type(simulations) is list):
+		simulations = [simulations]
 
-simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+	# We want a list of simulations dictionaries
+	# Then, we test the first item: if it seems to not contain global settings, we add them
+	if not(type(simulations[0]) is dict) or not('settings' in simulations[0]):
+		simulations = [{'folder': '', 'settings': s} for s in simulations]
 
-if not(type(simulations) is list):
-	simulations = [simulations]
+	modes_configs = {
+		'add': {
+			'action': 'Adding',
+			'done': 'added',
+			'function': manager.batchAdd,
+			'args': {}
+		},
 
-# We want a list of simulations dictionaries
-# Then, we test the first item: if it seems to not contain global settings, we add them
-if not(type(simulations[0]) is dict) or not('settings' in simulations[0]):
-	simulations = [{'folder': '', 'settings': s} for s in simulations]
+		'delete': {
+			'action': 'Deleting',
+			'done': 'deleted',
+			'function': manager.batchDelete,
+			'args': {}
+		},
 
-modes_configs = {
-	'add': {
-		'action': 'Adding',
-		'done': 'added',
-		'function': manager.batchAdd,
-		'args': {}
-	},
-
-	'delete': {
-		'action': 'Deleting',
-		'done': 'deleted',
-		'function': manager.batchDelete,
-		'args': {}
-	},
-
-	'extract': {
-		'action': 'Extracting',
-		'done': 'extracted',
-		'function': manager.batchExtract,
-		'args': {'settings_file': args.settings_file} if args.store_settings else {}
+		'extract': {
+			'action': 'Extracting',
+			'done': 'extracted',
+			'function': manager.batchExtract,
+			'args': {'settings_file': args.settings_file} if args.store_settings else {}
+		}
 	}
-}
 
-infos_line = ui.addTextLine(f'{modes_configs[args.mode]["action"]} {string.plural(len(simulations), "simulation", "simulations")}…')
-progress_bar = ui.addProgressBar(len(simulations))
+	infos_line = ui.addTextLine(f'{modes_configs[args.mode]["action"]} {string.plural(len(simulations), "simulation", "simulations")}…')
+	progress_bar = ui.addProgressBar(len(simulations))
 
-issues = modes_configs[args.mode]['function'](simulations, callback = lambda : ui.updateProgressBar(progress_bar), **modes_configs[args.mode]['args'])
+	issues = modes_configs[args.mode]['function'](simulations, callback = lambda : ui.updateProgressBar(progress_bar), **modes_configs[args.mode]['args'])
 
-ui.removeProgressBar(progress_bar)
+	ui.removeProgressBar(progress_bar)
 
-if issues and args.errors:
-	jsonfiles.write(issues, args.errors)
+	if issues and args.errors:
+		jsonfiles.write(issues, args.errors)
 
-final_update = string.plural(len(simulations) - len(issues), 'simulation', 'simulations')
-final_update += ' ' + modes_configs[args.mode]['done']
+	final_update = string.plural(len(simulations) - len(issues), 'simulation', 'simulations')
+	final_update += ' ' + modes_configs[args.mode]['done']
 
-if issues:
-	final_update += ', ' + string.plural(len(issues), 'error', 'errors')
+	if issues:
+		final_update += ', ' + string.plural(len(issues), 'error', 'errors')
 
-ui.replaceTextLine(infos_line, final_update)
+	ui.replaceTextLine(infos_line, final_update)
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
+	addArguments(parser)
+	action(parser.parse_args())

@@ -11,29 +11,32 @@ from hateno import jsonfiles
 from hateno.generator import Generator
 from hateno.errors import *
 
-parser = argparse.ArgumentParser(description = 'Generate command lines and scripts to create simulations.')
+def addArguments(parser):
+	parser.add_argument('--recipe', type = argparse.FileType('r'), help = 'path to the file where the generator recipe can be found')
+	parser.add_argument('--output-dir', type = str, help = 'folder to create')
+	parser.add_argument('--empty-output', action = 'store_true', help = 'ensure the output directory is empty')
+	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
+	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list can be found')
 
-parser.add_argument('--recipe', type = argparse.FileType('r'), help = 'path to the file where the generator recipe can be found')
-parser.add_argument('--output-dir', type = str, help = 'folder to create')
-parser.add_argument('--empty-output', action = 'store_true', help = 'ensure the output directory is empty')
-parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
-parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list can be found')
+def action(args):
+	generator = Generator(args.folder_path)
 
-args = parser.parse_args()
+	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+	generator.add(simulations)
 
-generator = Generator(args.folder_path)
+	if args.recipe is None or args.output_dir is None:
+		print('\n'.join(generator.parse()['data_lists']['COMMAND_LINES']))
+		exit()
 
-simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
-generator.add(simulations)
+	recipe = jsonfiles.read(args.recipe.name)
 
-if args.recipe is None or args.output_dir is None:
-	print('\n'.join(generator.parse()['data_lists']['COMMAND_LINES']))
-	exit()
+	try:
+		generator.generate(args.output_dir, recipe, empty_dest = args.empty_output)
 
-recipe = jsonfiles.read(args.recipe.name)
+	except DestinationFolderExistsError:
+		print('The output directory already exists.')
 
-try:
-	generator.generate(args.output_dir, recipe, empty_dest = args.empty_output)
-
-except DestinationFolderExistsError:
-	print('The output directory already exists.')
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Generate command lines and scripts to create simulations.')
+	addArguments(parser)
+	action(parser.parse_args())

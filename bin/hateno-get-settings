@@ -10,14 +10,17 @@ import pprint
 
 from hateno.manager import Manager
 
-parser = argparse.ArgumentParser(description = 'Extract the settings of a simulation.')
+def addArguments(parser):
+    parser.add_argument('folder_path', type = str, help = 'path to the managed folder')
+    parser.add_argument('simulation_id', type = str, help = 'identifier of the simulation (name or hashed settings)')
 
-parser.add_argument('folder_path', type = str, help = 'path to the managed folder')
-parser.add_argument('simulation_id', type = str, help = 'identifier of the simulation (name or hashed settings)')
+def action(args):
+    manager = Manager(args.folder_path)
 
-args = parser.parse_args()
+    settings = manager.settingsOf(args.simulation_id)
+    pprint.pprint(settings, width = 1)
 
-manager = Manager(args.folder_path)
-
-settings = manager.settingsOf(args.simulation_id)
-pprint.pprint(settings, width = 1)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'Extract the settings of a simulation.')
+    addArguments(parser)
+    action(parser.parse_args())

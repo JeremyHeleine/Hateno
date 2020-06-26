@@ -10,66 +10,69 @@ import argparse
 
 from hateno import jsonfiles
 
-parser = argparse.ArgumentParser(description = 'Initialize a simulations folder.')
+def addArguments(parser):
+    parser.add_argument('folder_path', type = str, nargs = '?', help = 'path to the folder to manage (default to the current directory)')
 
-parser.add_argument('folder_path', type = str, nargs = '?', help = 'path to the folder to manage (default to the current directory)')
+def action(args):
+    config_folder = '.hateno'
 
-args = parser.parse_args()
+    if not(args.folder_path is None):
+        config_folder = os.path.join(args.folder_path, config_folder)
 
-config_folder = '.hateno'
+    config_file = os.path.join(config_folder, 'simulations.conf')
 
-if not(args.folder_path is None):
-    config_folder = os.path.join(args.folder_path, config_folder)
+    try:
+        os.makedirs(config_folder)
 
-config_file = os.path.join(config_folder, 'simulations.conf')
+    except FileExistsError:
+        pass
 
-try:
-    os.makedirs(config_folder)
+    if os.path.isfile(config_file):
+        print('This folder already has a configuration file.')
+        exit()
 
-except FileExistsError:
-    pass
-
-if os.path.isfile(config_file):
-    print('This folder already has a configuration file.')
-    exit()
-
-jsonfiles.write({
-    'name': 'program-name',
-    'description': 'A description of the program.',
-    'exec': './program',
-    'setting_pattern': '-{name} {value}',
-    'output': {
-        'files': [
+    jsonfiles.write({
+        'name': 'program-name',
+        'description': 'A description of the program.',
+        'exec': './program',
+        'setting_pattern': '-{name} {value}',
+        'output': {
+            'files': [
+                {
+                    'name': 'output.txt',
+                    'checks': ['exists', 'notEmpty']
+                }
+            ],
+            'checks': ['noMore']
+        },
+        'globalsettings': [
             {
-                'name': 'output.txt',
-                'checks': ['exists', 'notEmpty']
+                'name': 'folder',
+                'default': 'simulation'
             }
         ],
-        'checks': ['noMore']
-    },
-    'globalsettings': [
-        {
-            'name': 'folder',
-            'default': 'simulation'
-        }
-    ],
-    'settings': [
-        {
-            'set': 'example_set',
-            'required': True,
-            'settings': [
-                {
-                    'name': 'example-setting',
-                    'default': 0
-                },
-                {
-                    'name': 'example-flag',
-                    'default': False,
-                    'pattern': '-{name}',
-                    'only_if': True
-                }
-            ]
-        }
-    ],
-    'fixes': ['intFloats']
-}, config_file, sort_keys = False)
+        'settings': [
+            {
+                'set': 'example_set',
+                'required': True,
+                'settings': [
+                    {
+                        'name': 'example-setting',
+                        'default': 0
+                    },
+                    {
+                        'name': 'example-flag',
+                        'default': False,
+                        'pattern': '-{name}',
+                        'only_if': True
+                    }
+                ]
+            }
+        ],
+        'fixes': ['intFloats']
+    }, config_file, sort_keys = False)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'Initialize a simulations folder.')
+    addArguments(parser)
+    action(parser.parse_args())
