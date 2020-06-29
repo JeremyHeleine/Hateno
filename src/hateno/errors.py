@@ -8,6 +8,13 @@ class Error(Exception):
 
 	pass
 
+class ManagerAlreadyRunningError(Error):
+	'''
+	Exception raised when a instance of the Manager is created while another is still running.
+	'''
+
+	pass
+
 class SettingsSetNotFoundError(Error):
 	'''
 	Exception raised when a settings set has not been found.

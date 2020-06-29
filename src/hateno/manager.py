@@ -26,6 +26,11 @@ class Manager():
 	----------
 	folder : Folder|string
 		The folder to manage. Either a `Folder` instance or the path to the folder (used to create a `Folder` instance).
+
+	Raises
+	------
+	ManagerAlreadyRunningError
+		A Manager instance is already running.
 	'''
 
 	def __init__(self, folder):
@@ -37,8 +42,15 @@ class Manager():
 		self._checkers_regex_compiled = None
 		self._checkers_list = None
 
+		self._running_indicator_filename = self._folder.confFilePath('manager.running')
+		self._delete_running_indicator = True
+
+		if os.path.isfile(self._running_indicator_filename):
+			self._delete_running_indicator = False
+			raise ManagerAlreadyRunningError()
+
 		# Add a file into the configuration folder to indicate a Manager instance is currently running
-		with open(self._folder.confFilePath('manager.running'), 'w') as f:
+		with open(self._running_indicator_filename, 'w') as f:
 			f.write(str(datetime.datetime.now()))
 
 	def __del__(self):
@@ -46,7 +58,8 @@ class Manager():
 		Delete the "running indicator" when this instance is destroyed.
 		'''
 
-		os.unlink(self._folder.confFilePath('manager.running'))
+		if self._delete_running_indicator:
+			os.unlink(self._running_indicator_filename)
 
 	@property
 	def folder(self):
