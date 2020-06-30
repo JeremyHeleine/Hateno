@@ -44,3 +44,29 @@ class FCollection():
 
         else:
             list_to_manage[fname] = f
+
+    def delete(self, fname, *, category = None):
+        '''
+        Delete a function.
+
+        Parameters
+        ----------
+        fname : str
+            Name of the function to delete.
+
+        category : str
+            Name of the category, if any.
+        '''
+
+        try:
+            list_to_manage = self._list[category] if self._use_categories else self._list
+
+        except KeyError:
+            raise FCollectionCategoryNotFoundError(category)
+
+        else:
+            try:
+                del list_to_manage[fname]
+
+            except KeyError:
+                raise FCollectionFunctionNotFoundError(fname)

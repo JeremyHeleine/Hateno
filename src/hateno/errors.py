@@ -21,6 +21,19 @@ class FCollectionCategoryNotFoundError(Error):
 	def __init__(self, category):
 		self.category = category
 
+class FCollectionFunctionNotFoundError(Error):
+	'''
+	Exception raised when we try to access a non-existing function of an FCollection.
+
+	Parameters
+	----------
+	fname : str
+		Name of the function.
+	'''
+
+	def __init__(self, fname):
+		self.fname = fname
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
