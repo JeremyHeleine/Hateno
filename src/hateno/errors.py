@@ -8,6 +8,19 @@ class Error(Exception):
 
 	pass
 
+class FCollectionCategoryNotFoundError(Error):
+	'''
+	Exception raised when we try to access a non-existing category of an FCollection.
+
+	Parameters
+	----------
+	category : str
+		Name of the category.
+	'''
+
+	def __init__(self, category):
+		self.category = category
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
