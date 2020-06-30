@@ -7,117 +7,165 @@ import inspect
 from .errors import *
 
 class FCollection():
-    '''
-    Represent a collection of functions, with possible categories.
+	'''
+	Represent a collection of functions, with possible categories.
 
-    Parameters
-    ----------
-    categories : list
-        Names of the categories to use.
+	Parameters
+	----------
+	categories : list
+		Names of the categories to use.
 
-    filter_regex : str
-        Regex to use to filter the functions when we load them from a module.
-    '''
+	filter_regex : str
+		Regex to use to filter the functions when we load them from a module.
+	'''
 
-    def __init__(self, *, categories = [], filter_regex = None):
-        self._list = {}
-        self._use_categories = bool(categories)
+	def __init__(self, *, categories = [], filter_regex = None):
+		self._list = {}
+		self._use_categories = bool(categories)
 
-        if categories:
-            self._list = {cat: {} for cat in categories}
+		if categories:
+			self._list = {cat: {} for cat in categories}
 
-        if filter_regex:
-            self.setFilterRegex(filter_regex)
+		if filter_regex:
+			self.setFilterRegex(filter_regex)
 
-    def set(self, fname, f, *, category = None):
-        '''
-        Add a function to the collection, or replace an existing one.
+	def _getList(self, category = None):
+		'''
+		Get the right list to manage.
 
-        Parameters
-        ----------
-        fname : str
-            Name of the function.
+		Parameters
+		----------
+		category : str
+			Name of the category, if any.
 
-        f : function
-            Function to store.
+		Raises
+		------
+		FCollectionCategoryNotFoundError
+			The category has not been found.
 
-        category : str
-            Name of the category, if any.
-        '''
+		Returns
+		-------
+		list_to_manage : dict
+			The list to manage (either the whole list or a category's one).
+		'''
 
-        try:
-            list_to_manage = self._list[category] if self._use_categories else self._list
+		try:
+			list_to_manage = self._list[category] if self._use_categories else self._list
 
-        except KeyError:
-            raise FCollectionCategoryNotFoundError(category)
+		except KeyError:
+			raise FCollectionCategoryNotFoundError(category)
 
-        else:
-            list_to_manage[fname] = f
+		else:
+			return list_to_manage
 
-    def delete(self, fname, *, category = None):
-        '''
-        Delete a function.
+	def set(self, fname, f, *, category = None):
+		'''
+		Add a function to the collection, or replace an existing one.
 
-        Parameters
-        ----------
-        fname : str
-            Name of the function to delete.
+		Parameters
+		----------
+		fname : str
+			Name of the function.
 
-        category : str
-            Name of the category, if any.
-        '''
+		f : function
+			Function to store.
 
-        try:
-            list_to_manage = self._list[category] if self._use_categories else self._list
+		category : str
+			Name of the category, if any.
+		'''
 
-        except KeyError:
-            raise FCollectionCategoryNotFoundError(category)
+		self._getList(category)[fname] = f
 
-        else:
-            try:
-                del list_to_manage[fname]
+	def delete(self, fname, *, category = None):
+		'''
+		Delete a function.
 
-            except KeyError:
-                raise FCollectionFunctionNotFoundError(fname)
+		Parameters
+		----------
+		fname : str
+			Name of the function to delete.
 
-    def setFilterRegex(self, filter_regex):
-        '''
-        Define the filter regex.
-        The regex must define a group named `name` which matches the function's name.
-        If the collection is categorized, the regex must also define a group named `category`.
+		category : str
+			Name of the category, if any.
 
-        Parameters
-        ----------
-        filter_regex : str
-            Filter regex to define.
+		Raises
+		------
+		FCollectionFunctionNotFoundError
+			The function has not been found.
+		'''
 
-        Raises
-        ------
-        InvalidFilterRegexError
-            The regex does not contain the required groups.
-        '''
+		list_to_manage = self._getList(category)
 
-        regex = re.compile(filter_regex)
+		try:
+			del list_to_manage[fname]
 
-        if not('name' in regex.groupindex) or (self._use_categories and not('category' in regex.groupindex)):
-            raise InvalidFilterRegexError(filter_regex)
+		except KeyError:
+			raise FCollectionFunctionNotFoundError(fname)
 
-        else:
-            self._filter_regex = regex
+	def get(self, fname, *, category = None):
+		'''
+		Get a function.
 
-    def loadFromModule(self, module):
-        '''
-        Load functions from a given module, according to the filter regex.
+		Parameters
+		----------
+		fname : str
+			Name of the function to get.
 
-        Parameters
-        ----------
-        module : Module
-            Module (already loaded) where are defined the functions.
-        '''
+		category : str
+			Name of the category, if any.
 
-        for function in inspect.getmembers(module, inspect.isfunction):
-            match = self._filter_regex.match(function[0])
+		Raises
+		------
+		FCollectionFunctionNotFoundError
+			The function has not been found.
+		'''
 
-            if match:
-                category = match.group('category') if self._use_categories else None
-                self.set(match.group('name'), function[1], category = category)
+		list_to_manage = self._getList(category)
+
+		try:
+			return list_to_manage[fname]
+
+		except KeyError:
+			raise FCollectionFunctionNotFoundError(fname)
+
+	def setFilterRegex(self, filter_regex):
+		'''
+		Define the filter regex.
+		The regex must define a group named `name` which matches the function's name.
+		If the collection is categorized, the regex must also define a group named `category`.
+
+		Parameters
+		----------
+		filter_regex : str
+			Filter regex to define.
+
+		Raises
+		------
+		InvalidFilterRegexError
+			The regex does not contain the required groups.
+		'''
+
+		regex = re.compile(filter_regex)
+
+		if not('name' in regex.groupindex) or (self._use_categories and not('category' in regex.groupindex)):
+			raise InvalidFilterRegexError(filter_regex)
+
+		else:
+			self._filter_regex = regex
+
+	def loadFromModule(self, module):
+		'''
+		Load functions from a given module, according to the filter regex.
+
+		Parameters
+		----------
+		module : Module
+			Module (already loaded) where are defined the functions.
+		'''
+
+		for function in inspect.getmembers(module, inspect.isfunction):
+			match = self._filter_regex.match(function[0])
+
+			if match:
+				category = match.group('category') if self._use_categories else None
+				self.set(match.group('name'), function[1], category = category)
