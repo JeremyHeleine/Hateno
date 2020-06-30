@@ -34,6 +34,19 @@ class FCollectionFunctionNotFoundError(Error):
 	def __init__(self, fname):
 		self.fname = fname
 
+class InvalidFilterRegexError(Error):
+	'''
+	Exception raised when we define the filter regex of an FCollection without the required groups.
+
+	Parameters
+	----------
+	regex : str
+		The invalid regex.
+	'''
+
+	def __init__(self, regex):
+		self.regex = regex
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
