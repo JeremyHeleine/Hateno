@@ -6,15 +6,15 @@ import shutil
 import stat
 import re
 import functools
-import inspect
 import copy
 from math import ceil
 from string import Template
 
 from .errors import *
+from .fcollection import FCollection
 from .folder import Folder
 from .simulation import Simulation
-from . import generators
+from . import generators as default_generators
 
 class Generator():
 	'''
@@ -35,8 +35,7 @@ class Generator():
 		self._lists_regex_compiled = None
 		self._lists_items_regex_compiled = None
 
-		self._variables_generators_regex_compiled = None
-		self._variables_generators_list = None
+		self._variables_generators = None
 
 	@property
 	def folder(self):
@@ -50,22 +49,6 @@ class Generator():
 		'''
 
 		return self._folder
-
-	@property
-	def _variables_generators_regex(self):
-		'''
-		Regex to determine whether a function's name corresponds to a variable generator.
-
-		Returns
-		-------
-		regex : re.Pattern
-			The generators regex.
-		'''
-
-		if self._variables_generators_regex_compiled is None:
-			self._variables_generators_regex_compiled = re.compile(r'^generator_([A-Za-z0-9_]+)$')
-
-		return self._variables_generators_regex_compiled
 
 	@property
 	def _lists_regex(self):
@@ -100,67 +83,21 @@ class Generator():
 		return self._lists_items_regex_compiled
 
 	@property
-	def _variables_generators(self):
+	def variables_generators(self):
 		'''
 		Get the list of available variables generators.
 
 		Returns
 		-------
-		generators : dict
-			The generators.
+		generators : FCollection
+			The collection of generators.
 		'''
 
-		if self._variables_generators_list is None:
-			self._variables_generators_list = {}
-			self.loadVariablesGeneratorsFromModule(generators)
+		if self._variables_generators is None:
+			self._variables_generators = FCollection(filter_regex = r'^generator_(?P<name>[A-Za-z0-9_]+)$')
+			self._variables_generators.loadFromModule(default_generators)
 
-		return self._variables_generators_list
-
-	def loadVariablesGeneratorsFromModule(self, module):
-		'''
-		Load all variables generators in a given module.
-
-		Parameters
-		----------
-		module : Module
-			Module (already loaded) where are defined the generators.
-		'''
-
-		for function in inspect.getmembers(module, inspect.isfunction):
-			generator_match = self._variables_generators_regex.match(function[0])
-
-			if generator_match:
-				self.setVariableGenerator(generator_match.group(1), function[1])
-
-	def setVariableGenerator(self, generator_name, generator):
-		'''
-		Set (add or replace) a variable generator.
-
-		Parameters
-		----------
-		generator_name : str
-			Name of the generator.
-
-		generator : function
-			Generator to register.
-		'''
-
-		self._variables_generators[generator_name] = generator
-
-	def removeVariableGenerator(self, generator_name):
-		'''
-		Remove a variable generator.
-
-		Parameters
-		----------
-		generator_name : str
-			Name of the generator to remove.
-		'''
-
-		if not(generator_name in self._variables_generators):
-			raise VariableGeneratorNotFoundError(generator_name)
-
-		del self._variables_generators[generator_name]
+		return self._variables_generators
 
 	def add(self, simulations):
 		'''
@@ -217,10 +154,14 @@ class Generator():
 
 			if 'generators' in globalsetting:
 				for generator_name in globalsetting['generators']:
-					if not(generator_name in self._variables_generators):
+					try:
+						generator = self.variables_generators.get(generator_name)
+
+					except FCollectionFunctionNotFoundError:
 						raise VariableGeneratorNotFoundError(generator_name)
 
-					variables['data_variables'][generator_name.upper()+'_'+name_upper] = functools.reduce(self._variables_generators[generator_name], variables['data_lists'][name_upper])
+					else:
+						variables['data_variables'][generator_name.upper()+'_'+name_upper] = functools.reduce(generator, variables['data_lists'][name_upper])
 
 		return variables
 
