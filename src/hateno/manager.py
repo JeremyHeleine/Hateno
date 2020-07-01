@@ -3,20 +3,19 @@
 
 import os
 import errno
-import inspect
 
 import shutil
 import tarfile
 import tempfile
 
-import re
 import datetime
 
 from . import jsonfiles, string
 from .errors import *
+from .fcollection import FCollection
 from .folder import Folder
 from .simulation import Simulation
-from . import checkers
+from . import checkers as default_checkers
 
 class Manager():
 	'''
@@ -39,8 +38,7 @@ class Manager():
 		self._simulations_list_file = self._folder.confFilePath('simulations.list')
 		self._simulations_list_dict = None
 
-		self._checkers_regex_compiled = None
-		self._checkers_list = None
+		self._checkers = None
 
 		self._running_indicator_filename = self._folder.confFilePath('manager.running')
 		self._delete_running_indicator = True
@@ -102,95 +100,25 @@ class Manager():
 		jsonfiles.write(self._simulations_list, self._simulations_list_file)
 
 	@property
-	def _checkers_regex(self):
-		'''
-		Regex to determine whether a function's name corresponds to a checker.
-
-		Returns
-		-------
-		regex : re.Pattern
-			The checkers regex.
-		'''
-
-		if self._checkers_regex_compiled is None:
-			self._checkers_regex_compiled = re.compile(r'^(file|folder|global)_([A-Za-z0-9_]+)$')
-
-		return self._checkers_regex_compiled
-
-	@property
-	def _checkers(self):
+	def checkers(self):
 		'''
 		Get the list of available checkers.
 
 		Returns
 		-------
-		checkers : dict
-			Checkers, sorted by category.
+		checkers : FCollection
+			The collection of checkers.
 		'''
 
-		if self._checkers_list is None:
-			self._checkers_list = {cat: {} for cat in ['file', 'folder', 'global']}
-			self.loadCheckersFromModule(checkers)
+		if self._checkers is None:
+			self._checkers = FCollection(
+				categories = ['file', 'folder', 'global'],
+				filter_regex = r'^(?P<category>file|folder|global)_(?P<name>[A-Za-z0-9_]+)$'
+			)
 
-		return self._checkers_list
+			self._checkers.loadFromModule(default_checkers)
 
-	def loadCheckersFromModule(self, module):
-		'''
-		Load all checkers in a given module.
-
-		Parameters
-		----------
-		module : Module
-			Module (already loaded) where are defined the checkers.
-		'''
-
-		for function in inspect.getmembers(module, inspect.isfunction):
-			checker_match = self._checkers_regex.match(function[0])
-
-			if checker_match:
-				self.setChecker(checker_match.group(1), checker_match.group(2), function[1])
-
-	def setChecker(self, category, checker_name, checker):
-		'''
-		Set (add or replace) a checker.
-
-		Parameters
-		----------
-		category : str
-			Category of the checker (`file`, `folder` or `global`).
-
-		checker_name : str
-			Name of checker.
-
-		checker : function
-			Checker to register (callback function).
-		'''
-
-		if not(category in self._checkers):
-			raise CheckersCategoryNotFoundError(category)
-
-		self._checkers[category][checker_name] = checker
-
-	def removeChecker(self, category, checker_name):
-		'''
-		Remove a checker.
-
-		Parameters
-		----------
-		category : str
-			Category of the checker (`file`, `folder` or `global`).
-
-		checker_name : str
-			Name of checker.
-		'''
-
-		if not(category in self._checkers):
-			raise CheckersCategoryNotFoundError(category)
-
-		if not(checker_name in self._checkers[category]):
-			raise CheckerNotFoundError(checker_name, category)
-
-		del self._checkers[category][checker_name]
+		return self._checkers
 
 	def checkIntegrity(self, simulation):
 		'''
@@ -220,19 +148,27 @@ class Manager():
 
 					if 'checks' in output:
 						for checker_name in output['checks']:
-							if not(checker_name in self._checkers[checkers_cat]):
+							try:
+								checker = self.checkers.get(checker_name, category = checkers_cat)
+
+							except FCollectionFunctionNotFoundError:
 								raise CheckerNotFoundError(checker_name, checkers_cat)
 
-							if not(self._checkers[checkers_cat][checker_name](simulation, parsed_name)):
-								return False
+							else:
+								if not(checker(simulation, parsed_name)):
+									return False
 
 		if 'checks' in self._folder.settings['output']:
 			for checker_name in self._folder.settings['output']['checks']:
-				if not(checker_name in self._checkers['global']):
+				try:
+					checker = self.checkers.get(checker_name, category = 'global')
+
+				except FCollectionFunctionNotFoundError:
 					raise CheckerNotFoundError(checker_name, 'global')
 
-				if not(self._checkers['global'][checker_name](simulation, tree)):
-					return False
+				else:
+					if not(checker(simulation, tree)):
+						return False
 
 		return True
 
