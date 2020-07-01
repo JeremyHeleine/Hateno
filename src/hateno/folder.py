@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
-import inspect
 import errno
 
 from . import jsonfiles
 from .errors import *
-from . import fixers
+from .fcollection import FCollection
+from . import fixers as default_fixers
 
 class Folder():
 	'''
@@ -36,8 +35,7 @@ class Folder():
 
 		self._settings = None
 
-		self._fixers_regex_compiled = None
-		self._fixers_list = None
+		self._fixers = None
 
 	@property
 	def folder(self):
@@ -102,83 +100,21 @@ class Folder():
 		return self._settings
 
 	@property
-	def _fixers_regex(self):
-		'''
-		Regex to detect whether a function's name corresponds to a value fixer.
-
-		Returns
-		-------
-		regex : re.Pattern
-			The fixers regex.
-		'''
-
-		if self._fixers_regex_compiled is None:
-			self._fixers_regex_compiled = re.compile(r'^fixer_([A-Za-z0-9_]+)$')
-
-		return self._fixers_regex_compiled
-
-	@property
-	def _fixers(self):
+	def fixers(self):
 		'''
 		Get the list of available values fixers.
 
 		Returns
 		-------
-		fixers : dict
-			The values fixers.
+		fixers : FCollection
+			The collection of values fixers.
 		'''
 
-		if self._fixers_list is None:
-			self._fixers_list = {}
-			self.loadFixersFromModule(fixers)
+		if self._fixers is None:
+			self._fixers = FCollection(filter_regex = r'^fixer_(?P<name>[A-Za-z0-9_]+)$')
+			self._fixers.loadFromModule(default_fixers)
 
-		return self._fixers_list
-
-	def loadFixersFromModule(self, module):
-		'''
-		Load all values fixers in a given module.
-
-		Parameters
-		----------
-		module : Module
-			Module (already loaded) where are defined the fixers.
-		'''
-
-		for function in inspect.getmembers(module, inspect.isfunction):
-			fixer_match = self._fixers_regex.match(function[0])
-
-			if fixer_match:
-				self.setFixer(fixer_match.group(1), function[1])
-
-	def setFixer(self, fixer_name, fixer):
-		'''
-		Set (add or replace) a value fixer.
-
-		Parameters
-		----------
-		fixer_name : str
-			Name of the fixer.
-
-		fixer : function
-			Fixer to register.
-		'''
-
-		self._fixers[fixer_name] = fixer
-
-	def removeFixer(self, fixer_name):
-		'''
-		Remove a value fixer.
-
-		Parameters
-		----------
-		fixer_name : str
-			Name of the fixer to remove.
-		'''
-
-		if not(fixer_name in self._fixers):
-			raise FixerNotFoundError(fixer_name)
-
-		del self._fixers[fixer_name]
+		return self._fixers
 
 	def applyFixers(self, value, before = [], after = []):
 		'''
@@ -211,9 +147,13 @@ class Folder():
 			if not(type(fixer) is list):
 				fixer = [fixer]
 
-			if not(fixer[0] in self._fixers):
+			try:
+				fixer_func = self.fixers.get(fixer[0])
+
+			except FCollectionFunctionNotFoundError:
 				raise FixerNotFoundError(fixer[0])
 
-			value = self._fixers[fixer[0]](value, *fixer[1:])
+			else:
+				value = fixer_func(value, *fixer[1:])
 
 		return value
