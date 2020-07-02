@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8 - 2020-07-02
+
+* New: namers are functions allowing to alter the name of settings during execution
+* New: script `init` to initialize a folder
+* New: global script `hateno` to run all the other scripts
+* New: FCollection to manage a collection of functions
+* Configuration files moved to `.hateno` folder
+* Fixers available at the sets level
+* Configuration key `fixes` changed to `fixers`
+* Manager and Generator can be created without Folder instance
+* Manager can detect if an instance is already running for the current folder
+* Fixers, generators and checkers are now stored in an FCollection
+* Bugs fixes
+
 ## 0.7 - 2020-06-19
 
 * Transformation script/method can be used to change the settings of a simulation
