@@ -302,7 +302,7 @@ class Simulation():
 
 		return self._eval_tag_regex_compiled
 
-	def _incrementSettingGlobalCounter(self, setting_name):
+	def _incrementSettingCounters(self, setting_name, set_name):
 		'''
 		Update the global counter of a setting.
 
@@ -310,16 +310,17 @@ class Simulation():
 		----------
 		setting_name : str
 			Name of the setting.
+
+		set_name : str
+			Name of the set the setting belongs to.
 		'''
 
-		try:
-			self._settings_counters['global'][setting_name] += 1
+		for counters_dict in [self._settings_counters['global'], self._settings_counters['sets'][set_name]]:
+			try:
+				counters_dict[setting_name] += 1
 
-		except KeyError:
-			self._settings_counters['global'][setting_name] = 0
-
-		print('increment')
-		print(self._settings_counters)
+			except KeyError:
+				counters_dict[setting_name] = 0
 
 	def generateGlobalSettings(self):
 		'''
@@ -355,9 +356,11 @@ class Simulation():
 		default_pattern = self._folder.settings['setting_pattern']
 
 		self._raw_settings_dict = {}
-		self._settings_counters = {'global': {}}
+		self._settings_counters = {'global': {}, 'sets': {}}
 
 		for settings_set in self._folder.settings['settings']:
+			self._settings_counters['sets'][settings_set['set']] = {}
+
 			default_settings = [
 				SimulationSetting(self._folder, settings_set['set'], s['name'], self)
 				for s in settings_set['settings']
@@ -369,8 +372,8 @@ class Simulation():
 			except KeyError:
 				if settings_set['required']:
 					for setting in default_settings:
-						self._incrementSettingGlobalCounter(setting.name)
-						setting.setGlobalIndex()
+						self._incrementSettingCounters(setting.name, settings_set['set'])
+						setting.setIndexes()
 
 					self._raw_settings_dict[settings_set['set']] = [default_settings]
 
@@ -384,8 +387,8 @@ class Simulation():
 					set_to_add = copy.deepcopy(default_settings)
 
 					for setting in set_to_add:
-						self._incrementSettingGlobalCounter(setting.name)
-						setting.setGlobalIndex()
+						self._incrementSettingCounters(setting.name, settings_set['set'])
+						setting.setIndexes()
 
 						try:
 							setting.value = values_set[setting.name]
@@ -563,6 +566,7 @@ class SimulationSetting():
 		except IndexError:
 			raise SettingNotFoundError(set_name, setting_name)
 
+		self._set_name = set_name
 		self._name = setting_dict['name']
 		self._value = setting_dict['default']
 		self._exclude_for_db = 'exclude' in setting_dict and setting_dict['exclude']
@@ -610,12 +614,13 @@ class SimulationSetting():
 
 		return self._pattern.format(name = self.name, value = self.value)
 
-	def setGlobalIndex(self):
+	def setIndexes(self):
 		'''
-		Define the global index of this setting.
+		Define the global and local indexes of this setting.
 		'''
 
 		self._global_index = self._simulation.settings_counters['global'][self._name]
+		self._local_index = self._simulation.settings_counters['sets'][self._set_name][self._name]
 
 	@property
 	def name(self):
