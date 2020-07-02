@@ -579,7 +579,7 @@ class SimulationSetting():
 		self._fixers = {'before': [], 'after': []}
 		for when in ['before', 'after']:
 			try:
-				self._fixers[when] = setting_dict[f'fixes_{when}']
+				self._fixers[when] = setting_dict[f'fixers_{when}']
 
 			except KeyError:
 				pass

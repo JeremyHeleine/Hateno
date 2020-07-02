@@ -99,8 +99,8 @@ class Folder():
 			if not('namers' in self._settings):
 				self._settings['namers'] = []
 
-			if not('fixes' in self._settings):
-				self._settings['fixes'] = []
+			if not('fixers' in self._settings):
+				self._settings['fixers'] = []
 
 		return self._settings
 
@@ -165,7 +165,7 @@ class Folder():
 			The fixer's name has not been found.
 		'''
 
-		for fixer in before + self.settings['fixes'] + after:
+		for fixer in before + self.settings['fixers'] + after:
 			if not(type(fixer) is list):
 				fixer = [fixer]
 
