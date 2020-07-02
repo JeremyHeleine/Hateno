@@ -153,6 +153,19 @@ class FixerNotFoundError(Error):
 	def __init__(self, fixer_name):
 		self.fixer_name = fixer_name
 
+class NamerNotFoundError(Error):
+	'''
+	Exception raised when we try to access a namer which does not exist.
+
+	Parameters
+	----------
+	namer_name : str
+		Name of the namer which has not been found.
+	'''
+
+	def __init__(self, namer_name):
+		self.namer_name = namer_name
+
 class SimulationIntegrityCheckFailedError(Error):
 	'''
 	Exception raised when a folder fails to pass an integrity check.

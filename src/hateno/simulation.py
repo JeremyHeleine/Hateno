@@ -612,7 +612,7 @@ class SimulationSetting():
 			The representation of the setting.
 		'''
 
-		return self._pattern.format(name = self.name, value = self.value)
+		return self._pattern.format(name = self.display_name, value = self.value)
 
 	def setIndexes(self):
 		'''
@@ -634,6 +634,22 @@ class SimulationSetting():
 		'''
 
 		return self._name
+
+	@property
+	def display_name(self):
+		'''
+		Get the name of the setting to use inside the simulation.
+
+		Returns
+		-------
+		name : str
+			Name to use.
+		'''
+
+		local_total = self._simulation.settings_counters['sets'][self._set_name][self._name] + 1
+		global_total = self._simulation.settings_counters['global'][self._name] + 1
+
+		return self._folder.applyNamers(self._name, self._local_index, local_total, self._global_index, global_total)
 
 	@property
 	def value(self):

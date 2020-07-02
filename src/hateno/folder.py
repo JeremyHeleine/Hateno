@@ -7,6 +7,7 @@ import errno
 from . import jsonfiles
 from .errors import *
 from .fcollection import FCollection
+from . import namers as default_namers
 from . import fixers as default_fixers
 
 class Folder():
@@ -35,6 +36,7 @@ class Folder():
 
 		self._settings = None
 
+		self._namers = None
 		self._fixers = None
 
 	@property
@@ -94,6 +96,9 @@ class Folder():
 		if not(self._settings):
 			self._settings = jsonfiles.read(self._settings_file)
 
+			if not('namers' in self._settings):
+				self._settings['namers'] = []
+
 			if not('fixes' in self._settings):
 				self._settings['fixes'] = []
 
@@ -115,6 +120,23 @@ class Folder():
 			self._fixers.loadFromModule(default_fixers)
 
 		return self._fixers
+
+	@property
+	def namers(self):
+		'''
+		Get the list of available namers.
+
+		Returns
+		-------
+		namers : FCollection
+			The collection of namers.
+		'''
+
+		if self._namers is None:
+			self._namers = FCollection(filter_regex = r'^namer_(?P<name>[A-Za-z0-9_]+)$')
+			self._namers.loadFromModule(default_namers)
+
+		return self._namers
 
 	def applyFixers(self, value, before = [], after = []):
 		'''
@@ -157,3 +179,50 @@ class Folder():
 				value = fixer_func(value, *fixer[1:])
 
 		return value
+
+	def applyNamers(self, name, local_index, local_total, global_index, global_total):
+		'''
+		Transform the name of a setting before being used in a simulation.
+
+		Parameters
+		----------
+		name : str
+			The name of the setting to alter.
+
+		local_index : int
+			The index of the setting, inside its set.
+
+		local_total : int
+			The total number the setting has been used inside its set.
+
+		global_index : int
+			The index of the setting, among all sets.
+
+		global_total : int
+			The total number the setting has been used among all sets.
+
+		Returns
+		-------
+		name : str
+			The name to use.
+
+		Raises
+		------
+		NamerNotFoundError
+			The namer's name has not been found.
+		'''
+
+		for namer in self.settings['namers']:
+			if not(type(namer) is list):
+				namer = [namer]
+
+			try:
+				namer_func = self.namers.get(namer[0])
+
+			except FCollectionFunctionNotFoundError:
+				raise NamerNotFoundError(namer[0])
+
+			else:
+				name = namer_func(name, local_index, local_total, global_index, global_total, *namer[1:])
+
+		return name
