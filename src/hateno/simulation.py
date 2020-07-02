@@ -585,12 +585,27 @@ class SimulationSetting():
 				pass
 
 		self._namers = {'before': [], 'after': []}
-		for when in ['before', 'after']:
-			try:
-				self._namers[when] += settings_set_dict[f'namers_{when}']
 
-			except KeyError:
-				pass
+		keys_to_search = {
+			'before': [
+				(setting_dict, ''),
+				(settings_set_dict, ''),
+				(setting_dict, '_between')
+			],
+			'after': [
+				(setting_dict, '_between'),
+				(settings_set_dict, ''),
+				(setting_dict, '')
+			]
+		}
+
+		for when, keys_path in keys_to_search.items():
+			for dict_to_search, key_to_search in keys_path:
+				try:
+					self._namers[when] += dict_to_search[f'namers{key_to_search}_{when}']
+
+				except KeyError:
+					pass
 
 	def __deepcopy__(self, memo):
 		'''
