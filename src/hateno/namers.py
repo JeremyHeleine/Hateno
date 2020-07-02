@@ -29,7 +29,7 @@ display_name : str
 	The name to use when launching the simulation.
 '''
 
-def namer_appendLocalIndex(name, local_index, local_total, global_index, global_total, only_if_multiple = False):
+def namer_appendLocalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
 	'''
 	Append the local index to the name.
 
@@ -37,14 +37,17 @@ def namer_appendLocalIndex(name, local_index, local_total, global_index, global_
 	----------
 	only_if_multiple : bool
 		Append the index only if the setting is used more than once (locally).
+
+	separator : str
+		Separator between the name and the index.
 	'''
 
 	if only_if_multiple and local_total <= 1:
 		return name
 
-	return f'{name}-{local_index}'
+	return name + separator + str(local_index)
 
-def namer_appendGlobalIndex(name, local_index, local_total, global_index, global_total, only_if_multiple = False):
+def namer_appendGlobalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
 	'''
 	Append the local index to the name.
 
@@ -52,9 +55,12 @@ def namer_appendGlobalIndex(name, local_index, local_total, global_index, global
 	----------
 	only_if_multiple : bool
 		Append the index only if the setting is used more than once (globally).
+
+	separator : str
+		Separator between the name and the index.
 	'''
 
 	if only_if_multiple and global_total <= 1:
 		return name
 
-	return f'{name}-{global_index}'
+	return name + separator + str(global_index)
