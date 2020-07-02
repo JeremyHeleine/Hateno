@@ -29,6 +29,8 @@ class Simulation():
 		self._raw_settings = None
 		self._raw_settings_dict = None
 
+		self._settings_counters = {}
+
 		self._setting_tag_regex_compiled = None
 		self._eval_tag_regex_compiled = None
 		self._parser_recursion_stack = []
@@ -240,6 +242,19 @@ class Simulation():
 		return functools.reduce(lambda a, b: {**a, **b}, self.settings)
 
 	@property
+	def settings_counters(self):
+		'''
+		Return the current settings global and local counters.
+
+		Returns
+		-------
+		counters : dict
+			The counters.
+		'''
+
+		return self._settings_counters
+
+	@property
 	def command_line(self):
 		'''
 		Return the command line to use to generate this simulation.
@@ -287,6 +302,25 @@ class Simulation():
 
 		return self._eval_tag_regex_compiled
 
+	def _incrementSettingGlobalCounter(self, setting_name):
+		'''
+		Update the global counter of a setting.
+
+		Parameters
+		----------
+		setting_name : str
+			Name of the setting.
+		'''
+
+		try:
+			self._settings_counters['global'][setting_name] += 1
+
+		except KeyError:
+			self._settings_counters['global'][setting_name] = 0
+
+		print('increment')
+		print(self._settings_counters)
+
 	def generateGlobalSettings(self):
 		'''
 		Generate the full list of global settings.
@@ -318,8 +352,10 @@ class Simulation():
 		else:
 			user_settings = self._user_settings['settings']
 
-		self._raw_settings_dict = {}
 		default_pattern = self._folder.settings['setting_pattern']
+
+		self._raw_settings_dict = {}
+		self._settings_counters = {'global': {}}
 
 		for settings_set in self._folder.settings['settings']:
 			default_settings = [
@@ -332,6 +368,10 @@ class Simulation():
 
 			except KeyError:
 				if settings_set['required']:
+					for setting in default_settings:
+						self._incrementSettingGlobalCounter(setting.name)
+						setting.setGlobalIndex()
+
 					self._raw_settings_dict[settings_set['set']] = [default_settings]
 
 			else:
@@ -344,6 +384,9 @@ class Simulation():
 					set_to_add = copy.deepcopy(default_settings)
 
 					for setting in set_to_add:
+						self._incrementSettingGlobalCounter(setting.name)
+						setting.setGlobalIndex()
+
 						try:
 							setting.value = values_set[setting.name]
 
@@ -537,6 +580,24 @@ class SimulationSetting():
 			except KeyError:
 				pass
 
+	def __deepcopy__(self, memo):
+		'''
+		Override the default behavior of `deepcopy()` to keep the references to the Folder and the Simulation.
+		'''
+
+		cls = self.__class__
+		result = cls.__new__(cls)
+		memo[id(self)] = result
+
+		for k, v in self.__dict__.items():
+			if k in ['_folder', '_simulation']:
+				setattr(result, k, v)
+
+			else:
+				setattr(result, k, copy.deepcopy(v, memo))
+
+		return result
+
 	def __str__(self):
 		'''
 		Return a string representing the setting and its value, according to the pattern.
@@ -548,6 +609,13 @@ class SimulationSetting():
 		'''
 
 		return self._pattern.format(name = self.name, value = self.value)
+
+	def setGlobalIndex(self):
+		'''
+		Define the global index of this setting.
+		'''
+
+		self._global_index = self._simulation.settings_counters['global'][self._name]
 
 	@property
 	def name(self):
