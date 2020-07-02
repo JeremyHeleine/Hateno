@@ -6,7 +6,7 @@ This script simply uses the Manager class to extract the settings of a simulatio
 '''
 
 import argparse
-import pprint
+import json
 
 from hateno.manager import Manager
 
@@ -18,7 +18,7 @@ def action(args):
     manager = Manager(args.folder_path)
 
     settings = manager.settingsOf(args.simulation_id)
-    pprint.pprint(settings, width = 1)
+    print(json.dumps(settings, indent = '\t'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Extract the settings of a simulation.')
