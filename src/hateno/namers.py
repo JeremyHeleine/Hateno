@@ -64,3 +64,27 @@ def namer_appendGlobalIndex(name, local_index, local_total, global_index, global
 		return name
 
 	return name + separator + str(global_index)
+
+def namer_suffix(name, local_index, local_total, global_index, global_total, suffix = ''):
+	'''
+	Append a string to the name.
+
+	Parameters
+	----------
+	suffix : str
+		The string to append.
+	'''
+
+	return name + suffix
+
+def namer_prefix(name, local_index, local_total, global_index, global_total, prefix = ''):
+	'''
+	Prepend a string to the name.
+
+	Parameters
+	----------
+	prefix : str
+		The string to prepend.
+	'''
+
+	return prefix + name
