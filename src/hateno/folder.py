@@ -138,7 +138,7 @@ class Folder():
 
 		return self._namers
 
-	def applyFixers(self, value, before = [], after = []):
+	def applyFixers(self, value, *, before = [], after = []):
 		'''
 		Fix a value to prevent false duplicates (e.g. this prevents to consider `0.0` and `0` as different values).
 		Each item of a list of fixers is either a fixer's name or a list beginning with the fixer's name and followed by the arguments to pass to the fixer.
@@ -180,7 +180,7 @@ class Folder():
 
 		return value
 
-	def applyNamers(self, name, local_index, local_total, global_index, global_total):
+	def applyNamers(self, name, local_index, local_total, global_index, global_total, *, before = [], after = []):
 		'''
 		Transform the name of a setting before being used in a simulation.
 
@@ -201,6 +201,12 @@ class Folder():
 		global_total : int
 			The total number the setting has been used among all sets.
 
+		before : list
+			List of namers to apply before the global ones.
+
+		after : list
+			List of namers to apply after the global ones.
+
 		Returns
 		-------
 		name : str
@@ -212,7 +218,7 @@ class Folder():
 			The namer's name has not been found.
 		'''
 
-		for namer in self.settings['namers']:
+		for namer in before + self.settings['namers'] + after:
 			if not(type(namer) is list):
 				namer = [namer]
 

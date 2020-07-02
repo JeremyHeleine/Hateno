@@ -584,6 +584,14 @@ class SimulationSetting():
 			except KeyError:
 				pass
 
+		self._namers = {'before': [], 'after': []}
+		for when in ['before', 'after']:
+			try:
+				self._namers[when] += settings_set_dict[f'namers_{when}']
+
+			except KeyError:
+				pass
+
 	def __deepcopy__(self, memo):
 		'''
 		Override the default behavior of `deepcopy()` to keep the references to the Folder and the Simulation.
@@ -649,7 +657,7 @@ class SimulationSetting():
 		local_total = self._simulation.settings_counters['sets'][self._set_name][self._name] + 1
 		global_total = self._simulation.settings_counters['global'][self._name] + 1
 
-		return self._folder.applyNamers(self._name, self._local_index, local_total, self._global_index, global_total)
+		return self._folder.applyNamers(self._name, self._local_index, local_total, self._global_index, global_total, **self._namers)
 
 	@property
 	def value(self):
