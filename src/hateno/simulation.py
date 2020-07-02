@@ -547,7 +547,7 @@ class SimulationSetting():
 		self._simulation = simulation
 
 		try:
-			settings_set_dict = [
+			self._settings_set_dict = [
 				settings_set
 				for settings_set in self._folder.settings['settings']
 				if settings_set['set'] == set_name
@@ -557,9 +557,9 @@ class SimulationSetting():
 			raise SettingsSetNotFoundError(set_name)
 
 		try:
-			setting_dict = [
+			self._setting_dict = [
 				setting
-				for setting in settings_set_dict['settings']
+				for setting in self._settings_set_dict['settings']
 				if setting['name'] == setting_name
 			][0]
 
@@ -567,45 +567,17 @@ class SimulationSetting():
 			raise SettingNotFoundError(set_name, setting_name)
 
 		self._set_name = set_name
-		self._name = setting_dict['name']
-		self._value = setting_dict['default']
-		self._exclude_for_db = 'exclude' in setting_dict and setting_dict['exclude']
-		self._pattern = setting_dict['pattern'] if 'pattern' in setting_dict else self._folder.settings['setting_pattern']
+		self._name = self._setting_dict['name']
+		self._value = self._setting_dict['default']
+		self._exclude_for_db = 'exclude' in self._setting_dict and self._setting_dict['exclude']
+		self._pattern = self._setting_dict['pattern'] if 'pattern' in self._setting_dict else self._folder.settings['setting_pattern']
 
-		self._use_only_if = 'only_if' in setting_dict
+		self._use_only_if = 'only_if' in self._setting_dict
 		if self._use_only_if:
-			self._only_if_value = setting_dict['only_if']
+			self._only_if_value = self._setting_dict['only_if']
 
-		self._fixers = {'before': [], 'after': []}
-		for when in ['before', 'after']:
-			try:
-				self._fixers[when] = setting_dict[f'fixers_{when}']
-
-			except KeyError:
-				pass
-
-		self._namers = {'before': [], 'after': []}
-
-		keys_to_search = {
-			'before': [
-				(setting_dict, ''),
-				(settings_set_dict, ''),
-				(setting_dict, '_between')
-			],
-			'after': [
-				(setting_dict, '_between'),
-				(settings_set_dict, ''),
-				(setting_dict, '')
-			]
-		}
-
-		for when, keys_path in keys_to_search.items():
-			for dict_to_search, key_to_search in keys_path:
-				try:
-					self._namers[when] += dict_to_search[f'namers{key_to_search}_{when}']
-
-				except KeyError:
-					pass
+		self._fixers_dict = None
+		self._namers_dict = None
 
 	def __deepcopy__(self, memo):
 		'''
@@ -644,6 +616,78 @@ class SimulationSetting():
 
 		self._global_index = self._simulation.settings_counters['global'][self._name]
 		self._local_index = self._simulation.settings_counters['sets'][self._set_name][self._name]
+
+	def _setModifier(self, modifier):
+		'''
+		Set a "modifier" property (fixers or namers).
+
+		Parameters
+		----------
+		modifier : str
+			Modifier to define.
+
+		Returns
+		-------
+		modifier_functions : dict
+			The functions to call, in the right order.
+		'''
+
+		modifier_functions = {'before': [], 'after': []}
+
+		keys_to_search = {
+			'before': [
+				(self._setting_dict, ''),
+				(self._settings_set_dict, ''),
+				(self._setting_dict, '_between')
+			],
+			'after': [
+				(self._setting_dict, '_between'),
+				(self._settings_set_dict, ''),
+				(self._setting_dict, '')
+			]
+		}
+
+		for when, keys_path in keys_to_search.items():
+			for dict_to_search, key_to_search in keys_path:
+				try:
+					modifier_functions[when] += dict_to_search[f'{modifier}{key_to_search}_{when}']
+
+				except KeyError:
+					pass
+
+		return modifier_functions
+
+	@property
+	def _fixers(self):
+		'''
+		Get the fixers to apply to the value.
+
+		Returns
+		-------
+		fixers : dict
+			The list of fixers, in the right order.
+		'''
+
+		if self._fixers_dict is None:
+			self._fixers_dict = self._setModifier('fixers')
+
+		return self._fixers_dict
+
+	@property
+	def _namers(self):
+		'''
+		Get the namers to apply to the name.
+
+		Returns
+		-------
+		namers : dict
+			The list of namers, in the right order.
+		'''
+
+		if self._namers_dict is None:
+			self._namers_dict = self._setModifier('namers')
+
+		return self._namers_dict
 
 	@property
 	def name(self):
