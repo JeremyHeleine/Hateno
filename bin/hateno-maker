@@ -38,13 +38,11 @@ def action(args):
 	if not(type(simulations) is list):
 		simulations = [simulations]
 
-	maker = Maker(args.folder_path, settings['remote_folder'], **maker_settings)
-	unknown_simulations = maker.run(simulations, settings['generator_recipe'])
+	with Maker(args.folder_path, settings['remote_folder'], **maker_settings) as maker:
+		unknown_simulations = maker.run(simulations, settings['generator_recipe'])
 
-	if unknown_simulations and args.save_unknown:
-		jsonfiles.write(unknown_simulations, args.save_unknown)
-
-	maker.close()
+		if unknown_simulations and args.save_unknown:
+			jsonfiles.write(unknown_simulations, args.save_unknown)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Extract, and generate if needed, some simulations.')

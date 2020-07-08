@@ -69,6 +69,20 @@ class Maker():
 
 		self._show_ui = ui
 
+	def __enter__(self):
+		'''
+		Context manager to call `close()` at the end.
+		'''
+
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
 	@property
 	def folder(self):
 		'''
@@ -174,8 +188,13 @@ class Maker():
 		Clear all instances of the modules.
 		'''
 
-		self._manager_instance = None
 		self._generator_instance = None
+
+		try:
+			self._manager_instance.close()
+
+		except AttributeError:
+			pass
 
 		try:
 			self._remote_folder_instance.close()
