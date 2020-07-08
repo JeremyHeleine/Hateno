@@ -15,10 +15,9 @@ def addArguments(parser):
     parser.add_argument('simulation_id', type = str, help = 'identifier of the simulation (name or hashed settings)')
 
 def action(args):
-    manager = Manager(args.folder_path)
-
-    settings = manager.settingsOf(args.simulation_id)
-    print(json.dumps(settings, indent = '\t'))
+    with Manager(args.folder_path) as manager:
+	    settings = manager.settingsOf(args.simulation_id)
+	    print(json.dumps(settings, indent = '\t'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Extract the settings of a simulation.')

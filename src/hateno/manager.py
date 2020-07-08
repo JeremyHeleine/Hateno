@@ -51,9 +51,24 @@ class Manager():
 		with open(self._running_indicator_filename, 'w') as f:
 			f.write(str(datetime.datetime.now()))
 
-	def __del__(self):
+	def __enter__(self):
 		'''
-		Delete the "running indicator" when this instance is destroyed.
+		Context manager so we can use `with` instead of manually calling `close()`.
+		'''
+
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
+	def close(self):
+		'''
+		Delete the "running indicator".
+		Should always be called before destroying the instance to ensure the indicator is deleted.
 		'''
 
 		if self._delete_running_indicator:
