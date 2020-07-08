@@ -18,12 +18,8 @@ def addArguments(parser):
 
 def action(args):
     remote_folder_conf = jsonfiles.read(args.remote_folder.name)
-    remote_folder = RemoteFolder(remote_folder_conf)
-    remote_folder.open()
-
-    remote_folder.send(args.to_send, args.remote_path, delete = args.delete)
-
-    remote_folder.close()
+    with RemoteFolder(remote_folder_conf) as remote_folder:
+    	remote_folder.send(args.to_send, args.remote_path, delete = args.delete)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Send files or directory to a remote folder.')

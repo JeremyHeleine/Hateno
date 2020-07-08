@@ -30,6 +30,21 @@ class RemoteFolder():
 		self._configuration = folder_conf
 		self._local = (self._configuration['host'] == 'local')
 
+	def __enter__(self):
+		'''
+		Context manager to call `open()` and `close()` automatically.
+		'''
+
+		self.open()
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
 	def open(self):
 		'''
 		Open the connection.
