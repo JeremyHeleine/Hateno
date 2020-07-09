@@ -205,14 +205,17 @@ class Simulation():
 
 		Returns
 		-------
-		settings : list
-			Settings, generated according to their pattern.
+		settings : dict
+			Settings, generated according to their pattern and organized by sets.
 		'''
 
-		return [
-			[str(s) for s in settings_set if s.shouldBeDisplayed()]
-			for settings_set in self._settings
-		]
+		return {
+			set_name: [
+				[str(s) for s in settings_set if s.shouldBeDisplayed()]
+				for settings_set in settings_sets
+			]
+			for set_name, settings_sets in self._settings_dict.items()
+		}
 
 	@property
 	def reduced_globalsettings(self):
@@ -265,7 +268,7 @@ class Simulation():
 			The command line to execute.
 		'''
 
-		return ' '.join([self._folder.settings['exec']] + sum(self.settings_as_strings, []))
+		return ' '.join([self._folder.settings['exec']] + sum(sum(self.settings_as_strings.values(), []), []))
 
 	@property
 	def _setting_tag_regex(self):
