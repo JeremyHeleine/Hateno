@@ -26,7 +26,6 @@ class Simulation():
 		self._user_settings = settings
 
 		self._raw_globalsettings = None
-		self._raw_settings = None
 		self._raw_settings_dict = None
 
 		self._settings_counters = {}
@@ -129,22 +128,6 @@ class Simulation():
 		return self._raw_globalsettings
 
 	@property
-	def _settings(self):
-		'''
-		Return (and generate if needed) the complete list of settings.
-
-		Returns
-		-------
-		raw_settings : list
-			The settings.
-		'''
-
-		if not(self._raw_settings):
-			self.generateSettings()
-
-		return self._raw_settings
-
-	@property
 	def _settings_dict(self):
 		'''
 		Return (and generate if needed) the complete list of settings as a dictionary.
@@ -159,23 +142,6 @@ class Simulation():
 			self.generateSettings()
 
 		return self._raw_settings_dict
-
-	@property
-	def settings(self):
-		'''
-		Return the complete list of sets of settings to use, as dictionaries.
-		The settings with `exclude` to `True` are ignored.
-
-		Returns
-		-------
-		settings : list
-			List of sets of settings.
-		'''
-
-		return [
-			{s.name: s.value for s in settings_set if not(s.exclude)}
-			for settings_set in self._settings
-		]
 
 	@property
 	def settings_dict(self):
@@ -242,7 +208,7 @@ class Simulation():
 			The settings.
 		'''
 
-		return functools.reduce(lambda a, b: {**a, **b}, self.settings)
+		return functools.reduce(lambda a, b: {**a, **b}, sum(self.settings_dict.values(), []))
 
 	@property
 	def settings_counters(self):
@@ -401,7 +367,6 @@ class Simulation():
 
 					self._raw_settings_dict[settings_set['set']].append(set_to_add)
 
-		self._raw_settings = sum(self._raw_settings_dict.values(), [])
 		self.parseSettings()
 
 	def parseString(self, s):
