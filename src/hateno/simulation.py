@@ -514,9 +514,10 @@ class Simulation():
 		Parse the settings to take into account possible other settings' values.
 		'''
 
-		for settings_set in self._settings:
-			for setting in settings_set:
-				setting.value = self.parseString(setting.value)
+		for settings_sets in self._settings_dict.values():
+			for settings_set in settings_sets:
+				for setting in settings_set:
+					setting.value = self.parseString(setting.value)
 
 class SimulationSetting():
 	'''
