@@ -26,7 +26,7 @@ class Simulation():
 		self._user_settings = settings
 
 		self._raw_globalsettings = None
-		self._raw_settings_dict = None
+		self._raw_settings = None
 
 		self._settings_counters = {}
 
@@ -128,7 +128,7 @@ class Simulation():
 		return self._raw_globalsettings
 
 	@property
-	def _settings_dict(self):
+	def _settings(self):
 		'''
 		Return (and generate if needed) the complete list of settings as a dictionary.
 
@@ -138,13 +138,13 @@ class Simulation():
 			The settings.
 		'''
 
-		if not(self._raw_settings_dict):
+		if not(self._raw_settings):
 			self.generateSettings()
 
-		return self._raw_settings_dict
+		return self._raw_settings
 
 	@property
-	def settings_dict(self):
+	def settings(self):
 		'''
 		Return a dictionary with the complete list of sets of settings to use, as dictionaries.
 		The settings with `exclude` to `True` are ignored.
@@ -160,7 +160,7 @@ class Simulation():
 				{s.name: s.value for s in settings_set if not(s.exclude)}
 				for settings_set in settings_sets
 			]
-			for settings_set_name, settings_sets in self._settings_dict.items()
+			for settings_set_name, settings_sets in self._settings.items()
 		}
 
 	@property
@@ -180,7 +180,7 @@ class Simulation():
 				[str(s) for s in settings_set if s.shouldBeDisplayed()]
 				for settings_set in settings_sets
 			]
-			for set_name, settings_sets in self._settings_dict.items()
+			for set_name, settings_sets in self._settings.items()
 		}
 
 	@property
@@ -208,7 +208,7 @@ class Simulation():
 			The settings.
 		'''
 
-		return functools.reduce(lambda a, b: {**a, **b}, sum(self.settings_dict.values(), []))
+		return functools.reduce(lambda a, b: {**a, **b}, sum(self.settings.values(), []))
 
 	@property
 	def settings_counters(self):
@@ -324,7 +324,7 @@ class Simulation():
 
 		default_pattern = self._folder.settings['setting_pattern']
 
-		self._raw_settings_dict = {}
+		self._raw_settings = {}
 		self._settings_counters = {'global': {}, 'sets': {}}
 
 		for settings_set in self._folder.settings['settings']:
@@ -344,13 +344,13 @@ class Simulation():
 						self._incrementSettingCounters(setting.name, settings_set['set'])
 						setting.setIndexes()
 
-					self._raw_settings_dict[settings_set['set']] = [default_settings]
+					self._raw_settings[settings_set['set']] = [default_settings]
 
 			else:
 				if not(type(values_sets) is list):
 					values_sets = [values_sets]
 
-				self._raw_settings_dict[settings_set['set']] = []
+				self._raw_settings[settings_set['set']] = []
 
 				for values_set in values_sets:
 					set_to_add = copy.deepcopy(default_settings)
@@ -365,7 +365,7 @@ class Simulation():
 						except KeyError:
 							pass
 
-					self._raw_settings_dict[settings_set['set']].append(set_to_add)
+					self._raw_settings[settings_set['set']].append(set_to_add)
 
 		self.parseSettings()
 
@@ -479,7 +479,7 @@ class Simulation():
 		Parse the settings to take into account possible other settings' values.
 		'''
 
-		for settings_sets in self._settings_dict.values():
+		for settings_sets in self._settings.values():
 			for settings_set in settings_sets:
 				for setting in settings_set:
 					setting.value = self.parseString(setting.value)
