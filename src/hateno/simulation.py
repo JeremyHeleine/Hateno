@@ -164,6 +164,29 @@ class Simulation():
 		}
 
 	@property
+	def indexed_settings(self):
+		'''
+		Return the list of settings, indexed globally and locally.
+
+		Returns
+		-------
+		settings : dict
+			The settings, each represented in the following format:
+			```
+			setting_name: {
+				'global': [value_of_the_first_global_occurrence, value_of_the_second_global_occurrence, …],
+				'local': {
+					first_set_name: [value_of_the_first_occurrence_in_set, value_of_the_second_occurrence_in_set, …],
+					second_set_name: [value_of_the_first_occurrence_in_set, value_of_the_second_occurrence_in_set, …],
+					…
+				}
+			}
+			```
+		'''
+
+		pass
+
+	@property
 	def settings_as_strings(self):
 		'''
 		Return the complete list of sets of settings to use, as strings.
@@ -306,6 +329,40 @@ class Simulation():
 
 		self.parseGlobalSettings()
 
+	def _addRawSettingsSet(self, set_name, default_settings, values_set = {}):
+		'''
+		Add a raw settings set to the list.
+
+		Parameters
+		----------
+		set_name : str
+			Name of the set.
+
+		default_settings : list
+			List of the default settings of this set.
+
+		values_set : dict
+			Values to override the defaults.
+		'''
+
+		set_to_add = copy.deepcopy(default_settings)
+
+		for setting in set_to_add:
+			self._incrementSettingCounters(setting.name, set_name)
+			setting.setIndexes()
+
+			try:
+				setting.value = values_set[setting.name]
+
+			except KeyError:
+				pass
+
+		try:
+			self._raw_settings[set_name].append(set_to_add)
+
+		except KeyError:
+			self._raw_settings[set_name] = [set_to_add]
+
 	def generateSettings(self):
 		'''
 		Generate the full list of settings, taking into account the user settings and the default values in the folder.
@@ -340,32 +397,14 @@ class Simulation():
 
 			except KeyError:
 				if settings_set['required']:
-					for setting in default_settings:
-						self._incrementSettingCounters(setting.name, settings_set['set'])
-						setting.setIndexes()
-
-					self._raw_settings[settings_set['set']] = [default_settings]
+					self._addRawSettingsSet(settings_set['set'], default_settings)
 
 			else:
 				if not(type(values_sets) is list):
 					values_sets = [values_sets]
 
-				self._raw_settings[settings_set['set']] = []
-
 				for values_set in values_sets:
-					set_to_add = copy.deepcopy(default_settings)
-
-					for setting in set_to_add:
-						self._incrementSettingCounters(setting.name, settings_set['set'])
-						setting.setIndexes()
-
-						try:
-							setting.value = values_set[setting.name]
-
-						except KeyError:
-							pass
-
-					self._raw_settings[settings_set['set']].append(set_to_add)
+					self._addRawSettingsSet(settings_set['set'], default_settings, values_set)
 
 		self.parseSettings()
 
