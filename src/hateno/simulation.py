@@ -197,20 +197,6 @@ class Simulation():
 		return {setting['name']: setting['value'] for setting in self._globalsettings}
 
 	@property
-	def reduced_settings(self):
-		'''
-		Return the list of settings, as a name: value dictionary.
-		Ignore multiple occurrences of the same setting.
-
-		Returns
-		-------
-		settings : dict
-			The settings.
-		'''
-
-		return functools.reduce(lambda a, b: {**a, **b}, sum(self.settings.values(), []))
-
-	@property
 	def command_line(self):
 		'''
 		Return the command line to use to generate this simulation.
@@ -235,7 +221,7 @@ class Simulation():
 		'''
 
 		if self._setting_tag_regex_compiled is None:
-			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting):(?P<name>[^}]+)\}')
+			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting)(?:\[(?P<setname>.+?)\])?(?:\((?P<index>[0-9]+)\))?:(?P<name>.+?)\}')
 
 		return self._setting_tag_regex_compiled
 
@@ -417,6 +403,62 @@ class Simulation():
 
 		self.parseSettings()
 
+	def getSettingValueFromTag(self, match):
+		'''
+		Retrieve the value of a setting from a setting tag.
+
+		Parameters
+		----------
+		match : re.Match
+			Match object corresponding to a setting tag.
+
+		Raises
+		------
+		SettingTagNotRecognizedError
+			The setting tag has not been recognized/does not refer to an existing setting.
+
+		Returns
+		-------
+		setting : mixed
+			The value of the setting.
+		'''
+
+		try:
+			if match.group('category') == 'globalsetting':
+				return self.reduced_globalsettings[match.group('name')]
+
+			set_dict = self._indexed_settings['global'] if match.group('setname') is None else self._indexed_settings['local'][match.group('setname')]
+			set_list = set_dict[match.group('name')]
+
+			k = 0 if match.group('index') is None else int(match.group('index'))
+
+			return set_list[k].value
+
+		except:
+			raise SettingTagNotRecognizedError
+
+	def replaceSettingTag(self, match):
+		'''
+		Replace a setting tag (`{setting[set_name](k):setting_name}`) by the value of the right setting.
+		To be called by `re.sub()`.
+
+		Parameters
+		----------
+		match : re.Match
+			Match object corresponding to a setting tag.
+
+		Returns
+		-------
+		setting_value : str
+			The value of the setting.
+		'''
+
+		try:
+			return str(self.getSettingValueFromTag(match))
+
+		except SettingTagNotRecognizedError:
+			return match.group(0)
+
 	def parseString(self, s):
 		'''
 		Parse a string to take into account possible settings.
@@ -452,43 +494,17 @@ class Simulation():
 
 		# We search for settings tags in the string, and recursively replace them
 
-		settings = {
-			'setting': self.reduced_settings,
-			'globalsetting': self.reduced_globalsettings
-		}
-
 		fullmatch = self._setting_tag_regex.fullmatch(s)
 
 		if fullmatch:
+			print('fullmatch')
 			try:
-				return copy.deepcopy(settings[fullmatch.group('category')][fullmatch.group('name')])
+				return copy.deepcopy(self.getSettingValueFromTag(fullmatch))
 
 			except KeyError:
 				return s
 
-		def replaceSettingTag(match):
-			'''
-			Replace a setting tag by the value of the right setting.
-			To be called by `re.sub()`.
-
-			Parameters
-			----------
-			match : re.Match
-				Match object corresponding to a setting tag.
-
-			Returns
-			-------
-			setting_value : str
-				The value of the setting.
-			'''
-
-			try:
-				return str(settings[match.group('category')][match.group('name')])
-
-			except KeyError:
-				return match.group(0)
-
-		parsed = self._setting_tag_regex.sub(replaceSettingTag, s)
+		parsed = self._setting_tag_regex.sub(self.replaceSettingTag, s)
 
 		self._parser_recursion_stack.append(s)
 

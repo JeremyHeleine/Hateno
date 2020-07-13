@@ -47,6 +47,19 @@ class InvalidFilterRegexError(Error):
 	def __init__(self, regex):
 		self.regex = regex
 
+class SettingTagNotRecognizedError(Error):
+	'''
+	Exception raised when we try to analyse a setting tag but it fails.
+
+	Parameters
+	----------
+	setting_tag : str
+		The invalid tag.
+	'''
+
+	def __init__(self, setting_tag):
+		self.setting_tag = setting_tag
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
