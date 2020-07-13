@@ -28,7 +28,7 @@ class Simulation():
 		self._raw_globalsettings = None
 		self._raw_settings = None
 
-		self._settings_counters = {}
+		self._indexed_settings = None
 
 		self._setting_tag_regex_compiled = None
 		self._eval_tag_regex_compiled = None
@@ -164,29 +164,6 @@ class Simulation():
 		}
 
 	@property
-	def indexed_settings(self):
-		'''
-		Return the list of settings, indexed globally and locally.
-
-		Returns
-		-------
-		settings : dict
-			The settings, each represented in the following format:
-			```
-			setting_name: {
-				'global': [value_of_the_first_global_occurrence, value_of_the_second_global_occurrence, …],
-				'local': {
-					first_set_name: [value_of_the_first_occurrence_in_set, value_of_the_second_occurrence_in_set, …],
-					second_set_name: [value_of_the_first_occurrence_in_set, value_of_the_second_occurrence_in_set, …],
-					…
-				}
-			}
-			```
-		'''
-
-		pass
-
-	@property
 	def settings_as_strings(self):
 		'''
 		Return the complete list of sets of settings to use, as strings.
@@ -232,19 +209,6 @@ class Simulation():
 		'''
 
 		return functools.reduce(lambda a, b: {**a, **b}, sum(self.settings.values(), []))
-
-	@property
-	def settings_counters(self):
-		'''
-		Return the current settings global and local counters.
-
-		Returns
-		-------
-		counters : dict
-			The counters.
-		'''
-
-		return self._settings_counters
 
 	@property
 	def command_line(self):
@@ -294,26 +258,6 @@ class Simulation():
 
 		return self._eval_tag_regex_compiled
 
-	def _incrementSettingCounters(self, setting_name, set_name):
-		'''
-		Update the global counter of a setting.
-
-		Parameters
-		----------
-		setting_name : str
-			Name of the setting.
-
-		set_name : str
-			Name of the set the setting belongs to.
-		'''
-
-		for counters_dict in [self._settings_counters['global'], self._settings_counters['sets'][set_name]]:
-			try:
-				counters_dict[setting_name] += 1
-
-			except KeyError:
-				counters_dict[setting_name] = 0
-
 	def generateGlobalSettings(self):
 		'''
 		Generate the full list of global settings.
@@ -328,6 +272,74 @@ class Simulation():
 			})
 
 		self.parseGlobalSettings()
+
+	def getSettingCount(self, setting_name, set_name = None):
+		'''
+		Get the total number of uses of a given setting, globally or locally.
+
+		Parameters
+		----------
+		setting_name : str
+			Name of the setting to get the count of.
+
+		set_name : str
+			Name of the set for the local count.
+
+		Raises
+		------
+		SettingsSetNotFoundError
+			The provided set name does not exist.
+
+		SettingNotFoundError
+			The provided setting name does not exist.
+
+		Returns
+		-------
+		count : int
+			Local count if `set_name` is not `None`, global count otherwise.
+		'''
+
+		try:
+			settings = self._indexed_settings['global'] if set_name is None else self._indexed_settings['local'][set_name]
+
+		except KeyError:
+			raise SettingsSetNotFoundError(set_name)
+
+		else:
+			try:
+				return len(settings[setting_name])
+
+			except KeyError:
+				raise SettingNotFoundError(set_name, setting_name)
+
+	def _indexSetting(self, setting, set_name):
+		'''
+		Add a setting to the index.
+
+		Parameters
+		----------
+		setting : SimulationSetting
+			The setting to index.
+
+		set_name : str
+			The name of the set the setting belongs to.
+		'''
+
+		if not(set_name in self._indexed_settings['local']):
+			self._indexed_settings['local'][set_name] = {}
+
+		indexes = []
+
+		for indexes_dict in [self._indexed_settings['global'], self._indexed_settings['local'][set_name]]:
+			try:
+				indexes_dict[setting.name].append(setting)
+
+			except KeyError:
+				indexes_dict[setting.name] = [setting]
+
+			indexes.append(len(indexes_dict[setting.name]) - 1)
+
+		setting.setIndexes(*indexes)
 
 	def _addRawSettingsSet(self, set_name, default_settings, values_set = {}):
 		'''
@@ -348,8 +360,7 @@ class Simulation():
 		set_to_add = copy.deepcopy(default_settings)
 
 		for setting in set_to_add:
-			self._incrementSettingCounters(setting.name, set_name)
-			setting.setIndexes()
+			self._indexSetting(setting, set_name)
 
 			try:
 				setting.value = values_set[setting.name]
@@ -382,11 +393,9 @@ class Simulation():
 		default_pattern = self._folder.settings['setting_pattern']
 
 		self._raw_settings = {}
-		self._settings_counters = {'global': {}, 'sets': {}}
+		self._indexed_settings = {'global': {}, 'local': {}}
 
 		for settings_set in self._folder.settings['settings']:
-			self._settings_counters['sets'][settings_set['set']] = {}
-
 			default_settings = [
 				SimulationSetting(self._folder, settings_set['set'], s['name'], self)
 				for s in settings_set['settings']
@@ -617,13 +626,21 @@ class SimulationSetting():
 
 		return self._pattern.format(name = self.display_name, value = self.value)
 
-	def setIndexes(self):
+	def setIndexes(self, global_index, local_index):
 		'''
 		Define the global and local indexes of this setting.
+
+		Parameters
+		----------
+		global_index : int
+			Global index of this setting.
+
+		local_index : int
+			Local index of this setting.
 		'''
 
-		self._global_index = self._simulation.settings_counters['global'][self._name]
-		self._local_index = self._simulation.settings_counters['sets'][self._set_name][self._name]
+		self._global_index = global_index
+		self._local_index = local_index
 
 	def _setModifier(self, modifier):
 		'''
@@ -721,10 +738,10 @@ class SimulationSetting():
 			Name to use.
 		'''
 
-		local_total = self._simulation.settings_counters['sets'][self._set_name][self._name] + 1
-		global_total = self._simulation.settings_counters['global'][self._name] + 1
+		global_total = self._simulation.getSettingCount(self.name)
+		local_total = self._simulation.getSettingCount(self.name, self._set_name)
 
-		return self._folder.applyNamers(self._name, self._local_index, local_total, self._global_index, global_total, **self._namers)
+		return self._folder.applyNamers(self.name, self._local_index, local_total, self._global_index, global_total, **self._namers)
 
 	@property
 	def value(self):
