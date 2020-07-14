@@ -3,6 +3,7 @@
 
 import os
 import errno
+import copy
 
 from . import jsonfiles
 from .errors import *
@@ -164,6 +165,8 @@ class Folder():
 		FixerNotFoundError
 			The fixer's name has not been found.
 		'''
+
+		value = copy.deepcopy(value)
 
 		for fixer in before + self.settings['fixers'] + after:
 			if not(type(fixer) is list):

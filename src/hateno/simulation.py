@@ -401,8 +401,6 @@ class Simulation():
 				for values_set in values_sets:
 					self._addRawSettingsSet(settings_set['set'], default_settings, values_set)
 
-		self.parseSettings()
-
 	def getSettingValueFromTag(self, match):
 		'''
 		Retrieve the value of a setting from a setting tag.
@@ -497,7 +495,6 @@ class Simulation():
 		fullmatch = self._setting_tag_regex.fullmatch(s)
 
 		if fullmatch:
-			print('fullmatch')
 			try:
 				return copy.deepcopy(self.getSettingValueFromTag(fullmatch))
 
@@ -537,16 +534,6 @@ class Simulation():
 
 		for setting in self._globalsettings:
 			setting['value'] = self.parseString(setting['value'])
-
-	def parseSettings(self):
-		'''
-		Parse the settings to take into account possible other settings' values.
-		'''
-
-		for settings_sets in self._settings.values():
-			for settings_set in settings_sets:
-				for setting in settings_set:
-					setting.value = self.parseString(setting.value)
 
 class SimulationSetting():
 	'''
@@ -772,7 +759,7 @@ class SimulationSetting():
 			Value of the setting.
 		'''
 
-		return self._value
+		return self._folder.applyFixers(self._simulation.parseString(self._value), **self._fixers)
 
 	@value.setter
 	def value(self, new_value):
@@ -785,7 +772,7 @@ class SimulationSetting():
 			New value of the setting
 		'''
 
-		self._value = self._folder.applyFixers(new_value, **self._fixers)
+		self._value = new_value
 
 	@property
 	def exclude(self):
