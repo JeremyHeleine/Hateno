@@ -679,19 +679,21 @@ class SimulationSetting():
 			'before': [
 				(self._setting_dict, ''),
 				(self._settings_set_dict, ''),
-				(self._setting_dict, '_between')
+				(self._setting_dict, '_before'),
+				(self._settings_set_dict, '_before'),
+				(self._setting_dict, '_between_before')
 			],
 			'after': [
-				(self._setting_dict, '_between'),
-				(self._settings_set_dict, ''),
-				(self._setting_dict, '')
+				(self._setting_dict, '_between_after'),
+				(self._settings_set_dict, '_after'),
+				(self._setting_dict, '_after')
 			]
 		}
 
 		for when, keys_path in keys_to_search.items():
 			for dict_to_search, key_to_search in keys_path:
 				try:
-					modifier_functions[when] += dict_to_search[f'{modifier}{key_to_search}_{when}']
+					modifier_functions[when] += dict_to_search[f'{modifier}{key_to_search}']
 
 				except KeyError:
 					pass
