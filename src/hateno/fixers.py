@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import re
+
 '''
 In this file, the default "values fixers" are defined.
 A fixer always must admit at least one parameter: the value to fix. It must return the fixed value.
@@ -8,6 +10,16 @@ Additional parameters are allowed, set in the configurations file.
 
 Convention: prefix the name of the function by `fixer_`.
 '''
+
+def fixer_protectStrings(value):
+	'''
+	Protect strings by encapsulating them into quotes if necessary.
+	'''
+
+	if type(value) is str and not(re.search(r'\s', value) is None):
+		return repr(value)
+
+	return value
 
 def fixer_intFloats(value):
 	'''
