@@ -639,3 +639,22 @@ class Manager():
 
 			if not(callback is None):
 				callback()
+
+	def clear(self, callback = None):
+		'''
+		Delete all simulations in the folder.
+
+		Parameters
+		----------
+		callback : function
+			Function to call at each deleted simulation.
+		'''
+
+		for infos in self._simulations_list.values():
+			os.unlink(os.path.join(self._folder.folder, f'{infos["name"]}.tar.bz2'))
+
+			if not(callback is None):
+				callback()
+
+		self._simulations_list_dict = {}
+		self.saveSimulationsList()
