@@ -11,21 +11,33 @@ from hateno.ui import UI
 from hateno.manager import Manager
 
 def addArguments(parser):
-    parser.add_argument('folder_path', type = str, help = 'path to the folder to clear')
+	parser.add_argument('folder_path', type = str, help = 'path to the folder to clear')
 
 def action(args):
-    with Manager(args.folder_path) as manager:
-	    ui = UI()
+	with Manager(args.folder_path) as manager:
+		clear_folder = False
 
-	    infos_line = ui.addTextLine('Clearing folder…')
-	    progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+		while True:
+			answer = input('Do you really want to clear this folder? [y/N] ').strip().lower()
 
-	    manager.clear(callback = lambda : ui.updateProgressBar(progress_bar))
+			if answer in ['', 'y', 'n']:
+				clear_folder = (answer == 'y')
+				break
 
-	    ui.removeProgressBar(progress_bar)
-	    ui.replaceTextLine(infos_line, 'Folder cleared')
+			print('Please only answer by \'y\' or \'n\'')
+
+		if clear_folder:
+			ui = UI()
+
+			infos_line = ui.addTextLine('Clearing folder…')
+			progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+
+			manager.clear(callback = lambda : ui.updateProgressBar(progress_bar))
+
+			ui.removeProgressBar(progress_bar)
+			ui.replaceTextLine(infos_line, 'Folder cleared')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Clear a simulations folder.')
-    addArguments(parser)
-    action(parser.parse_args())
+	parser = argparse.ArgumentParser(description = 'Clear a simulations folder.')
+	addArguments(parser)
+	action(parser.parse_args())
