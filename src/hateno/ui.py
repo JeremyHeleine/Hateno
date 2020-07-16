@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import abc
 import datetime
 
 from .errors import *
@@ -8,6 +9,17 @@ from .errors import *
 class UI():
 	'''
 	Represent the user interface. Make easy the display of lines that can be updated, and the creation of progress bars.
+
+	Parameters
+	----------
+	progress_bars_length : int
+		Length of the progress bars, in characters.
+
+	progress_bars_empty_char : str
+		Character to use for the "empty" part of the progress bars.
+
+	progress_bars_full_char : str
+		Character to use to fill a progress bar.
 	'''
 
 	def __init__(self, *, progress_bars_length = 40, progress_bars_empty_char = '░', progress_bars_full_char = '█'):
@@ -321,3 +333,77 @@ class UI():
 		'''
 
 		self._removeLine(self._progress_bars, line_id)
+
+class UIDisplayedItem(abc.ABC):
+	'''
+	Represent an item displayed in the UI (abstract class).
+
+	Parameters
+	----------
+	ui : UI
+		The UI object this item belongs to.
+	'''
+
+	def __init__(self, ui):
+		self.ui = ui
+		self._position = self.ui._cursor_vertical_pos
+
+	@abc.abstractproperty
+	def height(self):
+		'''
+		The number of lines used by the item.
+
+		Returns
+		-------
+		height : int
+			The number of lines.
+		'''
+
+		pass
+
+	@abc.abstractmethod
+	def render(self):
+		'''
+		Render the item.
+		'''
+
+		pass
+
+class UITextLine(UIDisplayedItem):
+	'''
+	Represent a text line displayed in the UI.
+
+	Parameters
+	----------
+	ui : UI
+		The UI object this text line belongs to.
+
+	test : str
+		The text to display.
+	'''
+
+	def __init__(self, ui, text):
+		super().__init__(ui)
+
+		self.text = text
+
+	@property
+	def height(self):
+		'''
+		The number of lines used by the text line.
+		Currently, always one. Multilines are not supported yet.
+
+		Returns
+		-------
+		height : int:
+			The number of lines used by the text.
+		'''
+
+		return 1
+
+	def render(self):
+		'''
+		Print the text.
+		'''
+
+		print(self.text, end = '\r')
