@@ -353,7 +353,7 @@ class UIDisplayedItem(abc.ABC):
 
 	def __init__(self, ui):
 		self.ui = ui
-		self._position = self.ui._cursor_vertical_pos
+		self.position = self.ui._cursor_vertical_pos
 
 	@abc.abstractproperty
 	def height(self):
@@ -394,7 +394,9 @@ class UIDisplayedItem(abc.ABC):
 		Display enough spaces to clear the object.
 		'''
 
+		self.ui.moveCursorTo(self.position)
 		print(' ' * self.width, end = '\r')
+		self.ui.moveToLastLine()
 
 class UITextLine(UIDisplayedItem):
 	'''
@@ -459,7 +461,9 @@ class UITextLine(UIDisplayedItem):
 		Print the text.
 		'''
 
+		self.ui.moveCursorTo(self.position)
 		print(self._text, end = '\r')
+		self.ui.moveToLastLine()
 
 	@text.setter
 	def text(self, new_text):
@@ -472,10 +476,6 @@ class UITextLine(UIDisplayedItem):
 			New text to display.
 		'''
 
-		self.ui.moveCursorTo(self._position)
-
 		self.clear()
 		self._text = new_text
 		self.render()
-
-		self.ui.moveToLastLine()
