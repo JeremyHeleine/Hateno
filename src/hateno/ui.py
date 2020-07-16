@@ -63,6 +63,13 @@ class UI():
 
 			self._cursor_vertical_pos = pos
 
+	def moveToLastLine(self):
+		'''
+		Move the cursor to the last line.
+		'''
+
+		self.moveCursorTo(self._last_line)
+
 	def moveCursorRight(self, dx):
 		'''
 		Move the cursor to the right.
@@ -361,6 +368,19 @@ class UIDisplayedItem(abc.ABC):
 
 		pass
 
+	@abc.abstractproperty
+	def width(self):
+		'''
+		The width, in characters, of the item.
+
+		Returns
+		-------
+		width : int
+			The width of the item.
+		'''
+
+		pass
+
 	@abc.abstractmethod
 	def render(self):
 		'''
@@ -368,6 +388,13 @@ class UIDisplayedItem(abc.ABC):
 		'''
 
 		pass
+
+	def clear(self):
+		'''
+		Display enough spaces to clear the object.
+		'''
+
+		print(' ' * self.width, end = '\r')
 
 class UITextLine(UIDisplayedItem):
 	'''
@@ -378,14 +405,14 @@ class UITextLine(UIDisplayedItem):
 	ui : UI
 		The UI object this text line belongs to.
 
-	test : str
+	text : str
 		The text to display.
 	'''
 
 	def __init__(self, ui, text):
 		super().__init__(ui)
 
-		self.text = text
+		self._text = text
 
 	@property
 	def height(self):
@@ -395,15 +422,60 @@ class UITextLine(UIDisplayedItem):
 
 		Returns
 		-------
-		height : int:
+		height : int
 			The number of lines used by the text.
 		'''
 
 		return 1
+
+	@property
+	def width(self):
+		'''
+		The width of the text line, i.e. the length of the text.
+
+		Returns
+		-------
+		width : int
+			The length of the text.
+		'''
+
+		return len(self.text)
+
+	@property
+	def text(self):
+		'''
+		Getter for the displayed text.
+
+		Returns
+		-------
+		text : str
+			Displayed text.
+		'''
+
+		return self._text
 
 	def render(self):
 		'''
 		Print the text.
 		'''
 
-		print(self.text, end = '\r')
+		print(self._text, end = '\r')
+
+	@text.setter
+	def text(self, new_text):
+		'''
+		Change the displayed text.
+
+		Parameters
+		----------
+		new_text : str
+			New text to display.
+		'''
+
+		self.ui.moveCursorTo(self._position)
+
+		self.clear()
+		self._text = new_text
+		self.render()
+
+		self.ui.moveToLastLine()
