@@ -59,9 +59,9 @@ def action(args):
 		infos_line = ui.addTextLine(f'{modes_configs[args.mode]["action"]} {string.plural(len(simulations), "simulation", "simulations")}…')
 		progress_bar = ui.addProgressBar(len(simulations))
 
-		issues = modes_configs[args.mode]['function'](simulations, callback = lambda : ui.updateProgressBar(progress_bar), **modes_configs[args.mode]['args'])
+		issues = modes_configs[args.mode]['function'](simulations, callback = progress_bar.update, **modes_configs[args.mode]['args'])
 
-		ui.removeProgressBar(progress_bar)
+		ui.removeItem(progress_bar)
 
 		if issues and args.errors:
 			jsonfiles.write(issues, args.errors)
@@ -72,7 +72,7 @@ def action(args):
 		if issues:
 			final_update += ', ' + string.plural(len(issues), 'error', 'errors')
 
-		ui.replaceTextLine(infos_line, final_update)
+		infos_line.text = final_update
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')

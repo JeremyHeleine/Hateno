@@ -45,10 +45,10 @@ def action(args):
 		sys.modules[module_name] = module
 		spec.loader.exec_module(module)
 
-		manager.transform(module.transform, simulations, callback = lambda : ui.updateProgressBar(progress_bar))
+		manager.transform(module.transform, simulations, callback = progress_bar.update)
 
-		ui.removeProgressBar(progress_bar)
-		ui.replaceTextLine(infos_line, f'{string.plural(n_simulations, "simulation", "simulations")} transformed')
+		ui.removeItem(progress_bar)
+		infos_line.text = f'{string.plural(n_simulations, "simulation", "simulations")} transformed'
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')

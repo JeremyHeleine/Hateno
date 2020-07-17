@@ -9,7 +9,7 @@ Convention: prefix the name of the function by `namer_`.
 Parameters
 ----------
 name : str
-    The name of the setting.
+	The name of the setting.
 
 local_index : int
 	The index of the setting, inside its set.

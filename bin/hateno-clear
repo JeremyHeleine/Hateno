@@ -37,10 +37,10 @@ def action(args):
 			infos_line = ui.addTextLine('Clearing folder…')
 			progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
 
-			manager.clear(callback = lambda : ui.updateProgressBar(progress_bar))
+			manager.clear(callback = progress_bar.update)
 
-			ui.removeProgressBar(progress_bar)
-			ui.replaceTextLine(infos_line, 'Folder cleared')
+			ui.removeItem(progress_bar)
+			infos_line.text = 'Folder cleared'
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Clear a simulations folder.')
