@@ -74,6 +74,7 @@ class UI():
 		if last_line > self._max_line:
 			self.moveCursorTo(last_line - 1)
 			print('')
+			self._cursor_vertical_pos += 1
 			self._max_line = last_line
 
 		self.moveCursorTo(last_line)
