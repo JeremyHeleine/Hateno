@@ -124,7 +124,7 @@ class UI():
 			'text': text
 		})
 
-	def addProgressBar(self, total):
+	def addProgressBar(self, total, *, bar_length = None, empty_char = None, full_char = None):
 		'''
 		Add a new progress bar.
 
@@ -132,6 +132,15 @@ class UI():
 		----------
 		total : int
 			The final number to reach to display the famous 100%.
+
+		bar_length : int
+			Length of the progress bar.
+
+		empty_char : str
+			Character to use for the empty part of the bar.
+
+		full_char : str
+			Character to use to fill the bar.
 
 		Returns
 		-------
@@ -141,9 +150,9 @@ class UI():
 
 		return self._addItem(UIProgressBar, {
 			'total': total,
-			'bar_length': self._progress_bars_length,
-			'empty_char': self._progress_bars_empty_char,
-			'full_char': self._progress_bars_full_char
+			'bar_length': bar_length or self._progress_bars_length,
+			'empty_char': empty_char or self._progress_bars_empty_char,
+			'full_char': full_char or self._progress_bars_full_char
 		})
 
 	def moveUp(self, item):
