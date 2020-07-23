@@ -93,7 +93,7 @@ class Simulation():
 		'''
 
 		try:
-			return self.reduced_globalsettings[key]
+			return self.globalsettings[key]
 
 		except KeyError:
 			raise KeyError('The key does not exist in the global settings')
@@ -117,13 +117,13 @@ class Simulation():
 		'''
 
 		try:
-			setting = [setting for setting in self._globalsettings if setting['name'] == key][0]
+			setting = [setting for setting in self._globalsettings if setting.name == key][0]
 
 		except IndexError:
 			raise KeyError('The key does not exist in the global settings')
 
 		else:
-			setting['value'] = value
+			setting.value = value
 
 	@property
 	def _globalsettings(self):
@@ -136,7 +136,7 @@ class Simulation():
 			The global settings.
 		'''
 
-		if not(self._raw_globalsettings):
+		if self._raw_globalsettings is None:
 			self.generateGlobalSettings()
 
 		return self._raw_globalsettings
@@ -152,7 +152,7 @@ class Simulation():
 			The settings.
 		'''
 
-		if not(self._raw_settings):
+		if self._raw_settings is None:
 			self.generateSettings()
 
 		return self._raw_settings
@@ -198,7 +198,7 @@ class Simulation():
 		}
 
 	@property
-	def reduced_globalsettings(self):
+	def globalsettings(self):
 		'''
 		Return the list of global settings, as a name: value dictionary.
 
@@ -208,7 +208,7 @@ class Simulation():
 			The global settings.
 		'''
 
-		return {setting['name']: setting['value'] for setting in self._globalsettings}
+		return {setting.name: setting.value for setting in self._globalsettings}
 
 	@property
 	def command_line(self):
@@ -266,12 +266,13 @@ class Simulation():
 		self._raw_globalsettings = []
 
 		for setting in self._folder.settings['globalsettings']:
-			self._raw_globalsettings.append({
-				'name': setting['name'],
-				'value': self._folder.applyFixers(self._user_settings[setting['name']]) if setting['name'] in self._user_settings else setting['default']
-			})
+			try:
+				setting_value = self._user_settings[setting['name']]
 
-		self.parseGlobalSettings()
+			except KeyError:
+				setting_value = setting['default']
+
+			self._raw_globalsettings.append(SimulationGlobalSetting(self, setting['name'], setting_value))
 
 	def getSettingCount(self, setting_name, set_name = None):
 		'''
@@ -437,7 +438,7 @@ class Simulation():
 
 		try:
 			if match.group('category') == 'globalsetting':
-				return self.reduced_globalsettings[match.group('name')]
+				return self.globalsettings[match.group('name')]
 
 			set_dict = self._indexed_settings['global'] if match.group('setname') is None else self._indexed_settings['local'][match.group('setname')]
 			set_list = set_dict[match.group('name')]
@@ -541,14 +542,6 @@ class Simulation():
 
 		return parsed
 
-	def parseGlobalSettings(self):
-		'''
-		Parse the global settings to take into account possible other settings' values.
-		'''
-
-		for setting in self._globalsettings:
-			setting['value'] = self.parseString(setting['value'])
-
 class SimulationBaseSetting(abc.ABC):
 	'''
 	Represent a setting, either global or normal (abstract class).
@@ -633,6 +626,13 @@ class SimulationBaseSetting(abc.ABC):
 		'''
 
 		self._value = new_value
+
+class SimulationGlobalSetting(SimulationBaseSetting):
+	'''
+	Represent a global setting.
+	'''
+
+	pass
 
 class SimulationSetting(SimulationBaseSetting):
 	'''
