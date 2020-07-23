@@ -4,6 +4,7 @@
 import copy
 import functools
 import re
+import abc
 
 from .errors import *
 from . import string
@@ -57,6 +58,19 @@ class Simulation():
 			return simulation
 
 		return cls(folder, simulation)
+
+	@property
+	def folder(self):
+		'''
+		Get the Folder instance used by the simulation.
+
+		Returns
+		-------
+		folder : Folder
+			The Folder instance.
+		'''
+
+		return self._folder
 
 	def __getitem__(self, key):
 		'''
@@ -383,7 +397,7 @@ class Simulation():
 
 		for settings_set in self._folder.settings['settings']:
 			default_settings = [
-				SimulationSetting(self._folder, settings_set['set'], s['name'], self)
+				SimulationSetting(self, settings_set['set'], s['name'])
 				for s in settings_set['settings']
 			]
 
@@ -535,23 +549,105 @@ class Simulation():
 		for setting in self._globalsettings:
 			setting['value'] = self.parseString(setting['value'])
 
-class SimulationSetting():
+class SimulationBaseSetting(abc.ABC):
+	'''
+	Represent a setting, either global or normal (abstract class).
+
+	Parameters
+	----------
+	simulation : Simulation
+		The simulation using this setting.
+
+	setting_name : str
+		Name of the setting.
+
+	setting_value : mixed
+		Default value of the setting.
+	'''
+
+	def __init__(self, simulation, setting_name, setting_value):
+		self._simulation = simulation
+
+		self._name = setting_name
+		self._value = setting_value
+
+	def __deepcopy__(self, memo):
+		'''
+		Override the default behavior of `deepcopy()` to keep the references to the Simulation.
+		'''
+
+		cls = self.__class__
+		result = cls.__new__(cls)
+		memo[id(self)] = result
+
+		for k, v in self.__dict__.items():
+			if k == '_simulation':
+				setattr(result, k, v)
+
+			else:
+				setattr(result, k, copy.deepcopy(v, memo))
+
+		return result
+
+	@property
+	def name(self):
+		'''
+		Getter for the setting name.
+
+		Returns
+		-------
+		name : str
+			Name of the setting.
+		'''
+
+		return self._name
+
+	@property
+	def value(self):
+		'''
+		Getter for the setting value, with fixers applied.
+
+		Returns
+		-------
+		value : mixed
+			Value of the setting.
+		'''
+
+		try:
+			fixers = self._fixers
+
+		except AttributeError:
+			fixers = {}
+
+		return self._simulation.folder.applyFixers(self._simulation.parseString(self._value), **fixers)
+
+	@value.setter
+	def value(self, new_value):
+		'''
+		Setter for the setting value.
+
+		Parameters
+		----------
+		new_value : mixed
+			New value of the setting
+		'''
+
+		self._value = new_value
+
+class SimulationSetting(SimulationBaseSetting):
 	'''
 	Represent a simulation setting.
 
 	Parameters
 	----------
-	folder : Folder
-		The simulations folder this setting is part of.
+	simulation : Simulation
+		Simulation that uses this setting.
 
 	set_name : str
 		Name of the set this setting is part of.
 
 	setting_name : str
 		Name of this setting.
-
-	simulation : Simulation
-		Simulation that uses this setting.
 
 	Raises
 	------
@@ -562,14 +658,11 @@ class SimulationSetting():
 		The setting has not been found in the set.
 	'''
 
-	def __init__(self, folder, set_name, setting_name, simulation = None):
-		self._folder = folder
-		self._simulation = simulation
-
+	def __init__(self, simulation, set_name, setting_name):
 		try:
 			self._settings_set_dict = [
 				settings_set
-				for settings_set in self._folder.settings['settings']
+				for settings_set in simulation.folder.settings['settings']
 				if settings_set['set'] == set_name
 			][0]
 
@@ -586,11 +679,11 @@ class SimulationSetting():
 		except IndexError:
 			raise SettingNotFoundError(set_name, setting_name)
 
+		super().__init__(simulation, setting_name, self._setting_dict['default'])
+
 		self._set_name = set_name
-		self._name = self._setting_dict['name']
-		self._value = self._setting_dict['default']
 		self._exclude_for_db = 'exclude' in self._setting_dict and self._setting_dict['exclude']
-		self._pattern = self._setting_dict['pattern'] if 'pattern' in self._setting_dict else self._folder.settings['setting_pattern']
+		self._pattern = self._setting_dict['pattern'] if 'pattern' in self._setting_dict else self._simulation.folder.settings['setting_pattern']
 
 		self._use_only_if = 'only_if' in self._setting_dict
 		if self._use_only_if:
@@ -598,24 +691,6 @@ class SimulationSetting():
 
 		self._fixers_dict = None
 		self._namers_dict = None
-
-	def __deepcopy__(self, memo):
-		'''
-		Override the default behavior of `deepcopy()` to keep the references to the Folder and the Simulation.
-		'''
-
-		cls = self.__class__
-		result = cls.__new__(cls)
-		memo[id(self)] = result
-
-		for k, v in self.__dict__.items():
-			if k in ['_folder', '_simulation']:
-				setattr(result, k, v)
-
-			else:
-				setattr(result, k, copy.deepcopy(v, memo))
-
-		return result
 
 	def __str__(self):
 		'''
@@ -720,19 +795,6 @@ class SimulationSetting():
 		return self._namers_dict
 
 	@property
-	def name(self):
-		'''
-		Getter for the setting name.
-
-		Returns
-		-------
-		name : str
-			Name of the setting.
-		'''
-
-		return self._name
-
-	@property
 	def display_name(self):
 		'''
 		Get the name of the setting to use inside the simulation.
@@ -746,33 +808,7 @@ class SimulationSetting():
 		global_total = self._simulation.getSettingCount(self.name)
 		local_total = self._simulation.getSettingCount(self.name, self._set_name)
 
-		return self._folder.applyNamers(self.name, self._local_index, local_total, self._global_index, global_total, **self._namers)
-
-	@property
-	def value(self):
-		'''
-		Getter for the setting value.
-
-		Returns
-		-------
-		value : mixed
-			Value of the setting.
-		'''
-
-		return self._folder.applyFixers(self._simulation.parseString(self._value), **self._fixers)
-
-	@value.setter
-	def value(self, new_value):
-		'''
-		Setter for the setting value.
-
-		Parameters
-		----------
-		new_value : mixed
-			New value of the setting
-		'''
-
-		self._value = new_value
+		return self._simulation.folder.applyNamers(self.name, self._local_index, local_total, self._global_index, global_total, **self._namers)
 
 	@property
 	def exclude(self):
