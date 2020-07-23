@@ -4,6 +4,8 @@
 import abc
 import functools
 
+from math import floor, log10
+
 from .errors import *
 
 class UI():
@@ -25,7 +27,7 @@ class UI():
 		Precision to use for the display of the percentage in the progress bars.
 	'''
 
-	def __init__(self, *, progress_bars_length = 40, progress_bars_empty_char = '░', progress_bars_full_char = '█', progress_bars_percentage_precision = 1):
+	def __init__(self, *, progress_bars_length = 40, progress_bars_empty_char = '░', progress_bars_full_char = '█', progress_bars_percentage_precision = 'auto'):
 		self._cursor_vertical_pos = 0
 		self._max_line = 0
 
@@ -400,11 +402,12 @@ class UIProgressBar(UIDisplayedItem):
 	full_char : str
 		Character to use to fill the bar.
 
-	percentage_precision : int
+	percentage_precision : int|str
 		Precision to use for the display of the percentage.
+		Special value `'auto'` to guess the needed precision from the total.
 	'''
 
-	def __init__(self, ui, total, *, bar_length = 40, empty_char = '░', full_char = '█', percentage_precision = 1):
+	def __init__(self, ui, total, *, bar_length = 40, empty_char = '░', full_char = '█', percentage_precision = 'auto'):
 		super().__init__(ui)
 
 		self._total = total
@@ -414,7 +417,11 @@ class UIProgressBar(UIDisplayedItem):
 		self._empty_char = empty_char
 		self._full_char = full_char
 
-		self._percentage_precision = percentage_precision
+		if percentage_precision == 'auto':
+			self._percentage_precision = abs(floor(log10(100 / self._total))) if self._total > 100 else 0
+
+		else:
+			self._percentage_precision = percentage_precision
 
 		self._pattern = ' '.join([
 			f'{{counter:>{len(str(self._total))}d}}/{self._total}',
