@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9 - 2020-07-27
+
+* New: options in settings tags to access specific sets and indexes
+* New: fixer to protect strings with spaces
+* New: default `namers` and `fixers` keys in sets and settings
+* New: context manager for Maker, Manager and RemoteFolder
+* New: clear folder method and script
+* Port can now be indicated for a remote folder
+* New interface to interact with UI objects
+* Precision of progress bars' percentages can be set
+* Bug fixes
+
 ## 0.8 - 2020-07-02
 
 * New: namers are functions allowing to alter the name of settings during execution
