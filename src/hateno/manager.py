@@ -51,9 +51,24 @@ class Manager():
 		with open(self._running_indicator_filename, 'w') as f:
 			f.write(str(datetime.datetime.now()))
 
-	def __del__(self):
+	def __enter__(self):
 		'''
-		Delete the "running indicator" when this instance is destroyed.
+		Context manager so we can use `with` instead of manually calling `close()`.
+		'''
+
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
+	def close(self):
+		'''
+		Delete the "running indicator".
+		Should always be called before destroying the instance to ensure the indicator is deleted.
 		'''
 
 		if self._delete_running_indicator:
@@ -282,7 +297,7 @@ class Manager():
 		if not(os.path.isdir(simulation['folder'])):
 			raise SimulationFolderNotFoundError(simulation['folder'])
 
-		settings_str = string.fromObject(simulation.settings_dict)
+		settings_str = string.fromObject(simulation.settings)
 		settings_hashed = string.hash(settings_str)
 		simulation_name = string.uniqueID()
 
@@ -318,7 +333,7 @@ class Manager():
 		'''
 
 		simulation = Simulation.ensureType(simulation, self._folder)
-		settings_hashed = string.hash(string.fromObject(simulation.settings_dict))
+		settings_hashed = string.hash(string.fromObject(simulation.settings))
 
 		if not(settings_hashed in self._simulations_list):
 			raise SimulationNotFoundError(settings_hashed)
@@ -353,7 +368,7 @@ class Manager():
 		'''
 
 		simulation = Simulation.ensureType(simulation, self._folder)
-		settings_hashed = string.hash(string.fromObject(simulation.settings_dict))
+		settings_hashed = string.hash(string.fromObject(simulation.settings))
 
 		if not(settings_hashed in self._simulations_list):
 			raise SimulationNotFoundError(settings_hashed)
@@ -370,7 +385,7 @@ class Manager():
 		self.uncompress(simulation_name, simulation['folder'])
 
 		if settings_file:
-			jsonfiles.write(simulation.settings_dict, os.path.join(simulation['folder'], settings_file))
+			jsonfiles.write(simulation.settings, os.path.join(simulation['folder'], settings_file))
 
 	def batchAction(self, simulations, action, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error), callback = None):
 		'''
@@ -549,7 +564,7 @@ class Manager():
 				'settings': string.toObject(infos['settings'])
 			}, self._folder)
 
-			settings_str = string.fromObject(simulation.settings_dict)
+			settings_str = string.fromObject(simulation.settings)
 			settings_hashed = string.hash(settings_str)
 
 			new_simulations_list[settings_hashed] = {
@@ -596,7 +611,7 @@ class Manager():
 				'settings': settings
 			}, self._folder)
 
-			settings_hashed = string.hash(string.fromObject(simulation.settings_dict))
+			settings_hashed = string.hash(string.fromObject(simulation.settings))
 			simulation_name = self._simulations_list[settings_hashed]['name']
 
 			self.uncompress(simulation_name, simulation_dir)
@@ -610,7 +625,7 @@ class Manager():
 					'settings': new_settings
 				}, self._folder)
 
-				new_settings_str = string.fromObject(new_simulation.settings_dict)
+				new_settings_str = string.fromObject(new_simulation.settings)
 				new_settings_hashed = string.hash(new_settings_str)
 
 				del self._simulations_list[settings_hashed]
@@ -624,3 +639,22 @@ class Manager():
 
 			if not(callback is None):
 				callback()
+
+	def clear(self, callback = None):
+		'''
+		Delete all simulations in the folder.
+
+		Parameters
+		----------
+		callback : function
+			Function to call at each deleted simulation.
+		'''
+
+		for infos in self._simulations_list.values():
+			os.unlink(os.path.join(self._folder.folder, f'{infos["name"]}.tar.bz2'))
+
+			if not(callback is None):
+				callback()
+
+		self._simulations_list_dict = {}
+		self.saveSimulationsList()

@@ -69,6 +69,20 @@ class Maker():
 
 		self._show_ui = ui
 
+	def __enter__(self):
+		'''
+		Context manager to call `close()` at the end.
+		'''
+
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
 	@property
 	def folder(self):
 		'''
@@ -174,8 +188,13 @@ class Maker():
 		Clear all instances of the modules.
 		'''
 
-		self._manager_instance = None
 		self._generator_instance = None
+
+		try:
+			self._manager_instance.close()
+
+		except AttributeError:
+			pass
 
 		try:
 			self._remote_folder_instance.close()
@@ -204,8 +223,8 @@ class Maker():
 
 		Returns
 		-------
-		text_line : str
-			ID of the text line.
+		text_line : UITextLine
+			The added text line.
 		'''
 
 		if not(self._show_ui):
@@ -219,8 +238,8 @@ class Maker():
 
 		Parameters
 		----------
-		text_line : str
-			ID of the text line to update.
+		text_line : UITextLine
+			The text line to update.
 
 		new_text : str
 			New text to display.
@@ -229,22 +248,22 @@ class Maker():
 		if not(self._show_ui):
 			return
 
-		self._ui.replaceTextLine(text_line, new_text)
+		text_line.text = new_text
 
-	def removeTextLine(self, text_line):
+	def removeUIItem(self, item):
 		'''
-		Remove a text line.
+		Remove an item from the UI.
 
 		Parameters
 		----------
-		text_line : str
-			ID of the text line to remove.
+		item : UIDisplayedItem
+			The item to remove.
 		'''
 
 		if not(self._show_ui):
 			return
 
-		self._ui.removeTextLine(text_line)
+		self._ui.removeItem(item)
 
 	def displayState(self, state):
 		'''
@@ -276,8 +295,8 @@ class Maker():
 
 		Returns
 		-------
-		progress_bar : str
-			ID of the progress bar.
+		progress_bar : UIProgressBar
+			The added progress bar.
 		'''
 
 		if not(self._show_ui):
@@ -291,8 +310,8 @@ class Maker():
 
 		Parameters
 		----------
-		progress_bar : str
-			ID of the progress bar to update.
+		progress_bar : UIProgressBar
+			The progress bar to update.
 
 		n : int
 			New number to display (`None` to increment by one).
@@ -301,22 +320,11 @@ class Maker():
 		if not(self._show_ui):
 			return
 
-		self._ui.updateProgressBar(progress_bar, n)
+		if n is None:
+			progress_bar.counter += 1
 
-	def removeProgressBar(self, progress_bar):
-		'''
-		Remove a progress bar.
-
-		Parameters
-		----------
-		progress_bar : str
-			ID of the progress bar to remove.
-		'''
-
-		if not(self._show_ui):
-			return
-
-		self._ui.removeProgressBar(progress_bar)
+		else:
+			progress_bar.counter = n
 
 	def parseScriptToLaunch(self, launch_option):
 		'''
@@ -420,7 +428,7 @@ class Maker():
 
 		unknown_simulations = self.manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self.updateProgressBar(progress_bar))
 
-		self.removeProgressBar(progress_bar)
+		self.removeUIItem(progress_bar)
 
 		return unknown_simulations
 
@@ -523,8 +531,8 @@ class Maker():
 
 			time.sleep(0.5)
 
-		self.removeProgressBar(progress_bar)
-		self.removeTextLine(statuses_line)
+		self.removeUIItem(progress_bar)
+		self.removeUIItem(statuses_line)
 
 		self._watcher.clearJobs()
 
@@ -565,13 +573,13 @@ class Maker():
 
 			self.updateProgressBar(progress_bar)
 
-		self.removeProgressBar(progress_bar)
+		self.removeUIItem(progress_bar)
 
 		self.displayState('Adding the simulations to the manager…')
 		progress_bar = self.displayProgressBar(len(simulations))
 
 		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self.updateProgressBar(progress_bar))
 
-		self.removeProgressBar(progress_bar)
+		self.removeUIItem(progress_bar)
 
 		return not(bool(failed_to_add))

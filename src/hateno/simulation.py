@@ -4,6 +4,7 @@
 import copy
 import functools
 import re
+import abc
 
 from .errors import *
 from . import string
@@ -27,9 +28,8 @@ class Simulation():
 
 		self._raw_globalsettings = None
 		self._raw_settings = None
-		self._raw_settings_dict = None
 
-		self._settings_counters = {}
+		self._indexed_settings = None
 
 		self._setting_tag_regex_compiled = None
 		self._eval_tag_regex_compiled = None
@@ -59,6 +59,19 @@ class Simulation():
 
 		return cls(folder, simulation)
 
+	@property
+	def folder(self):
+		'''
+		Get the Folder instance used by the simulation.
+
+		Returns
+		-------
+		folder : Folder
+			The Folder instance.
+		'''
+
+		return self._folder
+
 	def __getitem__(self, key):
 		'''
 		Access to a global setting.
@@ -80,7 +93,7 @@ class Simulation():
 		'''
 
 		try:
-			return self.reduced_globalsettings[key]
+			return self.globalsettings[key]
 
 		except KeyError:
 			raise KeyError('The key does not exist in the global settings')
@@ -104,13 +117,13 @@ class Simulation():
 		'''
 
 		try:
-			setting = [setting for setting in self._globalsettings if setting['name'] == key][0]
+			setting = [setting for setting in self._globalsettings if setting.name == key][0]
 
 		except IndexError:
 			raise KeyError('The key does not exist in the global settings')
 
 		else:
-			setting['value'] = value
+			setting.value = value
 
 	@property
 	def _globalsettings(self):
@@ -123,29 +136,13 @@ class Simulation():
 			The global settings.
 		'''
 
-		if not(self._raw_globalsettings):
+		if self._raw_globalsettings is None:
 			self.generateGlobalSettings()
 
 		return self._raw_globalsettings
 
 	@property
 	def _settings(self):
-		'''
-		Return (and generate if needed) the complete list of settings.
-
-		Returns
-		-------
-		raw_settings : list
-			The settings.
-		'''
-
-		if not(self._raw_settings):
-			self.generateSettings()
-
-		return self._raw_settings
-
-	@property
-	def _settings_dict(self):
 		'''
 		Return (and generate if needed) the complete list of settings as a dictionary.
 
@@ -155,30 +152,13 @@ class Simulation():
 			The settings.
 		'''
 
-		if not(self._raw_settings_dict):
+		if self._raw_settings is None:
 			self.generateSettings()
 
-		return self._raw_settings_dict
+		return self._raw_settings
 
 	@property
 	def settings(self):
-		'''
-		Return the complete list of sets of settings to use, as dictionaries.
-		The settings with `exclude` to `True` are ignored.
-
-		Returns
-		-------
-		settings : list
-			List of sets of settings.
-		'''
-
-		return [
-			{s.name: s.value for s in settings_set if not(s.exclude)}
-			for settings_set in self._settings
-		]
-
-	@property
-	def settings_dict(self):
 		'''
 		Return a dictionary with the complete list of sets of settings to use, as dictionaries.
 		The settings with `exclude` to `True` are ignored.
@@ -194,7 +174,7 @@ class Simulation():
 				{s.name: s.value for s in settings_set if not(s.exclude)}
 				for settings_set in settings_sets
 			]
-			for settings_set_name, settings_sets in self._settings_dict.items()
+			for settings_set_name, settings_sets in self._settings.items()
 		}
 
 	@property
@@ -205,17 +185,20 @@ class Simulation():
 
 		Returns
 		-------
-		settings : list
-			Settings, generated according to their pattern.
+		settings : dict
+			Settings, generated according to their pattern and organized by sets.
 		'''
 
-		return [
-			[str(s) for s in settings_set if s.shouldBeDisplayed()]
-			for settings_set in self._settings
-		]
+		return {
+			set_name: [
+				[str(s) for s in settings_set if s.shouldBeDisplayed()]
+				for settings_set in settings_sets
+			]
+			for set_name, settings_sets in self._settings.items()
+		}
 
 	@property
-	def reduced_globalsettings(self):
+	def globalsettings(self):
 		'''
 		Return the list of global settings, as a name: value dictionary.
 
@@ -225,34 +208,7 @@ class Simulation():
 			The global settings.
 		'''
 
-		return {setting['name']: setting['value'] for setting in self._globalsettings}
-
-	@property
-	def reduced_settings(self):
-		'''
-		Return the list of settings, as a name: value dictionary.
-		Ignore multiple occurrences of the same setting.
-
-		Returns
-		-------
-		settings : dict
-			The settings.
-		'''
-
-		return functools.reduce(lambda a, b: {**a, **b}, self.settings)
-
-	@property
-	def settings_counters(self):
-		'''
-		Return the current settings global and local counters.
-
-		Returns
-		-------
-		counters : dict
-			The counters.
-		'''
-
-		return self._settings_counters
+		return {setting.name: setting.value for setting in self._globalsettings}
 
 	@property
 	def command_line(self):
@@ -265,7 +221,7 @@ class Simulation():
 			The command line to execute.
 		'''
 
-		return ' '.join([self._folder.settings['exec']] + sum(self.settings_as_strings, []))
+		return ' '.join([self._folder.settings['exec']] + sum(sum(self.settings_as_strings.values(), []), []))
 
 	@property
 	def _setting_tag_regex(self):
@@ -279,7 +235,7 @@ class Simulation():
 		'''
 
 		if self._setting_tag_regex_compiled is None:
-			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting):(?P<name>[^}]+)\}')
+			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting)(?:\[(?P<setname>.+?)\])?(?:\((?P<index>[0-9]+)\))?:(?P<name>.+?)\}')
 
 		return self._setting_tag_regex_compiled
 
@@ -302,26 +258,6 @@ class Simulation():
 
 		return self._eval_tag_regex_compiled
 
-	def _incrementSettingCounters(self, setting_name, set_name):
-		'''
-		Update the global counter of a setting.
-
-		Parameters
-		----------
-		setting_name : str
-			Name of the setting.
-
-		set_name : str
-			Name of the set the setting belongs to.
-		'''
-
-		for counters_dict in [self._settings_counters['global'], self._settings_counters['sets'][set_name]]:
-			try:
-				counters_dict[setting_name] += 1
-
-			except KeyError:
-				counters_dict[setting_name] = 0
-
 	def generateGlobalSettings(self):
 		'''
 		Generate the full list of global settings.
@@ -330,12 +266,114 @@ class Simulation():
 		self._raw_globalsettings = []
 
 		for setting in self._folder.settings['globalsettings']:
-			self._raw_globalsettings.append({
-				'name': setting['name'],
-				'value': self._folder.applyFixers(self._user_settings[setting['name']]) if setting['name'] in self._user_settings else setting['default']
-			})
+			try:
+				setting_value = self._user_settings[setting['name']]
 
-		self.parseGlobalSettings()
+			except KeyError:
+				setting_value = setting['default']
+
+			self._raw_globalsettings.append(SimulationGlobalSetting(self, setting['name'], setting_value))
+
+	def getSettingCount(self, setting_name, set_name = None):
+		'''
+		Get the total number of uses of a given setting, globally or locally.
+
+		Parameters
+		----------
+		setting_name : str
+			Name of the setting to get the count of.
+
+		set_name : str
+			Name of the set for the local count.
+
+		Raises
+		------
+		SettingsSetNotFoundError
+			The provided set name does not exist.
+
+		SettingNotFoundError
+			The provided setting name does not exist.
+
+		Returns
+		-------
+		count : int
+			Local count if `set_name` is not `None`, global count otherwise.
+		'''
+
+		try:
+			settings = self._indexed_settings['global'] if set_name is None else self._indexed_settings['local'][set_name]
+
+		except KeyError:
+			raise SettingsSetNotFoundError(set_name)
+
+		else:
+			try:
+				return len(settings[setting_name])
+
+			except KeyError:
+				raise SettingNotFoundError(set_name, setting_name)
+
+	def _indexSetting(self, setting, set_name):
+		'''
+		Add a setting to the index.
+
+		Parameters
+		----------
+		setting : SimulationSetting
+			The setting to index.
+
+		set_name : str
+			The name of the set the setting belongs to.
+		'''
+
+		if not(set_name in self._indexed_settings['local']):
+			self._indexed_settings['local'][set_name] = {}
+
+		indexes = []
+
+		for indexes_dict in [self._indexed_settings['global'], self._indexed_settings['local'][set_name]]:
+			try:
+				indexes_dict[setting.name].append(setting)
+
+			except KeyError:
+				indexes_dict[setting.name] = [setting]
+
+			indexes.append(len(indexes_dict[setting.name]) - 1)
+
+		setting.setIndexes(*indexes)
+
+	def _addRawSettingsSet(self, set_name, default_settings, values_set = {}):
+		'''
+		Add a raw settings set to the list.
+
+		Parameters
+		----------
+		set_name : str
+			Name of the set.
+
+		default_settings : list
+			List of the default settings of this set.
+
+		values_set : dict
+			Values to override the defaults.
+		'''
+
+		set_to_add = copy.deepcopy(default_settings)
+
+		for setting in set_to_add:
+			self._indexSetting(setting, set_name)
+
+			try:
+				setting.value = values_set[setting.name]
+
+			except KeyError:
+				pass
+
+		try:
+			self._raw_settings[set_name].append(set_to_add)
+
+		except KeyError:
+			self._raw_settings[set_name] = [set_to_add]
 
 	def generateSettings(self):
 		'''
@@ -355,14 +393,12 @@ class Simulation():
 
 		default_pattern = self._folder.settings['setting_pattern']
 
-		self._raw_settings_dict = {}
-		self._settings_counters = {'global': {}, 'sets': {}}
+		self._raw_settings = {}
+		self._indexed_settings = {'global': {}, 'local': {}}
 
 		for settings_set in self._folder.settings['settings']:
-			self._settings_counters['sets'][settings_set['set']] = {}
-
 			default_settings = [
-				SimulationSetting(self._folder, settings_set['set'], s['name'], self)
+				SimulationSetting(self, settings_set['set'], s['name'])
 				for s in settings_set['settings']
 			]
 
@@ -371,35 +407,70 @@ class Simulation():
 
 			except KeyError:
 				if settings_set['required']:
-					for setting in default_settings:
-						self._incrementSettingCounters(setting.name, settings_set['set'])
-						setting.setIndexes()
-
-					self._raw_settings_dict[settings_set['set']] = [default_settings]
+					self._addRawSettingsSet(settings_set['set'], default_settings)
 
 			else:
 				if not(type(values_sets) is list):
 					values_sets = [values_sets]
 
-				self._raw_settings_dict[settings_set['set']] = []
-
 				for values_set in values_sets:
-					set_to_add = copy.deepcopy(default_settings)
+					self._addRawSettingsSet(settings_set['set'], default_settings, values_set)
 
-					for setting in set_to_add:
-						self._incrementSettingCounters(setting.name, settings_set['set'])
-						setting.setIndexes()
+	def getSettingValueFromTag(self, match):
+		'''
+		Retrieve the value of a setting from a setting tag.
 
-						try:
-							setting.value = values_set[setting.name]
+		Parameters
+		----------
+		match : re.Match
+			Match object corresponding to a setting tag.
 
-						except KeyError:
-							pass
+		Raises
+		------
+		SettingTagNotRecognizedError
+			The setting tag has not been recognized/does not refer to an existing setting.
 
-					self._raw_settings_dict[settings_set['set']].append(set_to_add)
+		Returns
+		-------
+		setting : mixed
+			The value of the setting.
+		'''
 
-		self._raw_settings = sum(self._raw_settings_dict.values(), [])
-		self.parseSettings()
+		try:
+			if match.group('category') == 'globalsetting':
+				return self.globalsettings[match.group('name')]
+
+			set_dict = self._indexed_settings['global'] if match.group('setname') is None else self._indexed_settings['local'][match.group('setname')]
+			set_list = set_dict[match.group('name')]
+
+			k = 0 if match.group('index') is None else int(match.group('index'))
+
+			return set_list[k].value
+
+		except:
+			raise SettingTagNotRecognizedError
+
+	def replaceSettingTag(self, match):
+		'''
+		Replace a setting tag (`{setting[set_name](k):setting_name}`) by the value of the right setting.
+		To be called by `re.sub()`.
+
+		Parameters
+		----------
+		match : re.Match
+			Match object corresponding to a setting tag.
+
+		Returns
+		-------
+		setting_value : str
+			The value of the setting.
+		'''
+
+		try:
+			return str(self.getSettingValueFromTag(match))
+
+		except SettingTagNotRecognizedError:
+			return match.group(0)
 
 	def parseString(self, s):
 		'''
@@ -436,43 +507,16 @@ class Simulation():
 
 		# We search for settings tags in the string, and recursively replace them
 
-		settings = {
-			'setting': self.reduced_settings,
-			'globalsetting': self.reduced_globalsettings
-		}
-
 		fullmatch = self._setting_tag_regex.fullmatch(s)
 
 		if fullmatch:
 			try:
-				return copy.deepcopy(settings[fullmatch.group('category')][fullmatch.group('name')])
+				return copy.deepcopy(self.getSettingValueFromTag(fullmatch))
 
 			except KeyError:
 				return s
 
-		def replaceSettingTag(match):
-			'''
-			Replace a setting tag by the value of the right setting.
-			To be called by `re.sub()`.
-
-			Parameters
-			----------
-			match : re.Match
-				Match object corresponding to a setting tag.
-
-			Returns
-			-------
-			setting_value : str
-				The value of the setting.
-			'''
-
-			try:
-				return str(settings[match.group('category')][match.group('name')])
-
-			except KeyError:
-				return match.group(0)
-
-		parsed = self._setting_tag_regex.sub(replaceSettingTag, s)
+		parsed = self._setting_tag_regex.sub(self.replaceSettingTag, s)
 
 		self._parser_recursion_stack.append(s)
 
@@ -498,40 +542,112 @@ class Simulation():
 
 		return parsed
 
-	def parseGlobalSettings(self):
+class SimulationBaseSetting(abc.ABC):
+	'''
+	Represent a setting, either global or normal (abstract class).
+
+	Parameters
+	----------
+	simulation : Simulation
+		The simulation using this setting.
+
+	setting_name : str
+		Name of the setting.
+
+	setting_value : mixed
+		Default value of the setting.
+	'''
+
+	def __init__(self, simulation, setting_name, setting_value):
+		self._simulation = simulation
+
+		self._name = setting_name
+		self._value = setting_value
+
+	def __deepcopy__(self, memo):
 		'''
-		Parse the global settings to take into account possible other settings' values.
+		Override the default behavior of `deepcopy()` to keep the references to the Simulation.
 		'''
 
-		for setting in self._globalsettings:
-			setting['value'] = self.parseString(setting['value'])
+		cls = self.__class__
+		result = cls.__new__(cls)
+		memo[id(self)] = result
 
-	def parseSettings(self):
+		for k, v in self.__dict__.items():
+			if k == '_simulation':
+				setattr(result, k, v)
+
+			else:
+				setattr(result, k, copy.deepcopy(v, memo))
+
+		return result
+
+	@property
+	def name(self):
 		'''
-		Parse the settings to take into account possible other settings' values.
+		Getter for the setting name.
+
+		Returns
+		-------
+		name : str
+			Name of the setting.
 		'''
 
-		for settings_set in self._settings:
-			for setting in settings_set:
-				setting.value = self.parseString(setting.value)
+		return self._name
 
-class SimulationSetting():
+	@property
+	def value(self):
+		'''
+		Getter for the setting value, with fixers applied.
+
+		Returns
+		-------
+		value : mixed
+			Value of the setting.
+		'''
+
+		try:
+			fixers = self._fixers
+
+		except AttributeError:
+			fixers = {}
+
+		return self._simulation.folder.applyFixers(self._simulation.parseString(self._value), **fixers)
+
+	@value.setter
+	def value(self, new_value):
+		'''
+		Setter for the setting value.
+
+		Parameters
+		----------
+		new_value : mixed
+			New value of the setting
+		'''
+
+		self._value = new_value
+
+class SimulationGlobalSetting(SimulationBaseSetting):
+	'''
+	Represent a global setting.
+	'''
+
+	pass
+
+class SimulationSetting(SimulationBaseSetting):
 	'''
 	Represent a simulation setting.
 
 	Parameters
 	----------
-	folder : Folder
-		The simulations folder this setting is part of.
+	simulation : Simulation
+		Simulation that uses this setting.
 
 	set_name : str
 		Name of the set this setting is part of.
 
 	setting_name : str
 		Name of this setting.
-
-	simulation : Simulation
-		Simulation that uses this setting.
 
 	Raises
 	------
@@ -542,14 +658,11 @@ class SimulationSetting():
 		The setting has not been found in the set.
 	'''
 
-	def __init__(self, folder, set_name, setting_name, simulation = None):
-		self._folder = folder
-		self._simulation = simulation
-
+	def __init__(self, simulation, set_name, setting_name):
 		try:
 			self._settings_set_dict = [
 				settings_set
-				for settings_set in self._folder.settings['settings']
+				for settings_set in simulation.folder.settings['settings']
 				if settings_set['set'] == set_name
 			][0]
 
@@ -566,11 +679,11 @@ class SimulationSetting():
 		except IndexError:
 			raise SettingNotFoundError(set_name, setting_name)
 
+		super().__init__(simulation, setting_name, self._setting_dict['default'])
+
 		self._set_name = set_name
-		self._name = self._setting_dict['name']
-		self._value = self._setting_dict['default']
 		self._exclude_for_db = 'exclude' in self._setting_dict and self._setting_dict['exclude']
-		self._pattern = self._setting_dict['pattern'] if 'pattern' in self._setting_dict else self._folder.settings['setting_pattern']
+		self._pattern = self._setting_dict['pattern'] if 'pattern' in self._setting_dict else self._simulation.folder.settings['setting_pattern']
 
 		self._use_only_if = 'only_if' in self._setting_dict
 		if self._use_only_if:
@@ -578,24 +691,6 @@ class SimulationSetting():
 
 		self._fixers_dict = None
 		self._namers_dict = None
-
-	def __deepcopy__(self, memo):
-		'''
-		Override the default behavior of `deepcopy()` to keep the references to the Folder and the Simulation.
-		'''
-
-		cls = self.__class__
-		result = cls.__new__(cls)
-		memo[id(self)] = result
-
-		for k, v in self.__dict__.items():
-			if k in ['_folder', '_simulation']:
-				setattr(result, k, v)
-
-			else:
-				setattr(result, k, copy.deepcopy(v, memo))
-
-		return result
 
 	def __str__(self):
 		'''
@@ -609,13 +704,21 @@ class SimulationSetting():
 
 		return self._pattern.format(name = self.display_name, value = self.value)
 
-	def setIndexes(self):
+	def setIndexes(self, global_index, local_index):
 		'''
 		Define the global and local indexes of this setting.
+
+		Parameters
+		----------
+		global_index : int
+			Global index of this setting.
+
+		local_index : int
+			Local index of this setting.
 		'''
 
-		self._global_index = self._simulation.settings_counters['global'][self._name]
-		self._local_index = self._simulation.settings_counters['sets'][self._set_name][self._name]
+		self._global_index = global_index
+		self._local_index = local_index
 
 	def _setModifier(self, modifier):
 		'''
@@ -638,19 +741,21 @@ class SimulationSetting():
 			'before': [
 				(self._setting_dict, ''),
 				(self._settings_set_dict, ''),
-				(self._setting_dict, '_between')
+				(self._setting_dict, '_before'),
+				(self._settings_set_dict, '_before'),
+				(self._setting_dict, '_between_before')
 			],
 			'after': [
-				(self._setting_dict, '_between'),
-				(self._settings_set_dict, ''),
-				(self._setting_dict, '')
+				(self._setting_dict, '_between_after'),
+				(self._settings_set_dict, '_after'),
+				(self._setting_dict, '_after')
 			]
 		}
 
 		for when, keys_path in keys_to_search.items():
 			for dict_to_search, key_to_search in keys_path:
 				try:
-					modifier_functions[when] += dict_to_search[f'{modifier}{key_to_search}_{when}']
+					modifier_functions[when] += dict_to_search[f'{modifier}{key_to_search}']
 
 				except KeyError:
 					pass
@@ -690,19 +795,6 @@ class SimulationSetting():
 		return self._namers_dict
 
 	@property
-	def name(self):
-		'''
-		Getter for the setting name.
-
-		Returns
-		-------
-		name : str
-			Name of the setting.
-		'''
-
-		return self._name
-
-	@property
 	def display_name(self):
 		'''
 		Get the name of the setting to use inside the simulation.
@@ -713,36 +805,10 @@ class SimulationSetting():
 			Name to use.
 		'''
 
-		local_total = self._simulation.settings_counters['sets'][self._set_name][self._name] + 1
-		global_total = self._simulation.settings_counters['global'][self._name] + 1
+		global_total = self._simulation.getSettingCount(self.name)
+		local_total = self._simulation.getSettingCount(self.name, self._set_name)
 
-		return self._folder.applyNamers(self._name, self._local_index, local_total, self._global_index, global_total, **self._namers)
-
-	@property
-	def value(self):
-		'''
-		Getter for the setting value.
-
-		Returns
-		-------
-		value : mixed
-			Value of the setting.
-		'''
-
-		return self._value
-
-	@value.setter
-	def value(self, new_value):
-		'''
-		Setter for the setting value.
-
-		Parameters
-		----------
-		new_value : mixed
-			New value of the setting
-		'''
-
-		self._value = self._folder.applyFixers(new_value, **self._fixers)
+		return self._simulation.folder.applyNamers(self.name, self._local_index, local_total, self._global_index, global_total, **self._namers)
 
 	@property
 	def exclude(self):

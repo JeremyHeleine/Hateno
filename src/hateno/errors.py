@@ -47,6 +47,19 @@ class InvalidFilterRegexError(Error):
 	def __init__(self, regex):
 		self.regex = regex
 
+class SettingTagNotRecognizedError(Error):
+	'''
+	Exception raised when we try to analyse a setting tag but it fails.
+
+	Parameters
+	----------
+	setting_tag : str
+		The invalid tag.
+	'''
+
+	def __init__(self, setting_tag):
+		self.setting_tag = setting_tag
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
@@ -244,32 +257,6 @@ class RemotePathNotFoundError(Error):
 
 	def __init__(self, remote_path):
 		self.remote_path = remote_path
-
-class UILineNotFoundError(Error):
-	'''
-	Exception raised when we try to access to a UI line which does not exist.
-
-	Parameters
-	----------
-	id : str
-		The ID of the unknown line.
-	'''
-
-	def __init__(self, id):
-		self.id = id
-
-class UIProgressBarNotFoundError(Error):
-	'''
-	Exception raised when we try to access to a UI progress bar which does not exist.
-
-	Parameters
-	----------
-	id : str
-		The ID of the unknown progress bar.
-	'''
-
-	def __init__(self, id):
-		self.id = id
 
 class UINonMovableLine(Error):
 	'''

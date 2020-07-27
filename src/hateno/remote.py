@@ -30,6 +30,21 @@ class RemoteFolder():
 		self._configuration = folder_conf
 		self._local = (self._configuration['host'] == 'local')
 
+	def __enter__(self):
+		'''
+		Context manager to call `open()` and `close()` automatically.
+		'''
+
+		self.open()
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
 	def open(self):
 		'''
 		Open the connection.
@@ -42,7 +57,16 @@ class RemoteFolder():
 			self._ssh = paramiko.SSHClient()
 			self._ssh.load_system_host_keys()
 			self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-			self._ssh.connect(self._configuration['host'], username = self._configuration['user'])
+
+			connect_params = {'username': self._configuration['user']}
+
+			try:
+				connect_params['port'] = self._configuration['port']
+
+			except KeyError:
+				pass
+
+			self._ssh.connect(self._configuration['host'], **connect_params)
 
 			self._sftp = self._ssh.open_sftp()
 

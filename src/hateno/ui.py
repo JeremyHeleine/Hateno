@@ -1,24 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import datetime
+import abc
+import functools
+
+from math import floor, log10
 
 from .errors import *
 
 class UI():
 	'''
 	Represent the user interface. Make easy the display of lines that can be updated, and the creation of progress bars.
+
+	Parameters
+	----------
+	progress_bars_length : int
+		Length of the progress bars, in characters.
+
+	progress_bars_empty_char : str
+		Character to use for the "empty" part of the progress bars.
+
+	progress_bars_full_char : str
+		Character to use to fill a progress bar.
+
+	progress_bars_percentage_precision : int
+		Precision to use for the display of the percentage in the progress bars.
 	'''
 
-	def __init__(self, *, progress_bars_length = 40, progress_bars_empty_char = '░', progress_bars_full_char = '█'):
+	def __init__(self, *, progress_bars_length = 40, progress_bars_empty_char = '░', progress_bars_full_char = '█', progress_bars_percentage_precision = 'auto'):
 		self._cursor_vertical_pos = 0
+		self._max_line = 0
 
-		self._text_lines = {}
+		self._items = []
 
-		self._progress_bars = {}
 		self._progress_bars_length = progress_bars_length
 		self._progress_bars_empty_char = progress_bars_empty_char
 		self._progress_bars_full_char = progress_bars_full_char
+		self._progress_bars_percentage_precision = progress_bars_percentage_precision
 
 	@property
 	def _last_line(self):
@@ -31,7 +49,7 @@ class UI():
 			The position of the last line.
 		'''
 
-		return len(self._text_lines) + len(self._progress_bars)
+		return sum([item.height for item in self._items])
 
 	def moveCursorTo(self, pos):
 		'''
@@ -51,18 +69,47 @@ class UI():
 
 			self._cursor_vertical_pos = pos
 
-	def moveCursorRight(self, dx):
+	def moveToLastLine(self):
 		'''
-		Move the cursor to the right.
+		Move the cursor to the last line.
+		Before, check if the last line already exists.
+		'''
+
+		last_line = self._last_line
+
+		if last_line > self._max_line:
+			self.moveCursorTo(last_line - 1)
+			print('')
+			self._cursor_vertical_pos += 1
+			self._max_line = last_line
+
+		self.moveCursorTo(last_line)
+
+	def _addItem(self, item_type, args):
+		'''
+		Add an item to display.
 
 		Parameters
 		----------
-		dx : int
-			The movement to execute.
+		item_type : type
+			Type of the item to add (child of UIDisplayedItem).
+
+		args : dict
+			Args to pass to the constructor of the item to add.
+
+		Returns
+		-------
+		item : UIDisplayedItem
+			The newly added item.
 		'''
 
-		if dx > 0:
-			print(f'\u001b[{dx}C', end = '')
+		self.moveToLastLine()
+
+		item = item_type(self, **args)
+		self._items.append(item)
+		item.render()
+
+		return item
 
 	def addTextLine(self, text):
 		'''
@@ -75,146 +122,57 @@ class UI():
 
 		Returns
 		-------
-		id : str
-			The ID to use to refer to this new line.
+		text_line : UITextLine
+			Object representing the added text line.
 		'''
 
-		self.moveCursorTo(self._last_line)
-		print(text)
+		return self._addItem(UITextLine, {
+			'text': text
+		})
 
-		line_id = hex(int(datetime.datetime.now().timestamp() * 1E6))[2:]
-		self._text_lines[line_id] = {
-			'position': self._cursor_vertical_pos,
-			'text': text,
-			'length': len(text)
-		}
-
-		self._cursor_vertical_pos += 1
-
-		return line_id
-
-	def addProgressBar(self, N):
+	def addProgressBar(self, total, *, bar_length = None, empty_char = None, full_char = None, percentage_precision = None):
 		'''
 		Add a new progress bar.
 
 		Parameters
 		----------
-		N : int
+		total : int
 			The final number to reach to display the famous 100%.
+
+		bar_length : int
+			Length of the progress bar.
+
+		empty_char : str
+			Character to use for the empty part of the bar.
+
+		full_char : str
+			Character to use to fill the bar.
+
+		percentage_precision : int
+			Precision to use for the display of the percentage.
 
 		Returns
 		-------
-		id : str
-			The ID to use to refer to this progress bar.
+		progress_bar : UIProgressBar
+			Object representing the added progress bar.
 		'''
 
-		self.moveCursorTo(self._last_line)
+		return self._addItem(UIProgressBar, {
+			'total': total,
+			'bar_length': bar_length or self._progress_bars_length,
+			'empty_char': empty_char or self._progress_bars_empty_char,
+			'full_char': full_char or self._progress_bars_full_char,
+			'percentage_precision': percentage_precision or self._progress_bars_percentage_precision
+		})
 
-		pattern = f'{{n:>{len(str(N))}d}}/{{N:d}} {{bar:{self._progress_bars_empty_char}<{self._progress_bars_length}}} {{p:>6.1%}}'
-		first_bar = pattern.format(n = 0, N = N, bar = '', p = 0)
-		print(first_bar)
-
-		bar_id = hex(int(datetime.datetime.now().timestamp() * 1E6))[2:]
-		self._progress_bars[bar_id] = {
-			'position': self._cursor_vertical_pos,
-			'n': 0,
-			'N': N,
-			'pattern': pattern,
-			'length': len(first_bar)
-		}
-
-		self._cursor_vertical_pos += 1
-
-		return bar_id
-
-	def replaceTextLine(self, id, new_text):
+	def moveUp(self, item):
 		'''
-		Replace a text line.
+		Move an item to the line above, assuming the above line is empty.
 
 		Parameters
 		----------
-		id : str
-			The ID of the line to display.
-
-		new_text : str
-			The new text to display.
-
-		Raises
-		------
-		UITextLineNotFoundError
-			The ID does not refer to a known text line.
-		'''
-
-		try:
-			text_line = self._text_lines[id]
-
-		except KeyError:
-			raise UITextLineNotFoundError(id)
-
-		else:
-			self.moveCursorTo(text_line['position'])
-
-			print(' ' * text_line['length'], end = '\r')
-			print(new_text, end = '\r')
-			text_line['text'] = new_text
-			text_line['length'] = len(new_text)
-
-			self.moveCursorTo(self._last_line)
-
-	def updateProgressBar(self, id, n = None):
-		'''
-		Update a progress bar.
-
-		Parameters
-		----------
-		id : str
-			The ID of the bar to update.
-
-		n : int
-			The new value of the counter. If `None`, increment the counter by one.
-
-		Raises
-		------
-		UIProgressBarNotFoundError
-			The ID does not refer to a known progress bar.
-		'''
-
-		try:
-			progress_bar = self._progress_bars[id]
-
-		except KeyError:
-			raise UIProgressBarNotFoundError(id)
-
-		else:
-			self.moveCursorTo(progress_bar['position'])
-
-			if n is None:
-				n = progress_bar['n'] + 1
-
-			percentage = n / progress_bar['N']
-			length_N = len(str(progress_bar['N']))
-
-			print(f'{{n:>{length_N}d}}'.format(n = n), end = '\r')
-
-			dx = length_N * 2 + 2
-			self.moveCursorRight(dx)
-			print(self._progress_bars_full_char * round(percentage * self._progress_bars_length), end = '\r')
-
-			self.moveCursorRight(dx + self._progress_bars_length + 1)
-			print('{p:>6.1%}'.format(p = percentage), end = '\r')
-
-			progress_bar['n'] = n
-
-			self.moveCursorTo(self._last_line)
-
-	def moveUp(self, line):
-		'''
-		Move a line to the line above, assuming the above line is empty.
-
-		Parameters
-		----------
-		line : dict
-			Line to move.
+		item : UIDisplayedItem
+			Item to move.
 
 		Raises
 		------
@@ -222,24 +180,13 @@ class UI():
 			The line can't be moved.
 		'''
 
-		if line['position'] <= 0:
-			raise UINonMovableLine(line['position'])
+		if item.position <= 0:
+			raise UINonMovableLine(item.position)
 
-		self.moveCursorTo(line['position'])
-		print(' ' * line['length'], end = '\r')
-
-		text = ''
-		try:
-			text = line['text']
-
-		except KeyError:
-			percentage = line['n'] / line['N']
-			text = line['pattern'].format(n = line['n'], N = line['N'], bar = self._progress_bars_full_char * round(percentage * self._progress_bars_length), p = percentage)
-
-		finally:
-			self.moveCursorTo(line['position'] - 1)
-			print(text, end = '\r')
-			line['position'] -= 1
+		item.clear()
+		self.moveCursorTo(item.position - 1)
+		item.position -= 1
+		item.render()
 
 	def moveUpFrom(self, pos):
 		'''
@@ -259,65 +206,297 @@ class UI():
 		if pos <= 0:
 			raise UINonMovableLine(pos)
 
-		lines_to_move = [line for line in [*self._text_lines.values(), *self._progress_bars.values()] if line['position'] >= pos]
-		lines_to_move.sort(key = lambda line: line['position'])
+		items_to_move = [item for item in self._items if item.position >= pos]
+		items_to_move.sort(key = lambda item: item.position)
 
-		for line in lines_to_move:
-			self.moveUp(line)
+		for item in items_to_move:
+			self.moveUp(item)
 
-	def _removeLine(self, lines, id):
+	def removeItem(self, item):
 		'''
-		Remove a line and move up all the lines below.
+		Remove a displayed item, and then move up all the lines below.
 
 		Parameters
 		----------
-		lines : dict
-			Dict where the lines are stored.
-
-		id : str
-			ID of the line to remove.
-
-		Raises
-		------
-		UILineNotFoundError
-			The ID does not refer to a known text line.
+		item : UIDisplayedItem
+			The item to remove.
 		'''
 
-		try:
-			line = lines[id]
+		item.clear()
+		self.moveUpFrom(item.position + 1)
+		self._items.remove(item)
+		self.moveToLastLine()
 
-		except KeyError:
-			raise UILineNotFoundError(id)
+class UIDisplayedItem(abc.ABC):
+	'''
+	Represent an item displayed in the UI (abstract class).
+
+	Parameters
+	----------
+	ui : UI
+		The UI object this item belongs to.
+	'''
+
+	def __init__(self, ui):
+		self.ui = ui
+		self.position = self.ui._cursor_vertical_pos
+
+	@abc.abstractproperty
+	def height(self):
+		'''
+		The number of lines used by the item.
+
+		Returns
+		-------
+		height : int
+			The number of lines.
+		'''
+
+		pass
+
+	@abc.abstractproperty
+	def width(self):
+		'''
+		The width, in characters, of the item.
+
+		Returns
+		-------
+		width : int
+			The width of the item.
+		'''
+
+		pass
+
+	@classmethod
+	def renderer(cls, func):
+		'''
+		Decorator for children's render() method.
+		'''
+
+		@functools.wraps(func)
+		def wrapper(self, *args, **kwargs):
+			self.ui.moveCursorTo(self.position)
+
+			func(self, *args, **kwargs)
+
+			self.ui.moveToLastLine()
+
+		return wrapper
+
+	@abc.abstractmethod
+	def render(self):
+		'''
+		Render the item.
+		'''
+
+		pass
+
+	def clear(self):
+		'''
+		Display enough spaces to clear the object.
+		'''
+
+		self.ui.moveCursorTo(self.position)
+		print(' ' * self.width, end = '\r')
+		self.ui.moveToLastLine()
+
+class UITextLine(UIDisplayedItem):
+	'''
+	Represent a text line displayed in the UI.
+
+	Parameters
+	----------
+	ui : UI
+		The UI object this text line belongs to.
+
+	text : str
+		The text to display.
+	'''
+
+	def __init__(self, ui, text):
+		super().__init__(ui)
+
+		self._text = text
+
+	@property
+	def height(self):
+		'''
+		The number of lines used by the text line.
+		Currently, always one. Multilines are not supported yet.
+
+		Returns
+		-------
+		height : int
+			The number of lines used by the text.
+		'''
+
+		return 1
+
+	@property
+	def width(self):
+		'''
+		The width of the text line, i.e. the length of the text.
+
+		Returns
+		-------
+		width : int
+			The length of the text.
+		'''
+
+		return len(self.text)
+
+	@property
+	def text(self):
+		'''
+		Getter for the displayed text.
+
+		Returns
+		-------
+		text : str
+			Displayed text.
+		'''
+
+		return self._text
+
+	@UIDisplayedItem.renderer
+	def render(self):
+		'''
+		Print the text.
+		'''
+
+		print(self._text, end = '\r')
+
+	@text.setter
+	def text(self, new_text):
+		'''
+		Change the displayed text.
+
+		Parameters
+		----------
+		new_text : str
+			New text to display.
+		'''
+
+		self.clear()
+		self._text = new_text
+		self.render()
+
+class UIProgressBar(UIDisplayedItem):
+	'''
+	Represent a progress bar displayed in the UI.
+
+	Parameters
+	----------
+	ui : UI
+		The UI object this text line belongs to.
+
+	total : int
+		The final number to reach.
+
+	bar_length : int
+		Length of the progress bar.
+
+	empty_char : str
+		Character to use for the empty part of the bar.
+
+	full_char : str
+		Character to use to fill the bar.
+
+	percentage_precision : int|str
+		Precision to use for the display of the percentage.
+		Special value `'auto'` to guess the needed precision from the total.
+	'''
+
+	def __init__(self, ui, total, *, bar_length = 40, empty_char = '░', full_char = '█', percentage_precision = 'auto'):
+		super().__init__(ui)
+
+		self._total = total
+		self._counter = 0
+
+		self._bar_length = bar_length
+		self._empty_char = empty_char
+		self._full_char = full_char
+
+		if percentage_precision == 'auto':
+			self._percentage_precision = abs(floor(log10(100 / self._total))) if self._total > 100 else 0
 
 		else:
-			self.moveCursorTo(line['position'])
-			print(' ' * line['length'], end = '\r')
+			self._percentage_precision = percentage_precision
 
-			self.moveUpFrom(line['position'] + 1)
+		self._pattern = ' '.join([
+			f'{{counter:>{len(str(self._total))}d}}/{self._total}',
+			f'{{bar:{self._empty_char}<{self._bar_length}}}',
+			f'{{percentage:>6.{self._percentage_precision}%}}'
+		])
 
-			del lines[id]
-			self.moveCursorTo(self._last_line)
-
-	def removeTextLine(self, line_id):
+	@property
+	def height(self):
 		'''
-		Remove a text line and move all the lines below.
+		The number of lines used by the progress bar.
+
+		Returns
+		-------
+		height : int
+			The number of lines used by the progress bar.
+		'''
+
+		return 1
+
+	@property
+	def width(self):
+		'''
+		The width of the progress bar.
+
+		Returns
+		-------
+		width : int
+			The complete width (counter + bar + percentage lengths).
+		'''
+
+		return len(self._pattern.format(counter = 0, bar = '', percentage = 0))
+
+	@property
+	def counter(self):
+		'''
+		The current value of the counter.
+
+		Returns
+		-------
+		counter : int
+			Counter value.
+		'''
+
+		return self._counter
+
+	@UIDisplayedItem.renderer
+	def render(self):
+		'''
+		Print the progress bar.
+		'''
+
+		percentage = self._counter / self._total
+		n_full_chars = round(percentage * self._bar_length)
+
+		print(self._pattern.format(counter = self._counter, bar = self._full_char * n_full_chars, percentage = percentage), end = '\r')
+
+	@counter.setter
+	def counter(self, n):
+		'''
+		Set the value of the counter.
+		'''
+
+		self.clear()
+		self._counter = n
+		self.render()
+
+	def update(self, delta = 1):
+		'''
+		Set the value of the counter by adding an increment.
 
 		Parameters
 		----------
-		line_id : str
-			The ID of the line to remove.
+		delta : int
+			Increment to add.
 		'''
 
-		self._removeLine(self._text_lines, line_id)
-
-	def removeProgressBar(self, line_id):
-		'''
-		Remove a progress bar and move all the lines below.
-
-		Parameters
-		----------
-		line_id : str
-			The ID of the line to remove.
-		'''
-
-		self._removeLine(self._progress_bars, line_id)
+		self.counter += delta

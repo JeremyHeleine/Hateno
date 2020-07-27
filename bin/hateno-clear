@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script uses the Manager class to clear a simulations folder.
+'''
+
+import argparse
+
+from hateno.ui import UI
+from hateno.manager import Manager
+
+def addArguments(parser):
+	parser.add_argument('--no-confirm', action = 'store_false', dest = 'confirm', help = 'do not ask confirmation before clearing')
+	parser.add_argument('folder_path', type = str, help = 'path to the folder to clear')
+
+def action(args):
+	with Manager(args.folder_path) as manager:
+		if manager.getSimulationsNumber() == 0:
+			print('This folder is empty.')
+
+		else:
+			if args.confirm:
+				clear_folder = False
+
+				while True:
+					answer = input('Do you really want to clear this folder? [y/N] ').strip().lower()
+
+					if answer in ['', 'y', 'n']:
+						clear_folder = (answer == 'y')
+						break
+
+					print('Please only answer by \'y\' or \'n\'')
+
+			else:
+				clear_folder = True
+
+			if clear_folder:
+				ui = UI()
+
+				infos_line = ui.addTextLine('Clearing folder…')
+				progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+
+				manager.clear(callback = progress_bar.update)
+
+				ui.removeItem(progress_bar)
+				infos_line.text = 'Folder cleared'
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Clear a simulations folder.')
+	addArguments(parser)
+	action(parser.parse_args())
