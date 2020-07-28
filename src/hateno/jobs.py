@@ -78,6 +78,30 @@ class JobsManager():
 
 		return [name for name, job in self._jobs.items() if job.state in states]
 
+	def setJobState(self, name, state):
+		'''
+		Set the state of a job.
+
+		Parameters
+		----------
+		name : str
+			Name of the job to update.
+
+		state : JobState
+			New state of the job.
+
+		Raises
+		------
+		JobNotFoundError
+			The job does not exist.
+		'''
+
+		try:
+			self._jobs[name].state = state
+
+		except KeyError:
+			raise JobNotFoundError(name)
+
 class Job():
 	'''
 	Represent a job, i.e. a program executing one or more simulations.
