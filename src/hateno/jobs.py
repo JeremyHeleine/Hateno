@@ -61,6 +61,23 @@ class JobsManager():
 
 		self._jobs.clear()
 
+	def getJobsWithStates(self, states):
+		'''
+		Get the list of jobs in given states.
+
+		Parameters
+		----------
+		states : list
+			List of `JobState`s to use to filter the jobs.
+
+		Returns
+		-------
+		jobs : list
+			The list of the names of the jobs in these states.
+		'''
+
+		return [name for name, job in self._jobs.items() if job.state in states]
+
 class Job():
 	'''
 	Represent a job, i.e. a program executing one or more simulations.
