@@ -3,6 +3,64 @@
 
 import enum
 
+from .errors import *
+
+class JobsManager():
+	'''
+	Represent a list of jobs to watch the states of.
+	'''
+
+	def __init__(self):
+		self._jobs = {}
+
+	def add(self, name):
+		'''
+		Add a job to manage.
+
+		Parameters
+		----------
+		name : str
+			Name of the job.
+
+		Raises
+		------
+		JobAlreadyExistingError
+			The job already exists in the list.
+		'''
+
+		if name in self._jobs:
+			raise JobAlreadyExistingError(name)
+
+		self._jobs[name] = Job()
+
+	def delete(self, name):
+		'''
+		Remove a job from the list.
+
+		Parameters
+		----------
+		name : str
+			Name of the job.
+
+		Raises
+		------
+		JobNotFoundError
+			The job does not exist.
+		'''
+
+		try:
+			del self._jobs[name]
+
+		except KeyError:
+			raise JobNotFoundError(name)
+
+	def clear(self):
+		'''
+		Clear the jobs list.
+		'''
+
+		self._jobs.clear()
+
 class Job():
 	'''
 	Represent a job, i.e. a program executing one or more simulations.

@@ -60,6 +60,32 @@ class SettingTagNotRecognizedError(Error):
 	def __init__(self, setting_tag):
 		self.setting_tag = setting_tag
 
+class JobAlreadyExistingError(Error):
+	'''
+	Exception raised when we try to add a job to manage that already exists.
+
+	Parameters
+	----------
+	job_name : str
+		Name of the job.
+	'''
+
+	def __init__(self, job_name):
+		self.job_name = job_name
+
+class JobNotFoundError(Error):
+	'''
+	Exception raised when we try to access a non existing job.
+
+	Parameters
+	----------
+	job_name : str
+		Name of the job.
+	'''
+
+	def __init__(self, job_name):
+		self.job_name = job_name
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
