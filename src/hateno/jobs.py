@@ -34,7 +34,7 @@ class JobsManager():
 		self._remote_folder = remote_folder
 		self._linked_file = filename
 
-	def add(self, name):
+	def add(self, *names):
 		'''
 		Add a job to manage.
 
@@ -49,12 +49,13 @@ class JobsManager():
 			The job already exists in the list.
 		'''
 
-		if name in self._jobs:
-			raise JobAlreadyExistingError(name)
+		for name in names:
+			if name in self._jobs:
+				raise JobAlreadyExistingError(name)
 
-		self._jobs[name] = Job()
+			self._jobs[name] = Job()
 
-	def delete(self, name):
+	def delete(self, *names):
 		'''
 		Remove a job from the list.
 
@@ -69,11 +70,12 @@ class JobsManager():
 			The job does not exist.
 		'''
 
-		try:
-			del self._jobs[name]
+		for name in names:
+			try:
+				del self._jobs[name]
 
-		except KeyError:
-			raise JobNotFoundError(name)
+			except KeyError:
+				raise JobNotFoundError(name)
 
 	def clear(self):
 		'''
