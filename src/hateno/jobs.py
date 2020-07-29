@@ -129,7 +129,7 @@ class JobsManager():
 		'''
 
 		if self._remote_folder is None:
-			with open(self._linked_file) as f:
+			with open(self._linked_file, 'r') as f:
 				file = f.read()
 
 		else:
@@ -144,6 +144,25 @@ class JobsManager():
 			except KeyError:
 				pass
 
+	def saveToFile(self):
+		'''
+		Write the current states to the linked file.
+		'''
+
+		jobs = {
+			job_name: job.__dict__
+			for job_name, job in self._jobs.items()
+		}
+
+		jobs_txt = json.dumps(jobs)
+
+		if self._remote_folder is None:
+			with open(self._linked_file, 'w') as f:
+				f.write(jobs_txt)
+
+		else:
+			self._remote_folder.putFileContents(self._linked_file, jobs_txt)
+
 class Job():
 	'''
 	Represent a job, i.e. a program executing one or more simulations.
@@ -151,6 +170,19 @@ class Job():
 
 	def __init__(self):
 		self._state = JobState.WAITING
+
+	@property
+	def __dict__(self):
+		'''
+		Rewrite the default dict representation, for easier serialization.
+
+		Returns
+		-------
+		job_dict : dict
+			Representation of the job.
+		'''
+
+		return {'state': self._state.name}
 
 	@property
 	def state(self):
