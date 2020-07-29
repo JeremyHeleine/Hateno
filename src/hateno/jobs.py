@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import enum
+import json
 
 from .errors import *
 
@@ -12,6 +13,26 @@ class JobsManager():
 
 	def __init__(self):
 		self._jobs = {}
+
+		self._remote_folder = None
+		self._linked_file = None
+
+	def linkToFile(self, filename, *, remote_folder = None):
+		'''
+		Link the manager to a file, to read and write the jobs states.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file to link.
+
+		remote_folder : RemoteFolder
+			Remote folder to use, where the file is located.
+			Optional, if not provided, local file is assumed.
+		'''
+
+		self._remote_folder = remote_folder
+		self._linked_file = filename
 
 	def add(self, name):
 		'''
@@ -102,6 +123,27 @@ class JobsManager():
 		except KeyError:
 			raise JobNotFoundError(name)
 
+	def updateFromFile(self):
+		'''
+		Read the states of the registered jobs from the linked file.
+		'''
+
+		if self._remote_folder is None:
+			with open(self._linked_file) as f:
+				file = f.read()
+
+		else:
+			file = self._remote_folder.getFileContents(self._linked_file)
+
+		states = json.loads(file)
+
+		for job_name, job in self._jobs.items():
+			try:
+				job.updateFromDict(states[job_name])
+
+			except KeyError:
+				pass
+
 class Job():
 	'''
 	Represent a job, i.e. a program executing one or more simulations.
@@ -135,6 +177,37 @@ class Job():
 		'''
 
 		self._state = new_state
+
+	def updateFromDict(self, job_dict):
+		'''
+		Update the state of the job from a dictionary.
+
+		Parameters
+		----------
+		job_dict : dict
+			Dictionary representing the job.
+
+		Raises
+		------
+		JobStateNotFoundError
+			The description of the state has not been found in the dictionary.
+
+		UnknownJobStateError
+			The given job state is unknown.
+		'''
+
+		try:
+			state = job_dict['state']
+
+		except KeyError:
+			raise JobStateNotFoundError()
+
+		else:
+			try:
+				self.state = JobState[state.upper()]
+
+			except KeyError:
+				raise UnknownJobStateError(state)
 
 class JobState(enum.Enum):
 	'''

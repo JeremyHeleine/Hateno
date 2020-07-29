@@ -86,6 +86,26 @@ class JobNotFoundError(Error):
 	def __init__(self, job_name):
 		self.job_name = job_name
 
+class JobStateNotFoundError(Error):
+	'''
+	Exception raised when we try to read the state of a job from a dict, without the right key.
+	'''
+
+	pass
+
+class UnknownJobStateError(Error):
+	'''
+	Exception raised when we try to use an unknown job state.
+
+	Parameters
+	----------
+	state : str
+		Name of the unknown state.
+	'''
+
+	def __init__(self, state):
+		self.state = state
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
