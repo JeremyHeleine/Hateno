@@ -84,6 +84,32 @@ class JobsManager():
 
 		self._jobs.clear()
 
+	def getJob(self, name):
+		'''
+		Get a job from its name.
+
+		Parameters
+		----------
+		name : str
+			Name of the job.
+
+		Returns
+		-------
+		job : Job
+			The job named `name`.
+
+		Raises
+		------
+		JobNotFoundError
+			The job does not exist.
+		'''
+
+		try:
+			return self._jobs[name]
+
+		except KeyError:
+			raise JobNotFoundError(name)
+
 	def getJobsWithStates(self, states):
 		'''
 		Get the list of jobs in given states.

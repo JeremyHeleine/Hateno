@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script uses the JobsManager class to manage the states of some jobs.
+'''
+
+import argparse
+
+from hateno.errors import *
+from hateno import jsonfiles
+from hateno.jobs import JobsManager, JobState
+
+def addArguments(parser):
+	parser.add_argument('states_file', type = argparse.FileType('r'), help = 'path to the file containing the states of the jobs to manage')
+	parser.add_argument('mode', choices = ['get', 'set'], help = 'mode to use (get or set a state)')
+	parser.add_argument('job_name', type = str, help = 'name of the job')
+	parser.add_argument('state', type = str, nargs = '?', default = 'waiting', help = 'new state for the job (in set mode)')
+
+def action(args):
+	jobs_manager = JobsManager()
+
+	jobs_descriptions = jsonfiles.read(args.states_file.name)
+	jobs_manager.add(*jobs_descriptions.keys())
+
+	jobs_manager.linkToFile(args.states_file.name)
+	jobs_manager.updateFromFile()
+
+	if args.mode == 'set':
+		try:
+			state = JobState[args.state.upper()]
+
+		except KeyError:
+			print('Unknown job state.')
+			exit()
+
+		try:
+			jobs_manager.setJobState(args.job_name, state)
+
+		except JobNotFoundError:
+			jobs_manager.add(args.job_name)
+			jobs_manager.setJobState(args.job_name, state)
+
+		finally:
+			jobs_manager.saveToFile()
+
+	elif args.mode == 'get':
+		try:
+			job = jobs_manager.getJob(args.job_name)
+
+		except JobNotFoundError:
+			print('The job has not been found.')
+			exit()
+
+		else:
+			print(job.state.name)
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Manage some jobs.')
+	addArguments(parser)
+	action(parser.parse_args())
