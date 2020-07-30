@@ -13,7 +13,7 @@ from .simulation import Simulation
 from .manager import Manager
 from .generator import Generator
 from .remote import RemoteFolder
-from .watcher import Watcher
+from .jobs import JobsManager, JobState
 from .ui import UI
 from .errors import *
 
@@ -52,7 +52,7 @@ class Maker():
 		self._manager_instance = None
 		self._generator_instance = None
 		self._remote_folder_instance = None
-		self._watcher_instance = None
+		self._jobs_manager = JobsManager()
 		self._ui_instance = None
 		self._ui_state_line = None
 
@@ -148,26 +148,6 @@ class Maker():
 		return self._remote_folder_instance
 
 	@property
-	def _watcher(self):
-		'''
-		Returns the instance of Watcher used in the Maker.
-
-		Returns
-		-------
-		watcher : Watcher
-			Current instance, or a new one if `None`.
-		'''
-
-		if not(self._watcher_instance):
-			if self._mail_config is None:
-				self._watcher_instance = Watcher(remote_folder = self._remote_folder)
-
-			else:
-				self._watcher_instance = Watcher(mail_config = self._mail_config, mail_notifications_config = self._mail_notifications_config)
-
-		return self._watcher_instance
-
-	@property
 	def _ui(self):
 		'''
 		Returns the instance of UI used in the Maker.
@@ -203,14 +183,6 @@ class Maker():
 			pass
 
 		self._remote_folder_instance = None
-
-		try:
-			self._watcher_instance.close()
-
-		except AttributeError:
-			pass
-
-		self._watcher_instance = None
 
 	def displayTextLine(self, text):
 		'''
@@ -504,29 +476,31 @@ class Maker():
 			`True` is all jobs were finished normally, `False` if there was at least one failure.
 		'''
 
-		jobs_number = len(jobs_ids)
-		jobs_numbers_by_state = {}
+		jobs_by_state = {}
 
 		self.displayState('Waiting for jobs to finish…')
-		progress_bar = self.displayProgressBar(jobs_number)
+		progress_bar = self.displayProgressBar(len(jobs_ids))
 
 		statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
 		statuses_line = self.displayTextLine('')
 
-		self._watcher.addJobsToWatch(jobs_ids)
+		self._jobs_manager.add(*jobs_ids)
 
 		if self._mail_config is None:
-			self._watcher.setJobsStatesPath(recipe['jobs_states_filename'])
+			self._jobs_manager.linkToFile(recipe['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
-			self._watcher.updateJobsStates()
-			jobs_numbers_by_state = self._watcher.getNumberOfJobsByStates(['waiting', 'running', 'succeed', 'failed'])
-			finished = jobs_numbers_by_state['succeed'] + jobs_numbers_by_state['failed']
+			self._jobs_manager.updateFromFile()
+			jobs_by_state = {
+				state: self._jobs_manager.getJobsWithStates([JobState[state.upper()]])
+				for state in ['waiting', 'running', 'succeed', 'failed']
+			}
+			finished = jobs_by_state['succeed'] + jobs_by_state['failed']
 
-			self.updateProgressBar(progress_bar, finished)
-			self.updateTextLine(statuses_line, statuses.format(**jobs_numbers_by_state))
+			self.updateProgressBar(progress_bar, len(finished))
+			self.updateTextLine(statuses_line, statuses.format(**{state: len(jobs) for state, jobs in jobs_by_state.items()}))
 
-			if finished == jobs_number:
+			if set(finished) == set(jobs_ids):
 				break
 
 			time.sleep(0.5)
@@ -534,9 +508,9 @@ class Maker():
 		self.removeUIItem(progress_bar)
 		self.removeUIItem(statuses_line)
 
-		self._watcher.clearJobs()
+		self._jobs_manager.clear()
 
-		return jobs_numbers_by_state['failed'] == 0
+		return not(jobs_by_state['failed'])
 
 	def downloadSimulations(self, simulations):
 		'''
