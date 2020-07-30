@@ -151,9 +151,14 @@ class JobsManager():
 		except KeyError:
 			raise JobNotFoundError(name)
 
-	def updateFromFile(self):
+	def _getFileContent(self):
 		'''
-		Read the states of the registered jobs from the linked file.
+		Get the content of the linked file.
+
+		Returns
+		-------
+		states : dict
+			States stored in the file.
 		'''
 
 		try:
@@ -165,27 +170,36 @@ class JobsManager():
 				file = self._remote_folder.getFileContents(self._linked_file)
 
 		except FileNotFoundError:
-			pass
+			return {}
 
 		else:
-			states = json.loads(file)
+			return json.loads(file)
 
-			for job_name, job in self._jobs.items():
-				try:
-					job.updateFromDict(states[job_name])
+	def updateFromFile(self):
+		'''
+		Read the states of the registered jobs from the linked file.
+		'''
 
-				except KeyError:
-					pass
+		states = self._getFileContent()
+
+		for job_name, job in self._jobs.items():
+			try:
+				job.updateFromDict(states[job_name])
+
+			except KeyError:
+				pass
 
 	def saveToFile(self):
 		'''
 		Write the current states to the linked file.
 		'''
 
-		jobs = {
+		jobs = self._getFileContent()
+
+		jobs.update({
 			job_name: job.__dict__
 			for job_name, job in self._jobs.items()
-		}
+		})
 
 		jobs_txt = json.dumps(jobs)
 
