@@ -12,7 +12,7 @@ from hateno import jsonfiles
 from hateno.jobs import JobsManager, JobState
 
 def addArguments(parser):
-	parser.add_argument('states_file', type = argparse.FileType('r'), help = 'path to the file containing the states of the jobs to manage')
+	parser.add_argument('states_file', type = str, help = 'path to the file containing the states of the jobs to manage')
 	parser.add_argument('mode', choices = ['get', 'set'], help = 'mode to use (get or set a state)')
 	parser.add_argument('job_name', type = str, help = 'name of the job')
 	parser.add_argument('state', type = str, nargs = '?', default = 'waiting', help = 'new state for the job (in set mode)')
@@ -20,10 +20,16 @@ def addArguments(parser):
 def action(args):
 	jobs_manager = JobsManager()
 
-	jobs_descriptions = jsonfiles.read(args.states_file.name)
-	jobs_manager.add(*jobs_descriptions.keys())
+	try:
+		jobs_descriptions = jsonfiles.read(args.states_file)
 
-	jobs_manager.linkToFile(args.states_file.name)
+	except FileNotFoundError:
+		pass
+
+	else:
+		jobs_manager.add(*jobs_descriptions.keys())
+
+	jobs_manager.linkToFile(args.states_file)
 	jobs_manager.updateFromFile()
 
 	if args.mode == 'set':

@@ -156,21 +156,26 @@ class JobsManager():
 		Read the states of the registered jobs from the linked file.
 		'''
 
-		if self._remote_folder is None:
-			with open(self._linked_file, 'r') as f:
-				file = f.read()
+		try:
+			if self._remote_folder is None:
+				with open(self._linked_file, 'r') as f:
+					file = f.read()
+
+			else:
+				file = self._remote_folder.getFileContents(self._linked_file)
+
+		except FileNotFoundError:
+			pass
 
 		else:
-			file = self._remote_folder.getFileContents(self._linked_file)
+			states = json.loads(file)
 
-		states = json.loads(file)
+			for job_name, job in self._jobs.items():
+				try:
+					job.updateFromDict(states[job_name])
 
-		for job_name, job in self._jobs.items():
-			try:
-				job.updateFromDict(states[job_name])
-
-			except KeyError:
-				pass
+				except KeyError:
+					pass
 
 	def saveToFile(self):
 		'''
