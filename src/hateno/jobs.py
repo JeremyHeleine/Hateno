@@ -82,7 +82,15 @@ class JobsManager():
 		Clear the jobs list.
 		'''
 
+		keys_to_remove = list(self._jobs.keys())
 		self._jobs.clear()
+
+		if not(self._linked_file is None):
+			jobs = self._getFileContent()
+			for key in keys_to_remove:
+				del jobs[key]
+
+			self._writeToFile(jobs)
 
 	def getJob(self, name):
 		'''
@@ -175,6 +183,25 @@ class JobsManager():
 		else:
 			return json.loads(file)
 
+	def _writeToFile(self, jobs):
+		'''
+		Write a dict to the linked file.
+
+		Parameters
+		----------
+		jobs : dict
+			Jobs and their states to write in the file, as a dictionary.
+		'''
+
+		jobs_txt = json.dumps(jobs)
+
+		if self._remote_folder is None:
+			with open(self._linked_file, 'w') as f:
+				f.write(jobs_txt)
+
+		else:
+			self._remote_folder.putFileContents(self._linked_file, jobs_txt)
+
 	def updateFromFile(self):
 		'''
 		Read the states of the registered jobs from the linked file.
@@ -201,14 +228,7 @@ class JobsManager():
 			for job_name, job in self._jobs.items()
 		})
 
-		jobs_txt = json.dumps(jobs)
-
-		if self._remote_folder is None:
-			with open(self._linked_file, 'w') as f:
-				f.write(jobs_txt)
-
-		else:
-			self._remote_folder.putFileContents(self._linked_file, jobs_txt)
+		self._writeToFile(jobs)
 
 class Job():
 	'''
