@@ -29,12 +29,6 @@ class Maker():
 	remote_folder_conf : dict
 		Configuration of the remote folder.
 
-	mail_config : dict
-		Configuration of the mailbox.
-
-	mail_notifications_config : dict
-		Mails notifications configuration.
-
 	max_corrupted : int
 		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
 
@@ -45,7 +39,7 @@ class Maker():
 		`True` to show different informations in the UI, `False` to show nothing.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, settings_file = None, mail_config = None, mail_notifications_config = None, max_corrupted = -1, max_failures = 0, ui = False):
+	def __init__(self, simulations_folder, remote_folder_conf, *, settings_file = None, max_corrupted = -1, max_failures = 0, ui = False):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -57,9 +51,6 @@ class Maker():
 		self._ui_state_line = None
 
 		self._settings_file = settings_file
-
-		self._mail_config = mail_config
-		self._mail_notifications_config = mail_notifications_config
 
 		self._max_corrupted = max_corrupted
 		self._corruptions_counter = 0
@@ -485,9 +476,7 @@ class Maker():
 		statuses_line = self.displayTextLine('')
 
 		self._jobs_manager.add(*jobs_ids)
-
-		if self._mail_config is None:
-			self._jobs_manager.linkToFile(recipe['jobs_states_filename'], remote_folder = self._remote_folder)
+		self._jobs_manager.linkToFile(recipe['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
 			self._jobs_manager.updateFromFile()
