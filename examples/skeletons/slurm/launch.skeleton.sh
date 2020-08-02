@@ -2,5 +2,5 @@
 
 ### BEGIN_JOB ###
 out=`sbatch $ITEM_VALUE`
-echo "$out" | cut -d ' ' -f 4
+echo ${JOBS_IDS__$ITEM_INDEX}
 ### END_JOB ###

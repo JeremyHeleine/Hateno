@@ -12,7 +12,9 @@
 		"jobs_output_filename": "job.out",
 		"jobs_states_filename": "jobs.txt",
 		"data_lists": {},
-		"data_variables": {},
+		"data_variables": {
+			"PATH_TO_HATENO_JOBS": "hateno-jobs"
+		},
 		"data_variables_cases": {}
 	},
 

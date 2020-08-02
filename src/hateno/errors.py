@@ -60,6 +60,52 @@ class SettingTagNotRecognizedError(Error):
 	def __init__(self, setting_tag):
 		self.setting_tag = setting_tag
 
+class JobAlreadyExistingError(Error):
+	'''
+	Exception raised when we try to add a job to manage that already exists.
+
+	Parameters
+	----------
+	job_name : str
+		Name of the job.
+	'''
+
+	def __init__(self, job_name):
+		self.job_name = job_name
+
+class JobNotFoundError(Error):
+	'''
+	Exception raised when we try to access a non existing job.
+
+	Parameters
+	----------
+	job_name : str
+		Name of the job.
+	'''
+
+	def __init__(self, job_name):
+		self.job_name = job_name
+
+class JobStateNotFoundError(Error):
+	'''
+	Exception raised when we try to read the state of a job from a dict, without the right key.
+	'''
+
+	pass
+
+class UnknownJobStateError(Error):
+	'''
+	Exception raised when we try to use an unknown job state.
+
+	Parameters
+	----------
+	state : str
+		Name of the unknown state.
+	'''
+
+	def __init__(self, state):
+		self.state = state
+
 class ManagerAlreadyRunningError(Error):
 	'''
 	Exception raised when a instance of the Manager is created while another is still running.
@@ -270,45 +316,3 @@ class UINonMovableLine(Error):
 
 	def __init__(self, pos):
 		self.pos = pos
-
-class WatcherNoConfigFoundError(Error):
-	'''
-	Exception raised when nothing is used to configure the watcher.
-	'''
-
-	pass
-
-class WatcherTooManyConfigError(Error):
-	'''
-	Exception raised when there is more than one configuration for the watcher.
-	'''
-
-	pass
-
-class WatcherNoRemoteFolderError(Error):
-	'''
-	Exception raised when we try to use the watcher's remote folder while there is no one set.
-	'''
-
-	pass
-
-class WatcherNoStatesPathError(Error):
-	'''
-	Exception raised when we try to access the file containing the jobs states and there is no one set.
-	'''
-
-	pass
-
-class WatcherNoMailConfigError(Error):
-	'''
-	Exception raised when we try to connect to the mailbox and no configuration file is given.
-	'''
-
-	pass
-
-class WatcherNoMailNotificationsConfigError(Error):
-	'''
-	Exception raised when we try to access the mails notifications configuration without any configuration file provided.
-	'''
-
-	pass

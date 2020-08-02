@@ -225,7 +225,7 @@ class RemoteFolder():
 
 		return filename
 
-	def getFileContents(self, remote_path, *, callback = None):
+	def getFileContents(self, remote_path):
 		'''
 		Retrieve the content of a remote file.
 
@@ -234,26 +234,30 @@ class RemoteFolder():
 		remote_path : str
 			Path of the remote file to read.
 
-		callback : function
-			Function to transform each line.
-
 		Returns
 		-------
-		content : list
-			Content of the file, as a list of lines.
+		content : str
+			Content of the file, as a string.
 		'''
 
-		content = []
-
 		with self._sftp.open(remote_path, 'r') as f:
-			if callback is None:
-				content = f.readlines()
+			return f.read()
 
-			else:
-				for line in f:
-					content.append(callback(line))
+	def putFileContents(self, remote_path, content):
+		'''
+		Write the content of a remote file.
 
-		return content
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote file to write.
+
+		content : str
+			Content to write.
+		'''
+
+		with self._sftp.open(remote_path, 'w') as f:
+			f.write(content)
 
 	def makedirs(self, directory):
 		'''
