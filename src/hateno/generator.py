@@ -317,11 +317,15 @@ class Generator():
 		skeletons_calls = []
 		generated_scripts = [[]] * n_skeletons
 
+		jobs_ids = [f'job-{k}' for k in range(0, len(simulations_sets))]
+
 		if 'subgroups_skeletons' in recipe:
 			skeletons_calls += [
 				{
 					'skeleton_name_joiner': f'-{k}.',
 					'skeletons': enumerate(recipe['subgroups_skeletons']),
+					'job_id': jobs_ids[k],
+					'jobs_ids': jobs_ids,
 					**self.parse(simulations_set)
 				}
 				for k, simulations_set in enumerate(simulations_sets)
@@ -331,6 +335,8 @@ class Generator():
 			skeletons_calls.append({
 				'skeleton_name_joiner': '.',
 				'skeletons': [(n_subgroups_skeletons + j, s) for j, s in enumerate(recipe['wholegroup_skeletons'])],
+				'job_id': '',
+				'jobs_ids': jobs_ids,
 				**self.parse()
 			})
 
@@ -342,6 +348,9 @@ class Generator():
 		for skeletons_call in skeletons_calls:
 			data_lists.update(skeletons_call['data_lists'])
 			data_variables.update(skeletons_call['data_variables'])
+
+			data_variables['JOB_ID'] = skeletons_call['job_id']
+			data_lists['JOBS_IDS'] = skeletons_call['jobs_ids']
 
 			if 'data_variables_cases' in recipe:
 				for varname, varparams in recipe['data_variables_cases'].items():

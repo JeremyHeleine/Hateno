@@ -6,12 +6,17 @@
 #SBATCH --nodes=$SUM_GLOBALSETTING_NODES
 #SBATCH --partition=$JOB_PARTITION
 #SBATCH --output=$JOBS_OUTPUT_FILENAME
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=$NOTIFICATIONS_EMAIL
 
 cd $SLURM_SUBMIT_DIR
 
 source /etc/profile.d/modules.sh
 module load openmpi/gcc/64/1.10.7
 
-mpirun -np $SLURM_NNODES $PARALLEL
+$PATH_TO_HATENO_JOBS $JOBS_STATES_FILENAME set $JOB_ID running
+
+{
+	mpirun -np $SLURM_NNODES $PARALLEL &&
+	$PATH_TO_HATENO_JOBS $JOBS_STATES_FILENAME set $JOB_ID succeed
+} || {
+	$PATH_TO_HATENO_JOBS $JOBS_STATES_FILENAME set $JOB_ID failed
+}
