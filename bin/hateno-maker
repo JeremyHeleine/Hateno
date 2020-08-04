@@ -12,6 +12,7 @@ from hateno.maker import Maker, MakerUI
 
 def addArguments(parser):
 	parser.add_argument('--settings', type = argparse.FileType('r'), required = True, help = 'path to the file where the maker settings are stored')
+	parser.add_argument('--copy-list', type = str, help = 'path to use to save a copy of the list of the simulations to generate')
 	parser.add_argument('--save-unknown', type = str, help = 'path to the file where simulations that failed to be generated must be stored')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list can be found')
@@ -30,6 +31,9 @@ def action(args):
 
 	if not(type(simulations) is list):
 		simulations = [simulations]
+
+	if args.copy_list:
+		jsonfiles.write(simulations, args.copy_list)
 
 	with Maker(args.folder_path, settings['remote_folder'], **maker_settings) as maker:
 		ui = MakerUI(maker)
