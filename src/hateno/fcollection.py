@@ -118,6 +118,11 @@ class FCollection():
 		------
 		FCollectionFunctionNotFoundError
 			The function has not been found.
+
+		Returns
+		-------
+		f : function
+			The wanted function.
 		'''
 
 		list_to_manage = self._getList(category)
@@ -127,6 +132,23 @@ class FCollection():
 
 		except KeyError:
 			raise FCollectionFunctionNotFoundError(fname)
+
+	def getAll(self, *, category = None):
+		'''
+		Get all functions.
+
+		Parameters
+		----------
+		category : str
+			Name of the category, if any.
+
+		Returns
+		-------
+		functions : list
+			The list of stored functions.
+		'''
+
+		return list(self._getList(category).values())
 
 	def setFilterRegex(self, filter_regex):
 		'''
