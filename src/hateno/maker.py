@@ -8,14 +8,15 @@ import tempfile
 
 from . import string
 
+from .fcollection import FCollection
 from .folder import Folder
 from .simulation import Simulation
 from .manager import Manager
 from .generator import Generator
 from .remote import RemoteFolder
 from .jobs import JobsManager, JobState
-from .ui import UI
 from .errors import *
+from .ui import UI
 
 class Maker():
 	'''
@@ -34,12 +35,9 @@ class Maker():
 
 	max_failures : int
 		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
-
-	ui : bool
-		`True` to show different informations in the UI, `False` to show nothing.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, settings_file = None, max_corrupted = -1, max_failures = 0, ui = False):
+	def __init__(self, simulations_folder, remote_folder_conf, *, settings_file = None, max_corrupted = -1, max_failures = 0):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -47,8 +45,6 @@ class Maker():
 		self._generator_instance = None
 		self._remote_folder_instance = None
 		self._jobs_manager = JobsManager()
-		self._ui_instance = None
-		self._ui_state_line = None
 
 		self._settings_file = settings_file
 
@@ -58,7 +54,7 @@ class Maker():
 		self._max_failures = max_failures
 		self._failures_counter = 0
 
-		self._show_ui = ui
+		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
 	def __enter__(self):
 		'''
@@ -132,32 +128,19 @@ class Maker():
 
 		if not(self._remote_folder_instance):
 			self._remote_folder_instance = RemoteFolder(self._remote_folder_conf)
-			self.displayState('Connecting to the folder…')
+
+			self._triggerEvent('remote-open-start')
 			self._remote_folder_instance.open()
-			self.displayState('Connection done.')
+			self._triggerEvent('remote-open-end')
 
 		return self._remote_folder_instance
-
-	@property
-	def _ui(self):
-		'''
-		Returns the instance of UI used in the Maker.
-
-		Returns
-		-------
-		ui : UI
-			Current instance, or a new one if `None`.
-		'''
-
-		if not(self._ui_instance) and self._show_ui:
-			self._ui_instance = UI()
-
-		return self._ui_instance
 
 	def close(self):
 		'''
 		Clear all instances of the modules.
 		'''
+
+		self._triggerEvent('close-start')
 
 		self._generator_instance = None
 
@@ -175,119 +158,59 @@ class Maker():
 
 		self._remote_folder_instance = None
 
-	def displayTextLine(self, text):
+		self._triggerEvent('close-end')
+
+	def addEventListener(self, event, f):
 		'''
-		Display a new text line.
+		Add a callback function to a given event.
 
 		Parameters
 		----------
-		text : str
-			Text to display.
+		event : str
+			Name of the event.
 
-		Returns
-		-------
-		text_line : UITextLine
-			The added text line.
+		f : function
+			Function to attach.
+
+		Raises
+		------
+		EventUnknownError
+			The event does not exist.
 		'''
 
-		if not(self._show_ui):
-			return None
+		try:
+			self._events_callbacks.set(f.__name__, f, category = event)
 
-		return self._ui.addTextLine(text)
+		except FCollectionCategoryNotFoundError:
+			raise EventUnknownError(event)
 
-	def updateTextLine(self, text_line, new_text):
+	def _triggerEvent(self, event, *args):
 		'''
-		Update a text line.
+		Call all functions attached to a given event.
 
 		Parameters
 		----------
-		text_line : UITextLine
-			The text line to update.
+		event : str
+			Name of the event to trigger.
 
-		new_text : str
-			New text to display.
+		args : mixed
+			Arguments to pass to the callback functions.
+
+		Raises
+		------
+		EventUnknownError
+			The event does not exist.
 		'''
 
-		if not(self._show_ui):
-			return
+		try:
+			functions = self._events_callbacks.getAll(category = event)
 
-		text_line.text = new_text
-
-	def removeUIItem(self, item):
-		'''
-		Remove an item from the UI.
-
-		Parameters
-		----------
-		item : UIDisplayedItem
-			The item to remove.
-		'''
-
-		if not(self._show_ui):
-			return
-
-		self._ui.removeItem(item)
-
-	def displayState(self, state):
-		'''
-		Display a state message (creation of an instance, connection, …).
-
-		Parameters
-		----------
-		state : str
-			State to display.
-		'''
-
-		if not(self._show_ui):
-			return
-
-		if self._ui_state_line is None:
-			self._ui_state_line = self.displayTextLine(state)
+		except FCollectionCategoryNotFoundError:
+			raise EventUnknownError(event)
 
 		else:
-			self.updateTextLine(self._ui_state_line, state)
-
-	def displayProgressBar(self, N):
-		'''
-		Add a new progress bar.
-
-		Parameters
-		----------
-		N : int
-			Final number to reach.
-
-		Returns
-		-------
-		progress_bar : UIProgressBar
-			The added progress bar.
-		'''
-
-		if not(self._show_ui):
-			return None
-
-		return self._ui.addProgressBar(N)
-
-	def updateProgressBar(self, progress_bar, n = None):
-		'''
-		Update a progress bar.
-
-		Parameters
-		----------
-		progress_bar : UIProgressBar
-			The progress bar to update.
-
-		n : int
-			New number to display (`None` to increment by one).
-		'''
-
-		if not(self._show_ui):
-			return
-
-		if n is None:
-			progress_bar.counter += 1
-
-		else:
-			progress_bar.counter = n
+			for f in functions:
+				f(*args)
 
 	def parseScriptToLaunch(self, launch_option):
 		'''
@@ -303,8 +226,6 @@ class Maker():
 		script_to_launch : dict
 			"Coordinates" of the script to launch.
 		'''
-
-		self.displayState('Parsing the launch option…')
 
 		option_split = launch_option.rsplit(':', maxsplit = 2)
 		option_split_num = [string.intOrNone(s) for s in option_split]
@@ -338,6 +259,8 @@ class Maker():
 			List of simulations that failed to be generated.
 		'''
 
+		self._triggerEvent('run-start')
+
 		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
 
 		self._corruptions_counter = 0
@@ -360,14 +283,10 @@ class Maker():
 			if not(success):
 				self._corruptions_counter += 1
 
-			self.displayState('Deleting the scripts folder…')
+			self._triggerEvent('delete-scripts')
 			self._remote_folder.deleteRemote([generator_recipe['basedir']])
 
-		if unknown_simulations:
-			self.displayState(string.plural(len(unknown_simulations), 'simulation still does not exist', 'simulations still do not exist'))
-
-		else:
-			self.displayState('All simulations have successfully been extracted')
+		self._triggerEvent('run-end', unknown_simulations)
 
 		return unknown_simulations
 
@@ -386,12 +305,11 @@ class Maker():
 			The list of simulations which do not exist (yet).
 		'''
 
-		self.displayState('Extracting the simulations…')
-		progress_bar = self.displayProgressBar(len(simulations))
+		self._triggerEvent('extract-start', simulations)
 
-		unknown_simulations = self.manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self.updateProgressBar(progress_bar))
+		unknown_simulations = self.manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self._triggerEvent('extract-progress'))
 
-		self.removeUIItem(progress_bar)
+		self._triggerEvent('extract-end')
 
 		return unknown_simulations
 
@@ -421,7 +339,7 @@ class Maker():
 			IDs of the jobs to wait.
 		'''
 
-		self.displayState('Generating the scripts…')
+		self._triggerEvent('generate-start')
 
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
 		recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
@@ -447,6 +365,8 @@ class Maker():
 		output = self._remote_folder.execute(script_to_launch['finalpath'])
 		jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
 
+		self._triggerEvent('generate-end')
+
 		return jobs_ids
 
 	def waitForJobs(self, jobs_ids, recipe):
@@ -467,13 +387,10 @@ class Maker():
 			`True` is all jobs were finished normally, `False` if there was at least one failure.
 		'''
 
+		self._triggerEvent('wait-start', jobs_ids)
+
 		jobs_by_state = {}
-
-		self.displayState('Waiting for jobs to finish…')
-		progress_bar = self.displayProgressBar(len(jobs_ids))
-
-		statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
-		statuses_line = self.displayTextLine('')
+		previous_states = {}
 
 		self._jobs_manager.add(*jobs_ids)
 		self._jobs_manager.linkToFile(recipe['jobs_states_filename'], remote_folder = self._remote_folder)
@@ -484,20 +401,19 @@ class Maker():
 				state: self._jobs_manager.getJobsWithStates([JobState[state.upper()]])
 				for state in ['waiting', 'running', 'succeed', 'failed']
 			}
-			finished = jobs_by_state['succeed'] + jobs_by_state['failed']
 
-			self.updateProgressBar(progress_bar, len(finished))
-			self.updateTextLine(statuses_line, statuses.format(**{state: len(jobs) for state, jobs in jobs_by_state.items()}))
+			if jobs_by_state != previous_states:
+				self._triggerEvent('wait-progress', jobs_by_state)
 
-			if set(finished) == set(jobs_ids):
-				break
+				if set(jobs_by_state['succeed'] + jobs_by_state['failed']) == set(jobs_ids):
+					break
 
+			previous_states = jobs_by_state
 			time.sleep(0.5)
 
-		self.removeUIItem(progress_bar)
-		self.removeUIItem(statuses_line)
-
 		self._jobs_manager.clear()
+
+		self._triggerEvent('wait-end')
 
 		return not(jobs_by_state['failed'])
 
@@ -516,8 +432,7 @@ class Maker():
 			`True` if all simulations has successfully been downloaded and added, `False` if there has been at least one issue.
 		'''
 
-		self.displayState('Downloading the simulations…')
-		progress_bar = self.displayProgressBar(len(simulations))
+		self._triggerEvent('download-start', simulations)
 
 		simulations_to_add = []
 
@@ -534,15 +449,266 @@ class Maker():
 			simulation['folder'] = tmpdir
 			simulations_to_add.append(simulation)
 
-			self.updateProgressBar(progress_bar)
+			self._triggerEvent('download-progress')
 
-		self.removeUIItem(progress_bar)
+		self._triggerEvent('download-end')
 
-		self.displayState('Adding the simulations to the manager…')
-		progress_bar = self.displayProgressBar(len(simulations))
+		self._triggerEvent('addition-start', simulations_to_add)
 
-		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self.updateProgressBar(progress_bar))
+		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self._triggerEvent('addition-progress'))
 
-		self.removeUIItem(progress_bar)
+		self._triggerEvent('addition-end')
 
 		return not(bool(failed_to_add))
+
+class MakerUI(UI):
+	'''
+	UI to show the different steps of the Maker.
+
+	Parameters
+	----------
+	maker : Maker
+		Instance of the Maker from which the event are triggered.
+	'''
+
+	def __init__(self, maker):
+		super().__init__()
+
+		self._state_line = None
+		self._main_progress_bar = None
+
+		self._statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
+		self._statuses_line = None
+
+		maker.addEventListener('close-start', self._closeStart)
+		maker.addEventListener('close-end', self._closeEnd)
+		maker.addEventListener('remote-open-start', self._remoteOpenStart)
+		maker.addEventListener('remote-open-end', self._remoteOpenEnd)
+		maker.addEventListener('delete-scripts', self._deleteScripts)
+		maker.addEventListener('run-start', self._runStart)
+		maker.addEventListener('run-end', self._runEnd)
+		maker.addEventListener('extract-start', self._extractStart)
+		maker.addEventListener('extract-progress', self._extractProgress)
+		maker.addEventListener('extract-end', self._extractEnd)
+		maker.addEventListener('generate-start', self._generateStart)
+		maker.addEventListener('generate-end', self._generateEnd)
+		maker.addEventListener('wait-start', self._waitStart)
+		maker.addEventListener('wait-progress', self._waitProgress)
+		maker.addEventListener('wait-end', self._waitEnd)
+		maker.addEventListener('download-start', self._downloadStart)
+		maker.addEventListener('download-progress', self._downloadProgress)
+		maker.addEventListener('download-end', self._downloadEnd)
+		maker.addEventListener('addition-start', self._additionStart)
+		maker.addEventListener('addition-progress', self._additionProgress)
+		maker.addEventListener('addition-end', self._additionEnd)
+
+	def _updateState(self, state):
+		'''
+		Text line to display the current state of the Maker.
+
+		Parameters
+		----------
+		state : str
+			State to display.
+		'''
+
+		if self._state_line is None:
+			self._state_line = self.addTextLine(state)
+
+		else:
+			self._state_line.text = state
+
+	def _closeStart(self):
+		'''
+		Maker starts closing.
+		'''
+
+		self._updateState('Closing…')
+
+	def _closeEnd(self):
+		'''
+		Maker is closed.
+		'''
+
+		self._updateState('Closed')
+
+	def _remoteOpenStart(self):
+		'''
+		Connection to the RemoteFolder is started.
+		'''
+
+		self._updateState('Connection…')
+
+	def _remoteOpenEnd(self):
+		'''
+		Connected to the RemoteFolder.
+		'''
+
+		self._updateState('Connected')
+
+	def _deleteScripts(self):
+		'''
+		Deletion of the scripts.
+		'''
+
+		self._updateState('Deleting the scripts…')
+
+	def _runStart(self):
+		'''
+		The run loop just started.
+		'''
+
+		self._updateState('Running the Maker…')
+
+	def _runEnd(self, unknown_simulations):
+		'''
+		The run loop has ended.
+
+		Parameters
+		----------
+		unknown_simulations : list
+			List of simulations that still do not exist.
+		'''
+
+		if unknown_simulations:
+			self._updateState(string.plural(len(unknown_simulations), 'simulation still does not exist', 'simulations still do not exist'))
+
+		else:
+			self._updateState('All simulations have successfully been extracted')
+
+	def _extractStart(self, simulations):
+		'''
+		Start the extraction of the simulations.
+
+		Parameters
+		----------
+		simulations : list
+			List of the simulations that will be extracted.
+		'''
+
+		self._updateState('Extracting the simulations…')
+		self._main_progress_bar = self.addProgressBar(len(simulations))
+
+	def _extractProgress(self):
+		'''
+		A simulation has just been extracted.
+		'''
+
+		self._main_progress_bar.counter += 1
+
+	def _extractEnd(self):
+		'''
+		All simulations have been extracted.
+		'''
+
+		self.removeItem(self._main_progress_bar)
+		self._main_progress_bar = None
+		self._updateState('Simulations extracted')
+
+	def _generateStart(self):
+		'''
+		Start the generation of the scripts.
+		'''
+
+		self._updateState('Generating the scripts…')
+
+	def _generateEnd(self):
+		'''
+		Scripts are generated.
+		'''
+
+		self._updateState('Scripts generated')
+
+	def _waitStart(self, jobs_ids):
+		'''
+		Start to wait for some jobs.
+
+		Parameters
+		----------
+		jobs_ids : list
+			IDs of the jobs to wait.
+		'''
+
+		self._updateState('Waiting for jobs to finish…')
+		self._main_progress_bar = self.addProgressBar(len(jobs_ids))
+		self._statuses_line = self.addTextLine(self._statuses.format(waiting = 0, running = 0, succeed = 0, failed = 0))
+
+	def _waitProgress(self, jobs_by_state):
+		'''
+		The state of at least one job has changed.
+
+		Parameters
+		----------
+		jobs_by_state : dict
+			The jobs IDs, sorted by their state.
+		'''
+
+		self._statuses_line.text = self._statuses.format(**{state: len(jobs) for state, jobs in jobs_by_state.items()})
+		self._main_progress_bar.counter = len(jobs_by_state['succeed'] + jobs_by_state['failed'])
+
+	def _waitEnd(self):
+		'''
+		All jobs are finished.
+		'''
+
+		self.removeItem(self._statuses_line)
+		self.removeItem(self._main_progress_bar)
+		self._updateState('Jobs finished')
+
+	def _downloadStart(self, simulations):
+		'''
+		Start to download the simulations.
+
+		Parameters
+		----------
+		simulations : list
+			Simulations that will be downloaded.
+		'''
+
+		self._updateState('Downloading the simulations…')
+		self._main_progress_bar = self.addProgressBar(len(simulations))
+
+	def _downloadProgress(self):
+		'''
+		A simulation has just been downloaded.
+		'''
+
+		self._main_progress_bar.counter += 1
+
+	def _downloadEnd(self):
+		'''
+		All simulations have been downloaded.
+		'''
+
+		self.removeItem(self._main_progress_bar)
+		self._main_progress_bar = None
+		self._updateState('Simulations downloaded')
+
+	def _additionStart(self, simulations):
+		'''
+		Start to add the simulations.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations that will be added.
+		'''
+
+		self._updateState('Adding the simulations to the manager…')
+		self._main_progress_bar = self.addProgressBar(len(simulations))
+
+	def _additionProgress(self):
+		'''
+		A simulation has just been added.
+		'''
+
+		self._main_progress_bar.counter += 1
+
+	def _additionEnd(self):
+		'''
+		All simulations have been added.
+		'''
+
+		self.removeItem(self._main_progress_bar)
+		self._main_progress_bar = None
+		self._updateState('Simulations added')

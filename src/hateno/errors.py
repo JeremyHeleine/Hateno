@@ -316,3 +316,16 @@ class UINonMovableLine(Error):
 
 	def __init__(self, pos):
 		self.pos = pos
+
+class EventUnknownError(Error):
+	'''
+	Exception raised when we try to use an unkown event.
+
+	Parameters
+	----------
+	event : str
+		Name of the event.
+	'''
+
+	def __init__(self, event):
+		self.event = event
