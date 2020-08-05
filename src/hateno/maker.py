@@ -57,6 +57,10 @@ class Maker():
 		self._generator_recipe = None
 		self.generator_recipe = generator_recipe
 
+		self._simulations_to_extract = []
+		self._unknown_simulations = []
+
+		self._jobs_ids = []
 		self._max_corrupted = max_corrupted
 		self._corruptions_counter = 0
 
@@ -290,71 +294,60 @@ class Maker():
 
 		self._triggerEvent('run-start')
 
+		self._simulations_to_extract = simulations
+
 		self._corruptions_counter = corruptions_counter
 		self._failures_counter = failures_counter
 
-		while (self._max_corrupted < 0 or self._corruptions_counter <= self._max_corrupted) and (self._max_failures < 0 or self._failures_counter <= self._max_failures):
-			unknown_simulations = self.extractSimulations(simulations)
+		while self._runLoop():
+			pass
 
-			if not(unknown_simulations):
-				break
+		self._triggerEvent('run-end', self._unknown_simulations)
 
-			jobs_ids = self.generateSimulations(unknown_simulations)
-			success = self.waitForJobs(jobs_ids)
-
-			if not(success):
-				self._failures_counter += 1
-
-			success = self.downloadSimulations(unknown_simulations)
-
-			if not(success):
-				self._corruptions_counter += 1
-
-			self._triggerEvent('delete-scripts')
-			self._remote_folder.deleteRemote([self._generator_recipe['basedir']])
-
-		self._triggerEvent('run-end', unknown_simulations)
-
-		return unknown_simulations
+		return self._unknown_simulations
 
 	def _runLoop(self):
 		'''
 		One loop of the `run()` method.
-		'''
-
-		pass
-
-	def extractSimulations(self, simulations):
-		'''
-		Extract a given set of simulations.
-
-		Parameters
-		----------
-		simulations : list
-			The list of simulations to extract.
 
 		Returns
 		-------
-		unknown_simulations : list
-			The list of simulations which do not exist (yet).
+		continue : bool
+			`True` to continue the loop, `False` to break it.
 		'''
 
-		self._triggerEvent('extract-start', simulations)
+		self.extractSimulations()
 
-		unknown_simulations = self.manager.batchExtract(simulations, settings_file = self._settings_file, callback = lambda : self._triggerEvent('extract-progress'))
+		if not(self._unknown_simulations):
+			return False
+
+		self.generateSimulations()
+
+		if not(self.waitForJobs()):
+			self._failures_counter += 1
+
+		if not(self.downloadSimulations()):
+			self._corruptions_counter += 1
+
+		self._triggerEvent('delete-scripts')
+		self._remote_folder.deleteRemote([self._generator_recipe['basedir']])
+
+		return (self._max_corrupted < 0 or self._corruptions_counter <= self._max_corrupted) and (self._max_failures < 0 or self._failures_counter <= self._max_failures)
+
+	def extractSimulations(self):
+		'''
+		Try to extract the simulations.
+		'''
+
+		self._triggerEvent('extract-start', self._simulations_to_extract)
+
+		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._settings_file, callback = lambda : self._triggerEvent('extract-progress'))
 
 		self._triggerEvent('extract-end')
 
-		return unknown_simulations
-
-	def generateSimulations(self, simulations):
+	def generateSimulations(self):
 		'''
-		Generate the scripts to generate some unknown simulations, and run them.
-
-		Parameters
-		----------
-		simulations : list
-			List of simulations to create.
+		Generate the scripts to generate the unknown simulations, and run them.
 
 		Raises
 		------
@@ -372,7 +365,7 @@ class Maker():
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
 		self._generator_recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
 
-		self.generator.add(simulations)
+		self.generator.add(self._unknown_simulations)
 		generated_scripts = self.generator.generate(scripts_dir, self._generator_recipe, empty_dest = True)
 		self.generator.clear()
 
@@ -395,20 +388,13 @@ class Maker():
 		self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
 
 		output = self._remote_folder.execute(script_to_launch['finalpath'])
-		jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
+		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
 
 		self._triggerEvent('generate-end')
 
-		return jobs_ids
-
-	def waitForJobs(self, jobs_ids):
+	def waitForJobs(self):
 		'''
-		Wait for a given list of jobs to finish.
-
-		Parameters
-		----------
-		jobs_ids : list
-			IDs of the jobs to wait.
+		Wait for the jobs to finish.
 
 		Returns
 		-------
@@ -416,12 +402,12 @@ class Maker():
 			`True` is all jobs were finished normally, `False` if there was at least one failure.
 		'''
 
-		self._triggerEvent('wait-start', jobs_ids)
+		self._triggerEvent('wait-start', self._jobs_ids)
 
 		jobs_by_state = {}
 		previous_states = {}
 
-		self._jobs_manager.add(*jobs_ids)
+		self._jobs_manager.add(*self._jobs_ids)
 		self._jobs_manager.linkToFile(self._generator_recipe['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
@@ -434,26 +420,22 @@ class Maker():
 			if jobs_by_state != previous_states:
 				self._triggerEvent('wait-progress', jobs_by_state)
 
-				if set(jobs_by_state['succeed'] + jobs_by_state['failed']) == set(jobs_ids):
+				if set(jobs_by_state['succeed'] + jobs_by_state['failed']) == set(self._jobs_ids):
 					break
 
 			previous_states = jobs_by_state
 			time.sleep(0.5)
 
 		self._jobs_manager.clear()
+		self._jobs_ids = []
 
 		self._triggerEvent('wait-end')
 
 		return not(jobs_by_state['failed'])
 
-	def downloadSimulations(self, simulations):
+	def downloadSimulations(self):
 		'''
 		Download the generated simulations and add them to the manager.
-
-		Parameters
-		----------
-		simulations : list
-			List of simulations to download.
 
 		Returns
 		-------
@@ -461,11 +443,11 @@ class Maker():
 			`True` if all simulations has successfully been downloaded and added, `False` if there has been at least one issue.
 		'''
 
-		self._triggerEvent('download-start', simulations)
+		self._triggerEvent('download-start', self._unknown_simulations)
 
 		simulations_to_add = []
 
-		for simulation in simulations:
+		for simulation in self._unknown_simulations:
 			simulation = Simulation.ensureType(simulation, self._simulations_folder)
 
 			tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
