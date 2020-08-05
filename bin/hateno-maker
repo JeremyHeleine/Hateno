@@ -27,6 +27,8 @@ def action(args):
 	except KeyError:
 		pass
 
+	maker_settings['generator_recipe'] = settings['generator_recipe']
+
 	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 
 	if not(type(simulations) is list):
@@ -38,7 +40,7 @@ def action(args):
 	with Maker(args.folder_path, settings['remote_folder'], **maker_settings) as maker:
 		ui = MakerUI(maker)
 
-		unknown_simulations = maker.run(simulations, settings['generator_recipe'])
+		unknown_simulations = maker.run(simulations)
 
 		if unknown_simulations and args.save_unknown:
 			jsonfiles.write(unknown_simulations, args.save_unknown)

@@ -30,6 +30,12 @@ class Maker():
 	remote_folder_conf : dict
 		Configuration of the remote folder.
 
+	generator_recipe : dict
+		Recipe to use to generate the simulations.
+
+	settings_file : str
+		Name of the settings file to create (for the extraction).
+
 	max_corrupted : int
 		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
 
@@ -37,7 +43,7 @@ class Maker():
 		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, settings_file = None, max_corrupted = -1, max_failures = 0):
+	def __init__(self, simulations_folder, remote_folder_conf, *, generator_recipe = None, settings_file = None, max_corrupted = -1, max_failures = 0):
 		self._simulations_folder = Folder(simulations_folder)
 		self._remote_folder_conf = remote_folder_conf
 
@@ -47,6 +53,9 @@ class Maker():
 		self._jobs_manager = JobsManager()
 
 		self._settings_file = settings_file
+		self._script_coords = None
+		self._generator_recipe = None
+		self.generator_recipe = generator_recipe
 
 		self._max_corrupted = max_corrupted
 		self._corruptions_counter = 0
@@ -212,22 +221,39 @@ class Maker():
 			for f in functions:
 				f(*args)
 
-	def parseScriptToLaunch(self, launch_option):
+	@property
+	def generator_recipe(self):
 		'''
-		Parse the `launch` option of a recipe to determine which skeleton/script must be called.
-
-		Parameters
-		----------
-		launch_option : str
-			Value of the `launch` option to parse.
+		Get the current generator recipe.
 
 		Returns
 		-------
-		script_to_launch : dict
-			"Coordinates" of the script to launch.
+		recipe : dict
+			Current recipe.
 		'''
 
-		option_split = launch_option.rsplit(':', maxsplit = 2)
+		return self._generator_recipe
+
+	@generator_recipe.setter
+	def generator_recipe(self, recipe):
+		'''
+		Define the recipe to use to generate the simulations.
+
+		Parameters
+		----------
+		recipe : dict
+			The recipe to use.
+		'''
+
+		self._generator_recipe = recipe
+		self._parseScriptToLaunch()
+
+	def _parseScriptToLaunch(self):
+		'''
+		Parse the `launch` option of a recipe to determine which skeleton/script must be called.
+		'''
+
+		option_split = self.generator_recipe['launch'].rsplit(':', maxsplit = 2)
 		option_split_num = [string.intOrNone(s) for s in option_split]
 
 		cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
@@ -235,13 +261,13 @@ class Maker():
 		coords = option_split_num[cut:]
 		coords += [-1] * (2 - len(coords))
 
-		return {
+		self._script_coords = {
 			'name': ':'.join(option_split[:cut]),
 			'skeleton': coords[0],
 			'script': coords[1]
 		}
 
-	def run(self, simulations, generator_recipe):
+	def run(self, simulations, *, corruptions_counter = 0, failures_counter = 0):
 		'''
 		Main loop, run until all simulations are extracted or some jobs failed.
 
@@ -250,8 +276,11 @@ class Maker():
 		simulations : list
 			List of simulations to extract/generate.
 
-		generator_recipe : dict
-			Recipe to use in the generator to generate the scripts.
+		corruptions_counter : int
+			Initial value of the corruptions counter.
+
+		failures_counter : int
+		 	Initial value of the failures counter.
 
 		Returns
 		-------
@@ -261,10 +290,8 @@ class Maker():
 
 		self._triggerEvent('run-start')
 
-		script_coords = self.parseScriptToLaunch(generator_recipe['launch'])
-
-		self._corruptions_counter = 0
-		self._failures_counter = 0
+		self._corruptions_counter = corruptions_counter
+		self._failures_counter = failures_counter
 
 		while (self._max_corrupted < 0 or self._corruptions_counter <= self._max_corrupted) and (self._max_failures < 0 or self._failures_counter <= self._max_failures):
 			unknown_simulations = self.extractSimulations(simulations)
@@ -272,8 +299,8 @@ class Maker():
 			if not(unknown_simulations):
 				break
 
-			jobs_ids = self.generateSimulations(unknown_simulations, generator_recipe, script_coords)
-			success = self.waitForJobs(jobs_ids, generator_recipe)
+			jobs_ids = self.generateSimulations(unknown_simulations)
+			success = self.waitForJobs(jobs_ids)
 
 			if not(success):
 				self._failures_counter += 1
@@ -284,11 +311,18 @@ class Maker():
 				self._corruptions_counter += 1
 
 			self._triggerEvent('delete-scripts')
-			self._remote_folder.deleteRemote([generator_recipe['basedir']])
+			self._remote_folder.deleteRemote([self._generator_recipe['basedir']])
 
 		self._triggerEvent('run-end', unknown_simulations)
 
 		return unknown_simulations
+
+	def _runLoop(self):
+		'''
+		One loop of the `run()` method.
+		'''
+
+		pass
 
 	def extractSimulations(self, simulations):
 		'''
@@ -313,7 +347,7 @@ class Maker():
 
 		return unknown_simulations
 
-	def generateSimulations(self, simulations, recipe, script_coords):
+	def generateSimulations(self, simulations):
 		'''
 		Generate the scripts to generate some unknown simulations, and run them.
 
@@ -321,12 +355,6 @@ class Maker():
 		----------
 		simulations : list
 			List of simulations to create.
-
-		recipe : dict
-			Recipe to use in the generator.
-
-		script_coords : dict
-			'Coordinates' of the script to launch.
 
 		Raises
 		------
@@ -342,19 +370,23 @@ class Maker():
 		self._triggerEvent('generate-start')
 
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
-		recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
+		self._generator_recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
 
 		self.generator.add(simulations)
-		generated_scripts = self.generator.generate(scripts_dir, recipe, empty_dest = True)
+		generated_scripts = self.generator.generate(scripts_dir, self._generator_recipe, empty_dest = True)
 		self.generator.clear()
 
-		possible_skeletons_to_launch = [k for k, s in enumerate(recipe['subgroups_skeletons'] + recipe['wholegroup_skeletons']) if s == script_coords['name']]
+		possible_skeletons_to_launch = [
+			k
+			for k, s in enumerate(self._generator_recipe['subgroups_skeletons'] + self._generator_recipe['wholegroup_skeletons'])
+			if s == self._script_coords['name']
+		]
 
 		try:
-			script_to_launch = generated_scripts[possible_skeletons_to_launch[script_coords['skeleton']]][script_coords['script']]
+			script_to_launch = generated_scripts[possible_skeletons_to_launch[self._script_coords['skeleton']]][self._script_coords['script']]
 
 		except IndexError:
-			raise ScriptNotFoundError(script_coords)
+			raise ScriptNotFoundError(self._script_coords)
 
 		script_mode = os.stat(script_to_launch['localpath']).st_mode
 		if not(script_mode & stat.S_IXUSR & stat.S_IXGRP & stat.S_IXOTH):
@@ -369,7 +401,7 @@ class Maker():
 
 		return jobs_ids
 
-	def waitForJobs(self, jobs_ids, recipe):
+	def waitForJobs(self, jobs_ids):
 		'''
 		Wait for a given list of jobs to finish.
 
@@ -377,9 +409,6 @@ class Maker():
 		----------
 		jobs_ids : list
 			IDs of the jobs to wait.
-
-		recipe : dict
-			Generator recipe to use.
 
 		Returns
 		-------
@@ -393,7 +422,7 @@ class Maker():
 		previous_states = {}
 
 		self._jobs_manager.add(*jobs_ids)
-		self._jobs_manager.linkToFile(recipe['jobs_states_filename'], remote_folder = self._remote_folder)
+		self._jobs_manager.linkToFile(self._generator_recipe['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
 			self._jobs_manager.updateFromFile()
@@ -523,14 +552,14 @@ class MakerUI(UI):
 		Maker starts closing.
 		'''
 
-		self._updateState('Closing…')
+		pass
 
 	def _closeEnd(self):
 		'''
 		Maker is closed.
 		'''
 
-		self._updateState('Closed')
+		pass
 
 	def _remoteOpenStart(self):
 		'''
