@@ -59,15 +59,17 @@ class Maker():
 
 		self._simulations_to_extract = []
 		self._unknown_simulations = []
-
 		self._jobs_ids = []
+
 		self._max_corrupted = max_corrupted
 		self._corruptions_counter = 0
 
 		self._max_failures = max_failures
 		self._failures_counter = 0
 
-		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
+		self._paused = False
+
+		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
 	def __enter__(self):
 		'''
@@ -226,6 +228,27 @@ class Maker():
 				f(*args)
 
 	@property
+	def paused(self):
+		'''
+		Getter for the paused state.
+
+		Returns
+		-------
+		paused : bool
+			`True` if the Maker has been paused, `False` otherwise.
+		'''
+
+		return self._paused
+
+	def pause(self):
+		'''
+		Pause the Maker.
+		'''
+
+		self._paused = True
+		self._triggerEvent('paused')
+
+	@property
 	def generator_recipe(self):
 		'''
 		Get the current generator recipe.
@@ -289,7 +312,7 @@ class Maker():
 		Returns
 		-------
 		unknown_simulations : list
-			List of simulations that failed to be generated.
+			List of simulations that failed to be generated. `None` if the Maker has been paused.
 		'''
 
 		self._triggerEvent('run-start')
@@ -301,6 +324,9 @@ class Maker():
 
 		while self._runLoop():
 			pass
+
+		if self.paused:
+			return None
 
 		self._triggerEvent('run-end', self._unknown_simulations)
 
@@ -323,8 +349,13 @@ class Maker():
 
 		self.generateSimulations()
 
-		if not(self.waitForJobs()):
-			self._failures_counter += 1
+		try:
+			if not(self.waitForJobs()):
+				self._failures_counter += 1
+
+		except KeyboardInterrupt:
+			self.pause()
+			return False
 
 		if not(self.downloadSimulations()):
 			self._corruptions_counter += 1
@@ -485,33 +516,36 @@ class MakerUI(UI):
 	def __init__(self, maker):
 		super().__init__()
 
+		self._maker = maker
+
 		self._state_line = None
 		self._main_progress_bar = None
 
 		self._statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
 		self._statuses_line = None
 
-		maker.addEventListener('close-start', self._closeStart)
-		maker.addEventListener('close-end', self._closeEnd)
-		maker.addEventListener('remote-open-start', self._remoteOpenStart)
-		maker.addEventListener('remote-open-end', self._remoteOpenEnd)
-		maker.addEventListener('delete-scripts', self._deleteScripts)
-		maker.addEventListener('run-start', self._runStart)
-		maker.addEventListener('run-end', self._runEnd)
-		maker.addEventListener('extract-start', self._extractStart)
-		maker.addEventListener('extract-progress', self._extractProgress)
-		maker.addEventListener('extract-end', self._extractEnd)
-		maker.addEventListener('generate-start', self._generateStart)
-		maker.addEventListener('generate-end', self._generateEnd)
-		maker.addEventListener('wait-start', self._waitStart)
-		maker.addEventListener('wait-progress', self._waitProgress)
-		maker.addEventListener('wait-end', self._waitEnd)
-		maker.addEventListener('download-start', self._downloadStart)
-		maker.addEventListener('download-progress', self._downloadProgress)
-		maker.addEventListener('download-end', self._downloadEnd)
-		maker.addEventListener('addition-start', self._additionStart)
-		maker.addEventListener('addition-progress', self._additionProgress)
-		maker.addEventListener('addition-end', self._additionEnd)
+		self._maker.addEventListener('close-start', self._closeStart)
+		self._maker.addEventListener('close-end', self._closeEnd)
+		self._maker.addEventListener('remote-open-start', self._remoteOpenStart)
+		self._maker.addEventListener('remote-open-end', self._remoteOpenEnd)
+		self._maker.addEventListener('delete-scripts', self._deleteScripts)
+		self._maker.addEventListener('paused', self._paused)
+		self._maker.addEventListener('run-start', self._runStart)
+		self._maker.addEventListener('run-end', self._runEnd)
+		self._maker.addEventListener('extract-start', self._extractStart)
+		self._maker.addEventListener('extract-progress', self._extractProgress)
+		self._maker.addEventListener('extract-end', self._extractEnd)
+		self._maker.addEventListener('generate-start', self._generateStart)
+		self._maker.addEventListener('generate-end', self._generateEnd)
+		self._maker.addEventListener('wait-start', self._waitStart)
+		self._maker.addEventListener('wait-progress', self._waitProgress)
+		self._maker.addEventListener('wait-end', self._waitEnd)
+		self._maker.addEventListener('download-start', self._downloadStart)
+		self._maker.addEventListener('download-progress', self._downloadProgress)
+		self._maker.addEventListener('download-end', self._downloadEnd)
+		self._maker.addEventListener('addition-start', self._additionStart)
+		self._maker.addEventListener('addition-progress', self._additionProgress)
+		self._maker.addEventListener('addition-end', self._additionEnd)
 
 	def _updateState(self, state):
 		'''
@@ -563,6 +597,24 @@ class MakerUI(UI):
 		'''
 
 		self._updateState('Deleting the scripts…')
+
+	def _paused(self):
+		'''
+		The Maker has been paused.
+		'''
+
+		# Erase the "^C" due to the keyboard interruption
+		print('\r  ', end = '\r')
+
+		if not(self._main_progress_bar is None):
+			self.removeItem(self._main_progress_bar)
+			self._main_progress_bar = None
+
+		if not(self._statuses_line is None):
+			self.removeItem(self._statuses_line)
+			self._statuses_line = None
+
+		self._updateState('Paused')
 
 	def _runStart(self):
 		'''
@@ -663,7 +715,11 @@ class MakerUI(UI):
 		'''
 
 		self.removeItem(self._statuses_line)
+		self._statuses_line = None
+
 		self.removeItem(self._main_progress_bar)
+		self._main_progress_bar = None
+
 		self._updateState('Jobs finished')
 
 	def _downloadStart(self, simulations):
