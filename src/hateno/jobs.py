@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import enum
+import time
+import os
+import shutil
 import json
 
 from .errors import *
@@ -16,6 +19,7 @@ class JobsManager():
 
 		self._remote_folder = None
 		self._linked_file = None
+		self._editing_file = None
 
 	def linkToFile(self, filename, *, remote_folder = None):
 		'''
@@ -33,6 +37,9 @@ class JobsManager():
 
 		self._remote_folder = remote_folder
 		self._linked_file = filename
+
+		fileparts = os.path.splitext(self._linked_file)
+		self._editing_file = ''.join(['.', fileparts[0], '.edit', fileparts[1]])
 
 	def add(self, *names):
 		'''
@@ -193,6 +200,15 @@ class JobsManager():
 			Jobs and their states to write in the file, as a dictionary.
 		'''
 
+		while os.path.exists(self._editing_file):
+			time.sleep(0.1)
+
+		try:
+			shutil.copy(self._linked_file, self._editing_file)
+
+		except FileNotFoundError:
+			os.mknod(self._editing_file)
+
 		jobs_txt = json.dumps(jobs)
 
 		if self._remote_folder is None:
@@ -201,6 +217,8 @@ class JobsManager():
 
 		else:
 			self._remote_folder.putFileContents(self._linked_file, jobs_txt)
+
+		os.unlink(self._editing_file)
 
 	def updateFromFile(self):
 		'''
