@@ -93,11 +93,7 @@ class JobsManager():
 		self._jobs.clear()
 
 		if not(self._linked_file is None):
-			jobs = self._getFileContent()
-			for key in keys_to_remove:
-				del jobs[key]
-
-			self._writeToFile(jobs)
+			self.saveToFile(remove_keys = keys_to_remove)
 
 	def getJob(self, name):
 		'''
@@ -200,15 +196,6 @@ class JobsManager():
 			Jobs and their states to write in the file, as a dictionary.
 		'''
 
-		while os.path.exists(self._editing_file):
-			time.sleep(0.1)
-
-		try:
-			shutil.copy(self._linked_file, self._editing_file)
-
-		except FileNotFoundError:
-			os.mknod(self._editing_file)
-
 		jobs_txt = json.dumps(jobs)
 
 		if self._remote_folder is None:
@@ -217,8 +204,6 @@ class JobsManager():
 
 		else:
 			self._remote_folder.putFileContents(self._linked_file, jobs_txt)
-
-		os.unlink(self._editing_file)
 
 	def updateFromFile(self):
 		'''
@@ -234,9 +219,14 @@ class JobsManager():
 			except KeyError:
 				pass
 
-	def saveToFile(self):
+	def saveToFile(self, *, remove_keys = []):
 		'''
 		Write the current states to the linked file.
+
+		Parameters
+		----------
+		remove_keys : list
+			List of keys to remove from the file.
 		'''
 
 		jobs = self._getFileContent()
@@ -245,6 +235,9 @@ class JobsManager():
 			job_name: job.__dict__
 			for job_name, job in self._jobs.items()
 		})
+
+		for key in remove_keys:
+			del jobs[key]
 
 		self._writeToFile(jobs)
 
