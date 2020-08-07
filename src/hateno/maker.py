@@ -460,6 +460,8 @@ class Maker():
 		self._jobs_manager.clear()
 		self._jobs_ids = []
 
+		self._remote_folder.deleteRemote([self._generator_recipe['jobs_states_filename']])
+
 		self._triggerEvent('wait-end')
 
 		return not(jobs_by_state['failed'])

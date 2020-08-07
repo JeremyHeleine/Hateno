@@ -19,7 +19,6 @@ class JobsManager():
 
 		self._remote_folder = None
 		self._linked_file = None
-		self._editing_file = None
 
 	def linkToFile(self, filename, *, remote_folder = None):
 		'''
@@ -37,9 +36,6 @@ class JobsManager():
 
 		self._remote_folder = remote_folder
 		self._linked_file = filename
-
-		fileparts = os.path.splitext(self._linked_file)
-		self._editing_file = ''.join(['.', fileparts[0], '.edit', fileparts[1]])
 
 	def add(self, *names):
 		'''
@@ -89,11 +85,7 @@ class JobsManager():
 		Clear the jobs list.
 		'''
 
-		keys_to_remove = list(self._jobs.keys())
 		self._jobs.clear()
-
-		if not(self._linked_file is None):
-			self.saveToFile(remove_keys = keys_to_remove)
 
 	def getJob(self, name):
 		'''
@@ -162,7 +154,11 @@ class JobsManager():
 		except KeyError:
 			raise JobNotFoundError(name)
 
-	def _getFileContent(self):
+		else:
+			if not(self._linked_file is None):
+				self._appendToFile(name)
+
+	def getFileContent(self):
 		'''
 		Get the content of the linked file.
 
@@ -184,33 +180,15 @@ class JobsManager():
 			return {}
 
 		else:
-			return json.loads(file)
-
-	def _writeToFile(self, jobs):
-		'''
-		Write a dict to the linked file.
-
-		Parameters
-		----------
-		jobs : dict
-			Jobs and their states to write in the file, as a dictionary.
-		'''
-
-		jobs_txt = json.dumps(jobs)
-
-		if self._remote_folder is None:
-			with open(self._linked_file, 'w') as f:
-				f.write(jobs_txt)
-
-		else:
-			self._remote_folder.putFileContents(self._linked_file, jobs_txt)
+			states = [tuple(map(lambda s : s.strip(), l.rsplit(':', maxsplit = 1))) for l in file.splitlines()]
+			return {state[0].strip(): {'state': state[1].strip()} for state in states}
 
 	def updateFromFile(self):
 		'''
 		Read the states of the registered jobs from the linked file.
 		'''
 
-		states = self._getFileContent()
+		states = self.getFileContent()
 
 		for job_name, job in self._jobs.items():
 			try:
@@ -219,27 +197,24 @@ class JobsManager():
 			except KeyError:
 				pass
 
-	def saveToFile(self, *, remove_keys = []):
+	def _appendToFile(self, job_name):
 		'''
-		Write the current states to the linked file.
+		Append the state of a job to the linked file.
 
 		Parameters
 		----------
-		remove_keys : list
-			List of keys to remove from the file.
+		job_name : str
+			Name of the job to append.
 		'''
 
-		jobs = self._getFileContent()
+		new_line = f'{job_name}:{self._jobs[job_name].state.name}\n'
 
-		jobs.update({
-			job_name: job.__dict__
-			for job_name, job in self._jobs.items()
-		})
+		if self._remote_folder is None:
+			with open(self._linked_file, 'a') as f:
+				f.write(new_line)
 
-		for key in remove_keys:
-			del jobs[key]
-
-		self._writeToFile(jobs)
+		else:
+			self._remote_folder.appendToFile(self._linked_file, new_line)
 
 class Job():
 	'''
