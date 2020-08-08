@@ -5,6 +5,7 @@
 This script uses the Maker class to extract/generate simulations.
 '''
 
+import os
 import argparse
 
 from hateno import jsonfiles, string
@@ -14,6 +15,7 @@ def addArguments(parser):
 	parser.add_argument('--settings', type = argparse.FileType('r'), required = True, help = 'path to the file where the maker settings are stored')
 	parser.add_argument('--copy-list', type = str, help = 'path to use to save a copy of the list of the simulations to generate')
 	parser.add_argument('--save-unknown', type = str, help = 'path to the file where simulations that failed to be generated must be stored')
+	parser.add_argument('--pause-file', type = str, default = 'maker.state', help = 'path to the file to read/write for the pauses')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list can be found')
 
@@ -40,9 +42,20 @@ def action(args):
 	with Maker(args.folder_path, settings['remote_folder'], **maker_settings) as maker:
 		ui = MakerUI(maker)
 
-		unknown_simulations = maker.run(simulations)
+		if os.path.isfile(args.pause_file):
+			maker.pause()
+			maker.loadState(args.pause_file)
+			os.unlink(args.pause_file)
 
-		if unknown_simulations and args.save_unknown:
+			unknown_simulations = maker.resume()
+
+		else:
+			unknown_simulations = maker.run(simulations)
+
+		if maker.paused:
+			maker.saveState(args.pause_file)
+
+		elif unknown_simulations and args.save_unknown:
 			jsonfiles.write(unknown_simulations, args.save_unknown)
 
 if __name__ == '__main__':

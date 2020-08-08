@@ -6,7 +6,7 @@ import stat
 import time
 import tempfile
 
-from . import string
+from . import string, jsonfiles
 
 from .fcollection import FCollection
 from .folder import Folder
@@ -68,6 +68,7 @@ class Maker():
 		self._failures_counter = 0
 
 		self._paused = False
+		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'generator_recipe']
 
 		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
@@ -243,11 +244,18 @@ class Maker():
 	def pause(self):
 		'''
 		Pause the Maker.
+
+		Raises
+		------
+		MakerPausedError
+			The Maker is already in paused state.
 		'''
 
-		if not(self._paused):
-			self._paused = True
-			self._triggerEvent('paused')
+		if self._paused:
+			raise MakerPausedError()
+
+		self._paused = True
+		self._triggerEvent('paused')
 
 	def resume(self):
 		'''
@@ -257,12 +265,71 @@ class Maker():
 		-------
 		unknown_simulations : list
 			List of simulations that failed to be generated. `None` if the Maker has been paused.
+
+		Raises
+		------
+		MakerNotPausedError
+			The Maker is not in paused state.
 		'''
 
-		if self._paused:
-			self._paused = False
-			self._triggerEvent('resume')
-			return self.run(self._simulations_to_extract)
+		if not(self._paused):
+			raise MakerNotPausedError()
+
+		self._paused = False
+		self._triggerEvent('resume')
+		return self.run(self._simulations_to_extract)
+
+	def saveState(self, filename):
+		'''
+		Save the current state of the Maker when it is paused.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file to use to write the state.
+
+		Raises
+		------
+		MakerNotPausedError
+			The Maker is not in paused state.
+		'''
+
+		if not(self._paused):
+			raise MakerNotPausedError()
+
+		state = {attr: getattr(self, f'_{attr}') for attr in self._state_attrs}
+
+		jsonfiles.write(state, filename)
+
+	def loadState(self, filename):
+		'''
+		Load a state.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file to use to read the state.
+
+		Raises
+		------
+		MakerNotPausedError
+			The Maker is not in paused state.
+
+		MakerStateWrongFormatError
+			At least one key is missing in the stored state.
+		'''
+
+		if not(self._paused):
+			raise MakerNotPausedError()
+
+		state = jsonfiles.read(filename)
+
+		try:
+			for attr in self._state_attrs:
+				setattr(self, f'_{attr}', state[attr])
+
+		except KeyError:
+			raise MakerStateWrongFormatError()
 
 	@property
 	def generator_recipe(self):
