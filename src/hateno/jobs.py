@@ -37,7 +37,7 @@ class JobsManager():
 		self._remote_folder = remote_folder
 		self._linked_file = filename
 
-	def add(self, *names):
+	def add(self, *names, ignore_existing = False):
 		'''
 		Add a job to manage.
 
@@ -46,6 +46,9 @@ class JobsManager():
 		name : str
 			Name of the job.
 
+		ignore_existing : bool
+			If `True`, no exception is raised if we try to add an existing job.
+
 		Raises
 		------
 		JobAlreadyExistingError
@@ -53,7 +56,7 @@ class JobsManager():
 		'''
 
 		for name in names:
-			if name in self._jobs:
+			if name in self._jobs and not(ignore_existing):
 				raise JobAlreadyExistingError(name)
 
 			self._jobs[name] = Job()

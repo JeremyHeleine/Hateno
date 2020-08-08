@@ -69,7 +69,7 @@ class Maker():
 
 		self._paused = False
 
-		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
+		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
 	def __enter__(self):
 		'''
@@ -245,8 +245,24 @@ class Maker():
 		Pause the Maker.
 		'''
 
-		self._paused = True
-		self._triggerEvent('paused')
+		if not(self._paused):
+			self._paused = True
+			self._triggerEvent('paused')
+
+	def resume(self):
+		'''
+		Resume after a pause.
+
+		Returns
+		-------
+		unknown_simulations : list
+			List of simulations that failed to be generated. `None` if the Maker has been paused.
+		'''
+
+		if self._paused:
+			self._paused = False
+			self._triggerEvent('resume')
+			return self.run(self._simulations_to_extract)
 
 	@property
 	def generator_recipe(self):
@@ -342,12 +358,13 @@ class Maker():
 			`True` to continue the loop, `False` to break it.
 		'''
 
-		self.extractSimulations()
+		if not(self._jobs_ids):
+			self.extractSimulations()
 
-		if not(self._unknown_simulations):
-			return False
+			if not(self._unknown_simulations):
+				return False
 
-		self.generateSimulations()
+			self.generateSimulations()
 
 		try:
 			if not(self.waitForJobs()):
@@ -438,7 +455,7 @@ class Maker():
 		jobs_by_state = {}
 		previous_states = {}
 
-		self._jobs_manager.add(*self._jobs_ids)
+		self._jobs_manager.add(*self._jobs_ids, ignore_existing = True)
 		self._jobs_manager.linkToFile(self._generator_recipe['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
@@ -532,6 +549,7 @@ class MakerUI(UI):
 		self._maker.addEventListener('remote-open-end', self._remoteOpenEnd)
 		self._maker.addEventListener('delete-scripts', self._deleteScripts)
 		self._maker.addEventListener('paused', self._paused)
+		self._maker.addEventListener('resume', self._resume)
 		self._maker.addEventListener('run-start', self._runStart)
 		self._maker.addEventListener('run-end', self._runEnd)
 		self._maker.addEventListener('extract-start', self._extractStart)
@@ -617,6 +635,13 @@ class MakerUI(UI):
 			self._statuses_line = None
 
 		self._updateState('Paused')
+
+	def _resume(self):
+		'''
+		Resume after a pause.
+		'''
+
+		pass
 
 	def _runStart(self):
 		'''
