@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10 - 2020-08-09
+
+* New: jobs manager
+* New: Maker events
+* New: option to create a copy of the simulations to generate in the maker script
+* Maker can be paused during the "waiting for jobs" step
+* Maker UI separated from main class
+
 ## 0.9 - 2020-07-27
 
 * New: options in settings tags to access specific sets and indexes
