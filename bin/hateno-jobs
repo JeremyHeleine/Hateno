@@ -19,17 +19,11 @@ def addArguments(parser):
 
 def action(args):
 	jobs_manager = JobsManager()
-
-	try:
-		jobs_descriptions = jsonfiles.read(args.states_file)
-
-	except FileNotFoundError:
-		pass
-
-	else:
-		jobs_manager.add(*jobs_descriptions.keys())
-
 	jobs_manager.linkToFile(args.states_file)
+
+	jobs_descriptions = jobs_manager.getFileContent()
+	jobs_manager.add(*jobs_descriptions.keys())
+
 	jobs_manager.updateFromFile()
 
 	if args.mode == 'set':
@@ -46,9 +40,6 @@ def action(args):
 		except JobNotFoundError:
 			jobs_manager.add(args.job_name)
 			jobs_manager.setJobState(args.job_name, state)
-
-		finally:
-			jobs_manager.saveToFile()
 
 	elif args.mode == 'get':
 		try:

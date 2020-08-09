@@ -329,3 +329,24 @@ class EventUnknownError(Error):
 
 	def __init__(self, event):
 		self.event = event
+
+class MakerPausedError(Error):
+	'''
+	Exception raised when the Maker is paused while it should not be.
+	'''
+
+	pass
+
+class MakerNotPausedError(Error):
+	'''
+	Exception raised when the Maker is not paused while it should be.
+	'''
+
+	pass
+
+class MakerStateWrongFormatError(Error):
+	'''
+	Exception raised when we try to read a Maker state that is in the wrong format.
+	'''
+
+	pass

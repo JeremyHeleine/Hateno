@@ -259,6 +259,22 @@ class RemoteFolder():
 		with self._sftp.open(remote_path, 'w') as f:
 			f.write(content)
 
+	def appendToFile(self, remote_path, content):
+		'''
+		Append a string to a remote file.
+
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote file to write into.
+
+		content : str
+			Content to append.
+		'''
+
+		with self._sftp.open(remote_path, 'a') as f:
+			f.write(content)
+
 	def makedirs(self, directory):
 		'''
 		Recursively create a directory.
