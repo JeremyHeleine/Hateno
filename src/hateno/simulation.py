@@ -438,7 +438,11 @@ class Simulation():
 
 		try:
 			if match.group('category') == 'globalsetting':
-				return self.globalsettings[match.group('name')]
+				return [
+					setting.value
+					for setting in self._globalsettings
+					if setting.name == match.group('name')
+				][0]
 
 			set_dict = self._indexed_settings['global'] if match.group('setname') is None else self._indexed_settings['local'][match.group('setname')]
 			set_list = set_dict[match.group('name')]
@@ -448,7 +452,7 @@ class Simulation():
 			return set_list[k].value
 
 		except:
-			raise SettingTagNotRecognizedError
+			raise SettingTagNotRecognizedError(match.group(0))
 
 	def replaceSettingTag(self, match):
 		'''
