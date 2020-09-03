@@ -8,6 +8,13 @@ class Error(Exception):
 
 	pass
 
+class OperationNotAllowed(Error):
+	'''
+	Exception raised when we try to perform an operation that is not allowed (e.g. write something in read only mode).
+	'''
+
+	pass
+
 class FCollectionCategoryNotFoundError(Error):
 	'''
 	Exception raised when we try to access a non-existing category of an FCollection.

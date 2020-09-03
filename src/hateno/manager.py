@@ -26,13 +26,16 @@ class Manager():
 	folder : Folder|string
 		The folder to manage. Either a `Folder` instance or the path to the folder (used to create a `Folder` instance).
 
+	readonly : bool
+		If `True`, open an instance in "read only" mode. Running indicator file is ignored, but only extraction is allowed.
+
 	Raises
 	------
 	ManagerAlreadyRunningError
 		A Manager instance is already running.
 	'''
 
-	def __init__(self, folder):
+	def __init__(self, folder, *, readonly = False):
 		self._folder = folder if type(folder) is Folder else Folder(folder)
 
 		self._simulations_list_file = self._folder.confFilePath('simulations.list')
@@ -40,16 +43,21 @@ class Manager():
 
 		self._checkers = None
 
+		self._readonly = readonly
+
 		self._running_indicator_filename = self._folder.confFilePath('manager.running')
-		self._delete_running_indicator = True
+		self._delete_running_indicator = False
 
-		if os.path.isfile(self._running_indicator_filename):
-			self._delete_running_indicator = False
-			raise ManagerAlreadyRunningError()
+		if not(self._readonly):
+			if os.path.isfile(self._running_indicator_filename):
+				self._delete_running_indicator = False
+				raise ManagerAlreadyRunningError()
 
-		# Add a file into the configuration folder to indicate a Manager instance is currently running
-		with open(self._running_indicator_filename, 'w') as f:
-			f.write(str(datetime.datetime.now()))
+			# Add a file into the configuration folder to indicate a Manager instance is currently running
+			with open(self._running_indicator_filename, 'w') as f:
+				f.write(str(datetime.datetime.now()))
+
+			self._delete_running_indicator = True
 
 	def __enter__(self):
 		'''
@@ -110,7 +118,15 @@ class Manager():
 	def saveSimulationsList(self):
 		'''
 		Save the list of simulations.
+
+		Raises
+		------
+		OperationNotAllowed
+			The list cannot be written in read only mode.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		jsonfiles.write(self._simulations_list, self._simulations_list_file)
 
@@ -285,12 +301,18 @@ class Manager():
 
 		Raises
 		------
+		OperationNotAllowed
+			Addition is not allowed in read only mode.
+
 		SimulationFolderNotFoundError
 			The folder indicated in the simulation does not exist.
 
 		SimulationIntegrityCheckFailedError
 			At least one integrity check failed.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		simulation = Simulation.ensureType(simulation, self._folder)
 
@@ -328,9 +350,15 @@ class Manager():
 
 		Raises
 		------
+		OperationNotAllowed
+			Deletion is not allowed in read only mode.
+
 		SimulationNotFoundError
 			The simulation does not exist in the list.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		simulation = Simulation.ensureType(simulation, self._folder)
 		settings_hashed = string.hash(string.fromObject(simulation.settings))
@@ -520,7 +548,15 @@ class Manager():
 		----------
 		callback : function
 			Function to call at each treated simulation.
+
+		Raises
+		------
+		OperationNotAllowed
+			Checking the folder is not allowed in read only mode.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		test_infos = self._simulations_list[list(self._simulations_list.keys())[0]]
 
@@ -554,7 +590,15 @@ class Manager():
 		----------
 		callback : function
 			Function to call at each treated simulation.
+
+		Raises
+		------
+		OperationNotAllowed
+			Updating is not allowed in read only mode.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		new_simulations_list = {}
 
@@ -598,7 +642,15 @@ class Manager():
 
 		callback : function
 			Function to call once a simulation has been transformed.
+
+		Raises
+		------
+		OperationNotAllowed
+			Transformation is not allowed in read only mode.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		if not(simulations_settings):
 			simulations_settings = [string.toObject(infos['settings']) for infos in self._simulations_list.values()]
@@ -648,7 +700,15 @@ class Manager():
 		----------
 		callback : function
 			Function to call at each deleted simulation.
+
+		Raises
+		------
+		OperationNotAllowed
+			Clearing is not allowed in read only mode.
 		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
 
 		for infos in self._simulations_list.values():
 			os.unlink(os.path.join(self._folder.folder, f'{infos["name"]}.tar.bz2'))
