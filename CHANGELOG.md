@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1 - 2020-09-03
+
+* Fix: bug preventing the use of global settings tags in global settings
+
 ## 0.10 - 2020-08-09
 
 * New: jobs manager
