@@ -426,7 +426,7 @@ class UIProgressBar(UIDisplayedItem):
 		self._pattern = ' '.join([
 			f'{{counter:>{len(str(self._total))}d}}/{self._total}',
 			f'{{bar:{self._empty_char}<{self._bar_length}}}',
-			f'{{percentage:>6.{self._percentage_precision}%}}'
+			f'{{percentage:>{5 + self._percentage_precision}.{self._percentage_precision}%}}'
 		])
 
 	@property
