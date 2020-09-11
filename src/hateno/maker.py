@@ -610,6 +610,9 @@ class MakerUI(UI):
 		self._statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
 		self._statuses_line = None
 
+		self._jobs_lines = {}
+		self._jobs_bars = {}
+
 		self._maker.addEventListener('close-start', self._closeStart)
 		self._maker.addEventListener('close-end', self._closeEnd)
 		self._maker.addEventListener('remote-open-start', self._remoteOpenStart)
@@ -793,6 +796,8 @@ class MakerUI(UI):
 	def _waitProgress(self, jobs_by_state):
 		'''
 		The state of at least one job has changed.
+		Update the global statuses line and progress bar.
+		Display a progress bar for each running job.
 
 		Parameters
 		----------
@@ -802,6 +807,22 @@ class MakerUI(UI):
 
 		self._statuses_line.text = self._statuses.format(**{state: len(jobs) for state, jobs in jobs_by_state.items()})
 		self._main_progress_bar.counter = len(jobs_by_state['succeed'] + jobs_by_state['failed'])
+
+		for job in jobs_by_state['running']:
+			if job['total_steps'] > 0:
+				if not(job['name'] in self._jobs_lines):
+					self._jobs_lines[job['name']] = self.addTextLine(f'Job {job["name"]} running…')
+					self._jobs_bars[job['name']] = self.addProgressBar(job['total_steps'])
+
+				self._jobs_bars[job['name']].counter = job['finished_steps']
+
+		for job in jobs_by_state['succeed'] + jobs_by_state['failed']:
+			if job['name'] in self._jobs_lines:
+				self.removeItem(self._jobs_lines[job['name']])
+				del self._jobs_lines[job['name']]
+
+				self.removeItem(self._jobs_bars[job['name']])
+				del self._jobs_bars[job['name']]
 
 	def _waitEnd(self):
 		'''
