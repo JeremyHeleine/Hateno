@@ -13,9 +13,9 @@ from hateno.jobs import JobsManager, JobState
 
 def addArguments(parser):
 	parser.add_argument('states_file', type = str, help = 'path to the file containing the states of the jobs to manage')
-	parser.add_argument('mode', choices = ['get', 'set'], help = 'mode to use (get or set a state)')
+	parser.add_argument('mode', choices = ['get', 'set', 'steps', 'progress'], help = 'mode to use (get or set a state, get/set the total steps, get/set the finished steps)')
 	parser.add_argument('job_name', type = str, help = 'name of the job')
-	parser.add_argument('state', type = str, nargs = '?', default = 'waiting', help = 'new state for the job (in set mode)')
+	parser.add_argument('value', type = str, nargs = '?', help = 'value to set (new state for the job (in set mode), new number of steps)')
 
 def action(args):
 	jobs_manager = JobsManager()
@@ -28,7 +28,7 @@ def action(args):
 
 	if args.mode == 'set':
 		try:
-			state = JobState[args.state.upper()]
+			state = JobState[(args.value or 'waiting').upper()]
 
 		except KeyError:
 			print('Unknown job state.')
@@ -41,7 +41,7 @@ def action(args):
 			jobs_manager.add(args.job_name)
 			jobs_manager.setJobState(args.job_name, state)
 
-	elif args.mode == 'get':
+	else:
 		try:
 			job = jobs_manager.getJob(args.job_name)
 
@@ -49,8 +49,22 @@ def action(args):
 			print('The job has not been found.')
 			exit()
 
-		else:
+		if args.mode == 'get':
 			print(job.state.name)
+
+		elif args.mode == 'steps':
+			if args.value is None:
+				print(job.total_steps)
+
+			else:
+				jobs_manager.setJobTotalSteps(args.job_name, int(args.value))
+
+		elif args.mode == 'progress':
+			if args.value is None:
+				print(job.finished_steps)
+
+			else:
+				jobs_manager.setJobFinishedSteps(args.job_name, int(args.value))
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Manage some jobs.')

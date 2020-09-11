@@ -162,6 +162,62 @@ class JobsManager():
 			if not(self._linked_file is None):
 				self._appendToFile(name)
 
+	def setJobTotalSteps(self, name, total_steps):
+		'''
+		Set the total number of steps of a job.
+
+		Parameters
+		----------
+		name : str
+			Name of the job to update.
+
+		total_steps : int
+			Number of steps for this job.
+
+		Raises
+		------
+		JobNotFoundError
+			The job does not exist.
+		'''
+
+		try:
+			self._jobs[name].total_steps = total_steps
+
+		except KeyError:
+			raise JobNotFoundError(name)
+
+		else:
+			if not(self._linked_file is None):
+				self._appendToFile(name)
+
+	def setJobFinishedSteps(self, name, finished_steps):
+		'''
+		Set the number of finished steps of a job.
+
+		Parameters
+		----------
+		name : str
+			Name of the job to update.
+
+		finished_steps : int
+			Number of finished steps for this job.
+
+		Raises
+		------
+		JobNotFoundError
+			The job does not exist.
+		'''
+
+		try:
+			self._jobs[name].finished_steps = finished_steps
+
+		except KeyError:
+			raise JobNotFoundError(name)
+
+		else:
+			if not(self._linked_file is None):
+				self._appendToFile(name)
+
 	def getFileContent(self):
 		'''
 		Get the content of the linked file.
@@ -184,10 +240,8 @@ class JobsManager():
 			return {}
 
 		else:
-			return functools.reduce(lambda a, b: {**a, **b}, [
-				json.loads(line)
-				for line in file.splitlines()
-			])
+			states = [json.loads(line) for line in file.splitlines()]
+			return functools.reduce(lambda a, b: {**a, **b}, states) if states else {}
 
 	def updateFromFile(self):
 		'''
@@ -230,6 +284,9 @@ class Job():
 	def __init__(self):
 		self._state = JobState.WAITING
 
+		self._total_steps = 0
+		self._finished_steps = 0
+
 	@property
 	def __dict__(self):
 		'''
@@ -241,7 +298,11 @@ class Job():
 			Representation of the job.
 		'''
 
-		return {'state': self._state.name}
+		return {
+			'state': self._state.name,
+			'total_steps': self._total_steps,
+			'finished_steps': self._finished_steps
+		}
 
 	@property
 	def state(self):
@@ -268,6 +329,74 @@ class Job():
 		'''
 
 		self._state = new_state
+
+	@property
+	def total_steps(self):
+		'''
+		Get the total number of steps for this job.
+
+		Returns
+		-------
+		steps : int
+			Number of steps.
+		'''
+
+		return self._total_steps
+
+	@total_steps.setter
+	def total_steps(self, total_steps):
+		'''
+		Set the total number of steps for this job.
+
+		Parameters
+		----------
+		total_steps : int
+			The total number of steps.
+		'''
+
+		self._total_steps = total_steps
+
+	@property
+	def finished_steps(self):
+		'''
+		Get the current number of finished steps.
+
+		Returns
+		-------
+		steps : int
+			Number of finished steps.
+		'''
+
+		return self._finished_steps
+
+	@finished_steps.setter
+	def finished_steps(self, steps):
+		'''
+		Update the number of finished steps.
+
+		Parameters
+		----------
+		steps : int
+			The new number of finished steps.
+		'''
+
+		self._finished_steps = steps
+
+	@property
+	def progress(self):
+		'''
+		Get the current progress of this job, based on the number of finished and total steps.
+
+		Returns
+		-------
+		progress : float
+			The current progress (finished_steps / total_steps). Returns 0 if no total number of steps is provided.
+		'''
+
+		if self._total_steps == 0:
+			return 0
+
+		return self._finished_steps / self._total_steps
 
 	def updateFromDict(self, job_dict):
 		'''
@@ -299,6 +428,18 @@ class Job():
 
 			except KeyError:
 				raise UnknownJobStateError(state)
+
+		try:
+			self.total_steps = job_dict['total_steps']
+
+		except KeyError:
+			pass
+
+		try:
+			self.finished_steps = job_dict['finished_steps']
+
+		except KeyError:
+			pass
 
 class JobState(enum.Enum):
 	'''
