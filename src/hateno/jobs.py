@@ -5,6 +5,7 @@ import enum
 import time
 import os
 import shutil
+import functools
 import json
 
 from .errors import *
@@ -183,8 +184,10 @@ class JobsManager():
 			return {}
 
 		else:
-			states = [tuple(map(lambda s : s.strip(), l.rsplit(':', maxsplit = 1))) for l in file.splitlines()]
-			return {state[0].strip(): {'state': state[1].strip()} for state in states}
+			return functools.reduce(lambda a, b: {**a, **b}, [
+				json.loads(line)
+				for line in file.splitlines()
+			])
 
 	def updateFromFile(self):
 		'''
@@ -210,7 +213,7 @@ class JobsManager():
 			Name of the job to append.
 		'''
 
-		new_line = f'{job_name}:{self._jobs[job_name].state.name}\n'
+		new_line = json.dumps({job_name: self._jobs[job_name].__dict__}) + '\n'
 
 		if self._remote_folder is None:
 			with open(self._linked_file, 'a') as f:
