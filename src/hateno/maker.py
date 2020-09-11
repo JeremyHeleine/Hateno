@@ -535,7 +535,7 @@ class Maker():
 			if jobs_by_state != previous_states:
 				self._triggerEvent('wait-progress', jobs_by_state)
 
-				if set(jobs_by_state['succeed'] + jobs_by_state['failed']) == set(self._jobs_ids):
+				if set([job['name'] for job in jobs_by_state['succeed'] + jobs_by_state['failed']]) == set(self._jobs_ids):
 					break
 
 			previous_states = jobs_by_state

@@ -141,11 +141,13 @@ class Generator():
 		if simulations_set is None:
 			simulations_set = self._simulations_to_generate
 
+		command_lines = [simulation.command_line for simulation in simulations_set]
+
 		globalsettings = self._folder.settings['globalsettings']
 
 		variables = {
-			'data_lists': {'COMMAND_LINES': [simulation.command_line for simulation in simulations_set]},
-			'data_variables': {}
+			'data_lists': {'COMMAND_LINES': command_lines},
+			'data_variables': {'COMMAND_LINES_LENGTH': len(command_lines)}
 		}
 
 		for globalsetting in self._folder.settings['globalsettings']:

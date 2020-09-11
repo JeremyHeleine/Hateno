@@ -64,7 +64,15 @@ def action(args):
 				print(job.finished_steps)
 
 			else:
-				jobs_manager.setJobFinishedSteps(args.job_name, int(args.value))
+				progress = job.finished_steps
+
+				if args.value.startswith('+'):
+					progress += int(args.value[1:])
+
+				else:
+					progress = int(args.value)
+
+				jobs_manager.setJobFinishedSteps(args.job_name, progress)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Manage some jobs.')

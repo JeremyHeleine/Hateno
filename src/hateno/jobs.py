@@ -129,10 +129,10 @@ class JobsManager():
 		Returns
 		-------
 		jobs : list
-			The list of the names of the jobs in these states.
+			The list of the jobs in these states, as dictionaries.
 		'''
 
-		return [name for name, job in self._jobs.items() if job.state in states]
+		return [{'name': name, **job.__dict__} for name, job in self._jobs.items() if job.state in states]
 
 	def setJobState(self, name, state):
 		'''
