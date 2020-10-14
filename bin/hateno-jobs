@@ -5,16 +5,54 @@
 This script uses the JobsManager class to manage the states of some jobs.
 '''
 
+import time
 import argparse
+
+import watchdog.events, watchdog.observers
 
 from hateno.errors import *
 from hateno import jsonfiles
 from hateno.jobs import JobsManager, JobState
+from hateno.ui import UI
+
+class FileModifiedEventHandler(watchdog.events.FileSystemEventHandler):
+	def __init__(self, jobs_manager, ui):
+		self._jobs_manager = jobs_manager
+		self._ui = ui
+
+	def on_modified(self, evt):
+		self._jobs_manager.updateFromFile(register_unknown = True)
+		self._ui.update()
+
+class WatchUI(UI):
+	def __init__(self, jobs_manager):
+		super().__init__()
+
+		self._jobs_lines = {}
+		self._jobs_bars = {}
+		self._jobs_manager = jobs_manager
+
+	def update(self):
+		for job in self._jobs_manager.getJobsWithStates([JobState.RUNNING]):
+			if job['total_steps'] > 0:
+				if not(job['name'] in self._jobs_lines):
+					self._jobs_lines[job['name']] = self.addTextLine(f'Job {job["name"]} running…')
+					self._jobs_bars[job['name']] = self.addProgressBar(job['total_steps'])
+
+				self._jobs_bars[job['name']].counter = job['finished_steps']
+
+		for job in self._jobs_manager.getJobsWithStates([JobState.SUCCEED, JobState.FAILED]):
+			if job['name'] in self._jobs_lines:
+				self.removeItem(self._jobs_lines[job['name']])
+				del self._jobs_lines[job['name']]
+
+				self.removeItem(self._jobs_bars[job['name']])
+				del self._jobs_bars[job['name']]
 
 def addArguments(parser):
 	parser.add_argument('states_file', type = str, help = 'path to the file containing the states of the jobs to manage')
-	parser.add_argument('mode', choices = ['get', 'set', 'steps', 'progress'], help = 'mode to use (get or set a state, get/set the total steps, get/set the finished steps)')
-	parser.add_argument('job_name', type = str, help = 'name of the job')
+	parser.add_argument('mode', choices = ['get', 'watch', 'set', 'steps', 'progress'], help = 'mode to use (get or set a state, get/set the total steps, get/set the finished steps)')
+	parser.add_argument('job_name', type = str, nargs = '?', help = 'name of the job')
 	parser.add_argument('value', type = str, nargs = '?', help = 'value to set (new state for the job (in set mode), new number of steps)')
 
 def action(args):
@@ -40,6 +78,25 @@ def action(args):
 		except JobNotFoundError:
 			jobs_manager.add(args.job_name)
 			jobs_manager.setJobState(args.job_name, state)
+
+	elif args.mode == 'watch':
+		ui = WatchUI(jobs_manager)
+		ui.update()
+
+		observer = watchdog.observers.Observer()
+		handler = FileModifiedEventHandler(jobs_manager, ui)
+
+		observer.schedule(handler, path = args.states_file)
+		observer.start()
+
+		try:
+			while True:
+				time.sleep(0.5)
+
+		except KeyboardInterrupt:
+			observer.stop()
+
+		observer.join()
 
 	else:
 		try:

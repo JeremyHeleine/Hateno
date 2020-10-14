@@ -243,12 +243,20 @@ class JobsManager():
 			states = [json.loads(line) for line in file.splitlines()]
 			return functools.reduce(lambda a, b: {**a, **b}, states) if states else {}
 
-	def updateFromFile(self):
+	def updateFromFile(self, *, register_unknown = False):
 		'''
 		Read the states of the registered jobs from the linked file.
+
+		Parameters
+		----------
+		register_unknown : bool
+			If there are non-registered jobs in the file, register them if `True`. Otherwise, just ignore them.
 		'''
 
 		states = self.getFileContent()
+
+		if register_unknown:
+			self.add(*(set(states.keys()) - set(self._jobs.keys())))
 
 		for job_name, job in self._jobs.items():
 			try:
