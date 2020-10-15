@@ -24,6 +24,13 @@ class FileModifiedEventHandler(watchdog.events.FileSystemEventHandler):
 		self._jobs_manager.updateFromFile(register_unknown = True)
 		self._ui.update()
 
+	@property
+	def all_finished(self):
+		finished = len(self._jobs_manager.getJobsWithStates([JobState.SUCCEED, JobState.FAILED]))
+		not_finished = len(self._jobs_manager.getJobsWithStates([JobState.WAITING, JobState.RUNNING]))
+
+		return (finished > 0 and not_finished == 0)
+
 class WatchUI(UI):
 	def __init__(self, jobs_manager):
 		super().__init__()
@@ -90,10 +97,13 @@ def action(args):
 		observer.start()
 
 		try:
-			while True:
+			while not(handler.all_finished):
 				time.sleep(0.5)
 
 		except KeyboardInterrupt:
+			pass
+
+		finally:
 			observer.stop()
 
 		observer.join()
