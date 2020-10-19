@@ -24,51 +24,35 @@ class Maker():
 
 	Parameters
 	----------
-	simulations_folder : str
+	simulations_folder : Folder|str
 		The simulations folder. Must contain a settings file.
 
-	remote_folder_conf : dict
-		Configuration of the remote folder.
-
-	generator_recipe : dict
-		Recipe to use to generate the simulations.
-
-	settings_file : str
-		Name of the settings file to create (for the extraction).
-
-	max_corrupted : int
-		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
-
-	max_failures : int
-		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
+	config_name : str
+		Name of the config to use.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, generator_recipe = None, settings_file = None, max_corrupted = -1, max_failures = 0):
-		self._simulations_folder = Folder(simulations_folder)
-		self._remote_folder_conf = remote_folder_conf
+	def __init__(self, simulations_folder, config_name):
+		self._simulations_folder = simulations_folder if type(simulations_folder) is Folder else Folder(simulations_folder)
+		self._config_name = config_name
 
 		self._manager_instance = None
 		self._generator_instance = None
 		self._remote_folder_instance = None
 		self._jobs_manager = JobsManager()
 
-		self._settings_file = settings_file
-		self._script_coords = None
-		self._generator_recipe = None
-		self.generator_recipe = generator_recipe
+		self._loadOptions()
 
 		self._simulations_to_extract = []
 		self._unknown_simulations = []
 		self._jobs_ids = []
 
-		self._max_corrupted = max_corrupted
-		self._corruptions_counter = 0
+		self._remote_scripts_dir = None
 
-		self._max_failures = max_failures
+		self._corruptions_counter = 0
 		self._failures_counter = 0
 
 		self._paused = False
-		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'generator_recipe']
+		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'remote_scripts_dir']
 
 		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
@@ -143,7 +127,7 @@ class Maker():
 		'''
 
 		if not(self._remote_folder_instance):
-			self._remote_folder_instance = RemoteFolder(self._remote_folder_conf)
+			self._remote_folder_instance = RemoteFolder(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'folder.json')))
 
 			self._triggerEvent('remote-open-start')
 			self._remote_folder_instance.open()
@@ -175,6 +159,25 @@ class Maker():
 		self._remote_folder_instance = None
 
 		self._triggerEvent('close-end')
+
+	def _loadOptions(self):
+		'''
+		Load the options of the Maker, stored in the config folder.
+		'''
+
+		self._options = {
+			'settings_file': 'settings.json',
+			'max_corrupted': -1,
+			'max_failures': 0,
+			'jobs_states_filename': 'jobs.txt',
+			'jobs_output_filename': 'job.out'
+		}
+
+		try:
+			self._options.update(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'maker.json')))
+
+		except FileNotFoundError:
+			pass
 
 	def addEventListener(self, event, f):
 		'''
@@ -331,52 +334,6 @@ class Maker():
 		except KeyError:
 			raise MakerStateWrongFormatError()
 
-	@property
-	def generator_recipe(self):
-		'''
-		Get the current generator recipe.
-
-		Returns
-		-------
-		recipe : dict
-			Current recipe.
-		'''
-
-		return self._generator_recipe
-
-	@generator_recipe.setter
-	def generator_recipe(self, recipe):
-		'''
-		Define the recipe to use to generate the simulations.
-
-		Parameters
-		----------
-		recipe : dict
-			The recipe to use.
-		'''
-
-		self._generator_recipe = recipe
-		self._parseScriptToLaunch()
-
-	def _parseScriptToLaunch(self):
-		'''
-		Parse the `launch` option of a recipe to determine which skeleton/script must be called.
-		'''
-
-		option_split = self.generator_recipe['launch'].rsplit(':', maxsplit = 2)
-		option_split_num = [string.intOrNone(s) for s in option_split]
-
-		cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
-
-		coords = option_split_num[cut:]
-		coords += [-1] * (2 - len(coords))
-
-		self._script_coords = {
-			'name': ':'.join(option_split[:cut]),
-			'skeleton': coords[0],
-			'script': coords[1]
-		}
-
 	def run(self, simulations, *, corruptions_counter = 0, failures_counter = 0):
 		'''
 		Main loop, run until all simulations are extracted or some jobs failed.
@@ -445,9 +402,9 @@ class Maker():
 			self._corruptions_counter += 1
 
 		self._triggerEvent('delete-scripts')
-		self._remote_folder.deleteRemote([self._generator_recipe['basedir']])
+		self._remote_folder.deleteRemote([self._remote_scripts_dir])
 
-		return (self._max_corrupted < 0 or self._corruptions_counter <= self._max_corrupted) and (self._max_failures < 0 or self._failures_counter <= self._max_failures)
+		return (self._options['max_corrupted'] < 0 or self._corruptions_counter <= self._options['max_corrupted']) and (self._options['max_failures'] < 0 or self._failures_counter <= self._options['max_failures'])
 
 	def extractSimulations(self):
 		'''
@@ -456,18 +413,13 @@ class Maker():
 
 		self._triggerEvent('extract-start', self._simulations_to_extract)
 
-		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._settings_file, callback = lambda : self._triggerEvent('extract-progress'))
+		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._options['settings_file'], callback = lambda : self._triggerEvent('extract-progress'))
 
 		self._triggerEvent('extract-end')
 
 	def generateSimulations(self):
 		'''
 		Generate the scripts to generate the unknown simulations, and run them.
-
-		Raises
-		------
-		ScriptNotFoundError
-			The script to launch has not been found.
 
 		Returns
 		-------
@@ -478,31 +430,15 @@ class Maker():
 		self._triggerEvent('generate-start')
 
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
-		self._generator_recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
+		self._remote_scripts_dir = self._remote_folder.sendDir(scripts_dir)
 
 		self.generator.add(self._unknown_simulations)
-		generated_scripts = self.generator.generate(scripts_dir, self._generator_recipe, empty_dest = True)
+		generated_scripts, script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 		self.generator.clear()
-
-		possible_skeletons_to_launch = [
-			k
-			for k, s in enumerate(self._generator_recipe['subgroups_skeletons'] + self._generator_recipe['wholegroup_skeletons'])
-			if s == self._script_coords['name']
-		]
-
-		try:
-			script_to_launch = generated_scripts[possible_skeletons_to_launch[self._script_coords['skeleton']]][self._script_coords['script']]
-
-		except IndexError:
-			raise ScriptNotFoundError(self._script_coords)
-
-		script_mode = os.stat(script_to_launch['localpath']).st_mode
-		if not(script_mode & stat.S_IXUSR & stat.S_IXGRP & stat.S_IXOTH):
-			os.chmod(script_to_launch['localpath'], script_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 		self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
 
-		output = self._remote_folder.execute(script_to_launch['finalpath'])
+		output = self._remote_folder.execute(script_to_launch)
 		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
 
 		self._triggerEvent('generate-end')
@@ -523,7 +459,7 @@ class Maker():
 		previous_states = {}
 
 		self._jobs_manager.add(*self._jobs_ids, ignore_existing = True)
-		self._jobs_manager.linkToFile(self._generator_recipe['jobs_states_filename'], remote_folder = self._remote_folder)
+		self._jobs_manager.linkToFile(self._options['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
 			self._jobs_manager.updateFromFile()
@@ -544,7 +480,7 @@ class Maker():
 		self._jobs_manager.clear()
 		self._jobs_ids = []
 
-		self._remote_folder.deleteRemote([self._generator_recipe['jobs_states_filename']])
+		self._remote_folder.deleteRemote([self._options['jobs_states_filename']])
 
 		self._triggerEvent('wait-end')
 

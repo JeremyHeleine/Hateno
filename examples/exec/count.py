@@ -3,6 +3,10 @@
 
 import sys
 import os
+import time
+import random
+
+time.sleep(random.random() * 4)
 
 a = int(sys.argv[sys.argv.index('-from')+1])
 b = int(sys.argv[sys.argv.index('-to')+1])

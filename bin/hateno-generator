@@ -12,7 +12,7 @@ from hateno.generator import Generator
 from hateno.errors import *
 
 def addArguments(parser):
-	parser.add_argument('--recipe', type = argparse.FileType('r'), help = 'path to the file where the generator recipe can be found')
+	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--output-dir', type = str, help = 'folder to create')
 	parser.add_argument('--empty-output', action = 'store_true', help = 'ensure the output directory is empty')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
@@ -24,14 +24,12 @@ def action(args):
 	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
 	generator.add(simulations)
 
-	if args.recipe is None or args.output_dir is None:
+	if args.config is None or args.output_dir is None:
 		print('\n'.join(generator.parse()['data_lists']['COMMAND_LINES']))
 		exit()
 
-	recipe = jsonfiles.read(args.recipe.name)
-
 	try:
-		generator.generate(args.output_dir, recipe, empty_dest = args.empty_output)
+		generator.generate(args.output_dir, args.config, empty_dest = args.empty_output)
 
 	except DestinationFolderExistsError:
 		print('The output directory already exists.')
