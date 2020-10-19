@@ -6,9 +6,11 @@ import shutil
 import copy
 import tempfile
 
+from . import string
 from .folder import Folder
 from .simulation import Simulation
-from .maker import Maker
+from .maker import Maker, MakerUI
+from .events import Events
 
 class Explorer():
 	'''
@@ -31,6 +33,8 @@ class Explorer():
 
 		self.default_simulation = {}
 
+		self.events = Events(['test-values-start', 'test-values-evaluation-start', 'test-values-evaluation-progress', 'test-values-evaluation-end', 'test-values-end'])
+
 	def __enter__(self):
 		'''
 		Context manager to call `close()` at the end.
@@ -46,7 +50,7 @@ class Explorer():
 		self.close()
 
 	@property
-	def _maker(self):
+	def maker(self):
 		'''
 		Return the Maker instance.
 
@@ -130,6 +134,8 @@ class Explorer():
 		if not('set_index' in setting):
 			setting['set_index'] = 0
 
+		self.events.trigger('test-values-start', setting)
+
 		simulations_dir = tempfile.mkdtemp(prefix = 'hateno-explorer_')
 
 		simulations = []
@@ -141,17 +147,98 @@ class Explorer():
 
 			simulations.append(simulation)
 
-		self._maker.run(simulations)
+		self.maker.run(simulations)
 
-		output = [
-			{
+		self.events.trigger('test-values-evaluation-start', simulations)
+
+		output = []
+		for simulation in simulations:
+			output.append({
 				'simulation': simulation,
 				'value': simulation.raw_settings[setting['set']][setting['set_index']][setting['setting']].value,
 				'evaluation': evaluation(simulation)
-			}
-			for simulation in simulations
-		]
+			})
+
+			self.events.trigger('test-values-evaluation-progress')
+
+		self.events.trigger('test-values-evaluation-end')
 
 		shutil.rmtree(simulations_dir)
 
+		self.events.trigger('test-values-end', setting)
+
 		return output
+
+class ExplorerUI(MakerUI):
+	'''
+	UI to show the different steps of the Explorer.
+
+	Parameters
+	----------
+	explorer : Explorer
+		Instance of the Explorer from which the event are triggered.
+	'''
+
+	def __init__(self, explorer):
+		super().__init__(explorer.maker)
+
+		self._explorer = explorer
+
+		self._explorer.events.addListener('test-values-start', self._testValuesStart)
+		self._explorer.events.addListener('test-values-evaluation-start', self._testValuesEvaluationStart)
+		self._explorer.events.addListener('test-values-evaluation-progress', self._testValuesEvaluationProgress)
+		self._explorer.events.addListener('test-values-evaluation-end', self._testValuesEvaluationEnd)
+		self._explorer.events.addListener('test-values-end', self._testValuesEnd)
+
+	def _testValuesStart(self, setting):
+		'''
+		Explicit test of given values started.
+
+		Parameters
+		----------
+		setting : dict
+			Description of the tested setting and its values.
+		'''
+
+		pass
+
+	def _testValuesEvaluationStart(self, simulations):
+		'''
+		Evaluation of some simulations.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations that will be evaluated.
+		'''
+
+		self._updateState('Evaluating the simulations…')
+		self._main_progress_bar = self.addProgressBar(len(simulations))
+
+	def _testValuesEvaluationProgress(self):
+		'''
+		A simulation has just been evaluated.
+		'''
+
+		self._main_progress_bar.counter += 1
+
+	def _testValuesEvaluationEnd(self):
+		'''
+		All simulations have been evaluated.
+		'''
+
+		self.removeItem(self._main_progress_bar)
+		self._main_progress_bar = None
+		self._updateState('Simulations evaluated')
+
+	def _testValuesEnd(self, setting):
+		'''
+		Explicit test of given values ended.
+
+		Parameters
+		----------
+		setting : dict
+			Description of the tested setting and its values.
+		'''
+
+		self._updateState(string.plural(len(setting['values']), 'value tested', 'values tested'))

@@ -11,7 +11,7 @@ import argparse
 import tabulate
 
 from hateno import jsonfiles
-from hateno.explorer import Explorer
+from hateno.explorer import Explorer, ExplorerUI
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
@@ -23,6 +23,8 @@ def addArguments(parser):
 
 def action(args):
 	with Explorer(args.folder_path, args.config) as explorer:
+		ui = ExplorerUI(explorer)
+
 		if not(args.default is None):
 			explorer.default_simulation = jsonfiles.read(args.default.name, allow_generator = True)
 

@@ -8,7 +8,7 @@ import tempfile
 
 from . import string, jsonfiles
 
-from .fcollection import FCollection
+from .events import Events
 from .folder import Folder
 from .simulation import Simulation
 from .manager import Manager
@@ -54,7 +54,7 @@ class Maker():
 		self._paused = False
 		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'remote_scripts_dir']
 
-		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
+		self.events = Events(['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
 	def __enter__(self):
 		'''
@@ -129,9 +129,9 @@ class Maker():
 		if not(self._remote_folder_instance):
 			self._remote_folder_instance = RemoteFolder(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'folder.json')))
 
-			self._triggerEvent('remote-open-start')
+			self.events.trigger('remote-open-start')
 			self._remote_folder_instance.open()
-			self._triggerEvent('remote-open-end')
+			self.events.trigger('remote-open-end')
 
 		return self._remote_folder_instance
 
@@ -140,7 +140,7 @@ class Maker():
 		Clear all instances of the modules.
 		'''
 
-		self._triggerEvent('close-start')
+		self.events.trigger('close-start')
 
 		self._generator_instance = None
 
@@ -158,7 +158,7 @@ class Maker():
 
 		self._remote_folder_instance = None
 
-		self._triggerEvent('close-end')
+		self.events.trigger('close-end')
 
 	def _loadOptions(self):
 		'''
@@ -178,58 +178,6 @@ class Maker():
 
 		except FileNotFoundError:
 			pass
-
-	def addEventListener(self, event, f):
-		'''
-		Add a callback function to a given event.
-
-		Parameters
-		----------
-		event : str
-			Name of the event.
-
-		f : function
-			Function to attach.
-
-		Raises
-		------
-		EventUnknownError
-			The event does not exist.
-		'''
-
-		try:
-			self._events_callbacks.set(f.__name__, f, category = event)
-
-		except FCollectionCategoryNotFoundError:
-			raise EventUnknownError(event)
-
-	def _triggerEvent(self, event, *args):
-		'''
-		Call all functions attached to a given event.
-
-		Parameters
-		----------
-		event : str
-			Name of the event to trigger.
-
-		args : mixed
-			Arguments to pass to the callback functions.
-
-		Raises
-		------
-		EventUnknownError
-			The event does not exist.
-		'''
-
-		try:
-			functions = self._events_callbacks.getAll(category = event)
-
-		except FCollectionCategoryNotFoundError:
-			raise EventUnknownError(event)
-
-		else:
-			for f in functions:
-				f(*args)
 
 	@property
 	def paused(self):
@@ -258,7 +206,7 @@ class Maker():
 			raise MakerPausedError()
 
 		self._paused = True
-		self._triggerEvent('paused')
+		self.events.trigger('paused')
 
 	def resume(self):
 		'''
@@ -279,7 +227,7 @@ class Maker():
 			raise MakerNotPausedError()
 
 		self._paused = False
-		self._triggerEvent('resume')
+		self.events.trigger('resume')
 		return self.run(self._simulations_to_extract)
 
 	def saveState(self, filename):
@@ -355,7 +303,7 @@ class Maker():
 			List of simulations that failed to be generated. `None` if the Maker has been paused.
 		'''
 
-		self._triggerEvent('run-start')
+		self.events.trigger('run-start')
 
 		self._simulations_to_extract = simulations
 
@@ -368,7 +316,7 @@ class Maker():
 		if self.paused:
 			return None
 
-		self._triggerEvent('run-end', self._unknown_simulations)
+		self.events.trigger('run-end', self._unknown_simulations)
 
 		return self._unknown_simulations
 
@@ -401,7 +349,7 @@ class Maker():
 		if not(self.downloadSimulations()):
 			self._corruptions_counter += 1
 
-		self._triggerEvent('delete-scripts')
+		self.events.trigger('delete-scripts')
 		self._remote_folder.deleteRemote([self._remote_scripts_dir])
 
 		return (self._options['max_corrupted'] < 0 or self._corruptions_counter <= self._options['max_corrupted']) and (self._options['max_failures'] < 0 or self._failures_counter <= self._options['max_failures'])
@@ -411,11 +359,11 @@ class Maker():
 		Try to extract the simulations.
 		'''
 
-		self._triggerEvent('extract-start', self._simulations_to_extract)
+		self.events.trigger('extract-start', self._simulations_to_extract)
 
-		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._options['settings_file'], callback = lambda : self._triggerEvent('extract-progress'))
+		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._options['settings_file'], callback = lambda : self.events.trigger('extract-progress'))
 
-		self._triggerEvent('extract-end')
+		self.events.trigger('extract-end')
 
 	def generateSimulations(self):
 		'''
@@ -427,7 +375,7 @@ class Maker():
 			IDs of the jobs to wait.
 		'''
 
-		self._triggerEvent('generate-start')
+		self.events.trigger('generate-start')
 
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
 		self._remote_scripts_dir = self._remote_folder.sendDir(scripts_dir)
@@ -441,7 +389,7 @@ class Maker():
 		output = self._remote_folder.execute(script_to_launch)
 		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
 
-		self._triggerEvent('generate-end')
+		self.events.trigger('generate-end')
 
 	def waitForJobs(self):
 		'''
@@ -453,7 +401,7 @@ class Maker():
 			`True` is all jobs were finished normally, `False` if there was at least one failure.
 		'''
 
-		self._triggerEvent('wait-start', self._jobs_ids)
+		self.events.trigger('wait-start', self._jobs_ids)
 
 		jobs_by_state = {}
 		previous_states = {}
@@ -469,7 +417,7 @@ class Maker():
 			}
 
 			if jobs_by_state != previous_states:
-				self._triggerEvent('wait-progress', jobs_by_state)
+				self.events.trigger('wait-progress', jobs_by_state)
 
 				if set([job['name'] for job in jobs_by_state['succeed'] + jobs_by_state['failed']]) == set(self._jobs_ids):
 					break
@@ -482,7 +430,7 @@ class Maker():
 
 		self._remote_folder.deleteRemote([self._options['jobs_states_filename']])
 
-		self._triggerEvent('wait-end')
+		self.events.trigger('wait-end')
 
 		return not(jobs_by_state['failed'])
 
@@ -496,7 +444,7 @@ class Maker():
 			`True` if all simulations has successfully been downloaded and added, `False` if there has been at least one issue.
 		'''
 
-		self._triggerEvent('download-start', self._unknown_simulations)
+		self.events.trigger('download-start', self._unknown_simulations)
 
 		simulations_to_add = []
 
@@ -513,15 +461,15 @@ class Maker():
 			simulation['folder'] = tmpdir
 			simulations_to_add.append(simulation)
 
-			self._triggerEvent('download-progress')
+			self.events.trigger('download-progress')
 
-		self._triggerEvent('download-end')
+		self.events.trigger('download-end')
 
-		self._triggerEvent('addition-start', simulations_to_add)
+		self.events.trigger('addition-start', simulations_to_add)
 
-		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self._triggerEvent('addition-progress'))
+		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self.events.trigger('addition-progress'))
 
-		self._triggerEvent('addition-end')
+		self.events.trigger('addition-end')
 
 		return not(bool(failed_to_add))
 
@@ -549,29 +497,29 @@ class MakerUI(UI):
 		self._jobs_lines = {}
 		self._jobs_bars = {}
 
-		self._maker.addEventListener('close-start', self._closeStart)
-		self._maker.addEventListener('close-end', self._closeEnd)
-		self._maker.addEventListener('remote-open-start', self._remoteOpenStart)
-		self._maker.addEventListener('remote-open-end', self._remoteOpenEnd)
-		self._maker.addEventListener('delete-scripts', self._deleteScripts)
-		self._maker.addEventListener('paused', self._paused)
-		self._maker.addEventListener('resume', self._resume)
-		self._maker.addEventListener('run-start', self._runStart)
-		self._maker.addEventListener('run-end', self._runEnd)
-		self._maker.addEventListener('extract-start', self._extractStart)
-		self._maker.addEventListener('extract-progress', self._extractProgress)
-		self._maker.addEventListener('extract-end', self._extractEnd)
-		self._maker.addEventListener('generate-start', self._generateStart)
-		self._maker.addEventListener('generate-end', self._generateEnd)
-		self._maker.addEventListener('wait-start', self._waitStart)
-		self._maker.addEventListener('wait-progress', self._waitProgress)
-		self._maker.addEventListener('wait-end', self._waitEnd)
-		self._maker.addEventListener('download-start', self._downloadStart)
-		self._maker.addEventListener('download-progress', self._downloadProgress)
-		self._maker.addEventListener('download-end', self._downloadEnd)
-		self._maker.addEventListener('addition-start', self._additionStart)
-		self._maker.addEventListener('addition-progress', self._additionProgress)
-		self._maker.addEventListener('addition-end', self._additionEnd)
+		self._maker.events.addListener('close-start', self._closeStart)
+		self._maker.events.addListener('close-end', self._closeEnd)
+		self._maker.events.addListener('remote-open-start', self._remoteOpenStart)
+		self._maker.events.addListener('remote-open-end', self._remoteOpenEnd)
+		self._maker.events.addListener('delete-scripts', self._deleteScripts)
+		self._maker.events.addListener('paused', self._paused)
+		self._maker.events.addListener('resume', self._resume)
+		self._maker.events.addListener('run-start', self._runStart)
+		self._maker.events.addListener('run-end', self._runEnd)
+		self._maker.events.addListener('extract-start', self._extractStart)
+		self._maker.events.addListener('extract-progress', self._extractProgress)
+		self._maker.events.addListener('extract-end', self._extractEnd)
+		self._maker.events.addListener('generate-start', self._generateStart)
+		self._maker.events.addListener('generate-end', self._generateEnd)
+		self._maker.events.addListener('wait-start', self._waitStart)
+		self._maker.events.addListener('wait-progress', self._waitProgress)
+		self._maker.events.addListener('wait-end', self._waitEnd)
+		self._maker.events.addListener('download-start', self._downloadStart)
+		self._maker.events.addListener('download-progress', self._downloadProgress)
+		self._maker.events.addListener('download-end', self._downloadEnd)
+		self._maker.events.addListener('addition-start', self._additionStart)
+		self._maker.events.addListener('addition-progress', self._additionProgress)
+		self._maker.events.addListener('addition-end', self._additionEnd)
 
 	def _updateState(self, state):
 		'''
