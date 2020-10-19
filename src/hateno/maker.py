@@ -446,7 +446,7 @@ class Maker():
 
 		self.events.trigger('download-start', self._unknown_simulations)
 
-		simulations_to_add = []
+		success = True
 
 		for simulation in self._unknown_simulations:
 			simulation = Simulation.ensureType(simulation, self._simulations_folder)
@@ -459,19 +459,18 @@ class Maker():
 				pass
 
 			simulation['folder'] = tmpdir
-			simulations_to_add.append(simulation)
+
+			try:
+				self.manager.add(simulation)
+
+			except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
+				success = False
 
 			self.events.trigger('download-progress')
 
 		self.events.trigger('download-end')
 
-		self.events.trigger('addition-start', simulations_to_add)
-
-		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self.events.trigger('addition-progress'))
-
-		self.events.trigger('addition-end')
-
-		return not(bool(failed_to_add))
+		return success
 
 class MakerUI(UI):
 	'''
@@ -517,9 +516,6 @@ class MakerUI(UI):
 		self._maker.events.addListener('download-start', self._downloadStart)
 		self._maker.events.addListener('download-progress', self._downloadProgress)
 		self._maker.events.addListener('download-end', self._downloadEnd)
-		self._maker.events.addListener('addition-start', self._additionStart)
-		self._maker.events.addListener('addition-progress', self._additionProgress)
-		self._maker.events.addListener('addition-end', self._additionEnd)
 
 	def _updateState(self, state):
 		'''
@@ -723,7 +719,7 @@ class MakerUI(UI):
 
 	def _downloadStart(self, simulations):
 		'''
-		Start to download the simulations.
+		Start to download and add the simulations.
 
 		Parameters
 		----------
@@ -736,45 +732,16 @@ class MakerUI(UI):
 
 	def _downloadProgress(self):
 		'''
-		A simulation has just been downloaded.
+		A simulation has just been downloaded and added.
 		'''
 
 		self._main_progress_bar.counter += 1
 
 	def _downloadEnd(self):
 		'''
-		All simulations have been downloaded.
+		All simulations have been downloaded and added.
 		'''
 
 		self.removeItem(self._main_progress_bar)
 		self._main_progress_bar = None
 		self._updateState('Simulations downloaded')
-
-	def _additionStart(self, simulations):
-		'''
-		Start to add the simulations.
-
-		Parameters
-		----------
-		simulations : list
-			The simulations that will be added.
-		'''
-
-		self._updateState('Adding the simulations to the manager…')
-		self._main_progress_bar = self.addProgressBar(len(simulations))
-
-	def _additionProgress(self):
-		'''
-		A simulation has just been added.
-		'''
-
-		self._main_progress_bar.counter += 1
-
-	def _additionEnd(self):
-		'''
-		All simulations have been added.
-		'''
-
-		self.removeItem(self._main_progress_bar)
-		self._main_progress_bar = None
-		self._updateState('Simulations added')
