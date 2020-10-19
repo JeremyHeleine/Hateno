@@ -23,12 +23,16 @@ class Explorer():
 
 	config_name : str
 		Name of the config to use with the Maker.
+
+	generate_only : bool
+		`True` to not add the simulations to the manager.
 	'''
 
-	def __init__(self, simulations_folder, config_name):
+	def __init__(self, simulations_folder, config_name, *, generate_only = True):
 		self._simulations_folder = simulations_folder if type(simulations_folder) is Folder else Folder(simulations_folder)
 		self._config_name = config_name
 
+		self._generate_only = generate_only
 		self._maker_instance = None
 
 		self.default_simulation = {}
@@ -61,7 +65,7 @@ class Explorer():
 		'''
 
 		if self._maker_instance is None:
-			self._maker_instance = Maker(self._simulations_folder, self._config_name)
+			self._maker_instance = Maker(self._simulations_folder, self._config_name, override_options = {'generate_only': self._generate_only})
 
 		return self._maker_instance
 
@@ -163,7 +167,7 @@ class Explorer():
 
 		self.events.trigger('test-values-evaluation-end')
 
-		shutil.rmtree(simulations_dir)
+		# shutil.rmtree(simulations_dir)
 
 		self.events.trigger('test-values-end', setting)
 

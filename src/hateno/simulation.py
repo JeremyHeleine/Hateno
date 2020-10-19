@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import copy
 import functools
 import re
 import abc
 
 from .errors import *
-from . import string
+from . import string, jsonfiles
 
 class Simulation():
 	'''
@@ -139,6 +140,18 @@ class Simulation():
 
 		else:
 			setting.value = value
+
+	def writeSettingsFile(self, filename):
+		'''
+		Write the settings into a file in the simulation's folder.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file to write.
+		'''
+
+		jsonfiles.write(self.settings, os.path.join(self['folder'], filename))
 
 	@property
 	def _globalsettings(self):

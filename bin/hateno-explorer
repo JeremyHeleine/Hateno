@@ -18,11 +18,12 @@ def addArguments(parser):
 	parser.add_argument('--default', type = argparse.FileType('r'), help = 'path to the file where the default settings are listed')
 	parser.add_argument('--setting', type = str, help = 'setting to test')
 	parser.add_argument('--test-values', type = float, nargs = '*', help = 'values to test')
+	parser.add_argument('--add-to-manager', action = 'store_true', help = 'add the generated simulations to the manager')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('evaluation_script', type = argparse.FileType('r'), help = 'path to the script where the evaluation function is defined')
 
 def action(args):
-	with Explorer(args.folder_path, args.config) as explorer:
+	with Explorer(args.folder_path, args.config, generate_only = not(args.add_to_manager)) as explorer:
 		ui = ExplorerUI(explorer)
 
 		if not(args.default is None):

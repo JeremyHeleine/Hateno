@@ -29,9 +29,12 @@ class Maker():
 
 	config_name : str
 		Name of the config to use.
+
+	override_options : dict
+		Options to override.
 	'''
 
-	def __init__(self, simulations_folder, config_name):
+	def __init__(self, simulations_folder, config_name, *, override_options = {}):
 		self._simulations_folder = simulations_folder if type(simulations_folder) is Folder else Folder(simulations_folder)
 		self._config_name = config_name
 
@@ -40,7 +43,7 @@ class Maker():
 		self._remote_folder_instance = None
 		self._jobs_manager = JobsManager()
 
-		self._loadOptions()
+		self._loadOptions(override_options)
 
 		self._simulations_to_extract = []
 		self._unknown_simulations = []
@@ -160,9 +163,14 @@ class Maker():
 
 		self.events.trigger('close-end')
 
-	def _loadOptions(self):
+	def _loadOptions(self, override = {}):
 		'''
 		Load the options of the Maker, stored in the config folder.
+
+		Parameters
+		----------
+		override : dict
+			Options to impose the value of, despite the values in the config folder.
 		'''
 
 		self._options = {
@@ -170,7 +178,8 @@ class Maker():
 			'max_corrupted': -1,
 			'max_failures': 0,
 			'jobs_states_filename': 'jobs.txt',
-			'jobs_output_filename': 'job.out'
+			'jobs_output_filename': 'job.out',
+			'generate_only': False
 		}
 
 		try:
@@ -178,6 +187,8 @@ class Maker():
 
 		except FileNotFoundError:
 			pass
+
+		self._options.update(override)
 
 	@property
 	def paused(self):
@@ -363,6 +374,9 @@ class Maker():
 
 		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._options['settings_file'], callback = lambda : self.events.trigger('extract-progress'))
 
+		if self._options['generate_only']:
+			self._unknown_simulations = list(filter(lambda simulation: not(os.path.isdir(simulation['folder'])), self._unknown_simulations))
+
 		self.events.trigger('extract-end')
 
 	def generateSimulations(self):
@@ -458,13 +472,32 @@ class Maker():
 			except RemotePathNotFoundError:
 				pass
 
+			simulation_dest = simulation['folder']
 			simulation['folder'] = tmpdir
 
-			try:
-				self.manager.add(simulation)
+			if self._options['generate_only']:
+				if self.manager.checkIntegrity(simulation):
+					destination_path = os.path.dirname(os.path.normpath(simulation_dest))
+					if destination_path and not(os.path.isdir(destination_path)):
+						os.makedirs(destination_path)
 
-			except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
-				success = False
+					os.rename(simulation['folder'], simulation_dest)
+					simulation['folder'] = simulation_dest
+
+					if self._options['settings_file']:
+						simulation.writeSettingsFile(self._options['settings_file'])
+
+				else:
+					shutil.rmtree(simulation['folder'])
+					success = False
+
+			else:
+				try:
+					self.manager.add(simulation)
+					simulation['folder'] = simulation_dest
+
+				except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
+					success = False
 
 			self.events.trigger('download-progress')
 
