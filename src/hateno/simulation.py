@@ -59,6 +59,21 @@ class Simulation():
 
 		return cls(folder, simulation)
 
+	def as_dict(self):
+		'''
+		Dictionary representation of the simulation.
+
+		Returns
+		-------
+		sim_dict : dict
+			The simulation as a dictionary.
+		'''
+
+		return {
+			**self.globalsettings,
+			'settings': self.settings
+		}
+
 	@property
 	def folder(self):
 		'''
