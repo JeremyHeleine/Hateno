@@ -158,6 +158,25 @@ class Simulation():
 		return self._raw_settings
 
 	@property
+	def raw_settings(self):
+		'''
+		Return a dictionary with the complete list of sets of settings.
+
+		Returns
+		-------
+		settings : dict
+			The list of settings.
+		'''
+
+		return {
+			settings_set_name: [
+				{s.name: s for s in settings_set}
+				for settings_set in settings_sets
+			]
+			for settings_set_name, settings_sets in self._settings.items()
+		}
+
+	@property
 	def settings(self):
 		'''
 		Return a dictionary with the complete list of sets of settings to use, as dictionaries.
