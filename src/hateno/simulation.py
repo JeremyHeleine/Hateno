@@ -204,6 +204,30 @@ class Simulation():
 			for settings_set_name, settings_sets in self._settings.items()
 		}
 
+	def getSetting(self, coords):
+		'''
+		Retrieve a setting from its set and name.
+
+		Parameters
+		----------
+		coords : dict
+			Describe the "coordinates" of the setting. Must contain the following keys:
+				* `set`: the name of the set the setting belongs to,
+				* `name`: the name of the setting.
+			The following key is optional:
+				* `set_index`: the index of the set. If not provided, default to 0.
+
+		Returns
+		-------
+		setting : SimulationSetting
+			The setting corresponding to the coordinates.
+		'''
+
+		if not('set_index' in coords):
+			coords['set_index'] = 0
+
+		return self.raw_settings[coords['set']][coords['set_index']][coords['name']]
+
 	@property
 	def settings(self):
 		'''

@@ -38,12 +38,11 @@ def action(args):
 		setting_name = args.setting.split('/')
 		setting = {
 			'set': setting_name[0],
-			'setting': setting_name[1],
-			'values': args.test_values
+			'name': setting_name[1]
 		}
 
-		output = explorer.testValues(setting, module.evaluate)
-		print(tabulate.tabulate([[o['value'], o['evaluation']] for o in output], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
+		output = explorer.testValues(setting, args.test_values, module.evaluate)
+		print(tabulate.tabulate([[o['simulation'].getSetting(setting).value, o['evaluation']] for o in output], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Find particular simulations.')

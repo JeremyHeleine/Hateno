@@ -37,7 +37,12 @@ class Explorer():
 
 		self.default_simulation = {}
 
-		self.events = Events(['test-values-start', 'test-values-evaluation-start', 'test-values-evaluation-progress', 'test-values-evaluation-end', 'test-values-end'])
+		self._simulations_dir = None
+		self._simulations = None
+
+		self._evaluation = None
+
+		self.events = Events(['generate-start', 'generate-end', 'evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'test-values-start', 'test-values-end'])
 
 	def __enter__(self):
 		'''
@@ -112,19 +117,76 @@ class Explorer():
 
 		self._default_simulation = Simulation(self._simulations_folder, settings)
 
-	def testValues(self, setting, evaluation):
+	def _setSimulations(self, simulations_settings):
+		'''
+		Set the current set of simulations to consider, based on the default simulation and the given settings.
+
+		Parameters
+		----------
+		simulations_settings : dict
+			Description of the setting to alter. Must contain the following keys:
+				* `setting`: a dict describing the setting (see `Simulation.getSetting()`),
+				* `values`: the values of the setting.
+		'''
+
+		self._simulations_dir = tempfile.mkdtemp(prefix = 'hateno-explorer_')
+
+		self._simulations = []
+		for k, value in enumerate(simulations_settings['values']):
+			simulation = copy.deepcopy(self._default_simulation)
+
+			simulation['folder'] = os.path.join(self._simulations_dir, str(k))
+			simulation.getSetting(simulations_settings['setting']).value = value
+
+			self._simulations.append(simulation)
+
+	def _generateSimulations(self):
+		'''
+		Generate the current set of simulations.
+		'''
+
+		self.maker.run(self._simulations)
+
+	def _deleteSimulations(self):
+		'''
+		Delete the current set of simulations.
+		'''
+
+		shutil.rmtree(self._simulations_dir)
+		self._simulations = None
+
+	def _evaluateEach(self):
+		'''
+		Call the evaluation function on each simulation of the current set.
+
+		Returns
+		-------
+		output : list
+			Result of the evaluation of each simulation.
+		'''
+
+		self.events.trigger('evaluate-each-start', self._simulations)
+
+		output = []
+		for simulation in self._simulations:
+			output.append(self._evaluation(simulation))
+			self.events.trigger('evaluate-each-progress')
+
+		self.events.trigger('evaluate-each-end', self._simulations)
+
+		return output
+
+	def testValues(self, setting, values, evaluation):
 		'''
 		Evaluate the simulations corresponding to a given list of values for a parameter.
 
 		Parameters
 		----------
 		setting : dict
-			Description of the setting to test. Must contain at least three keys:
-				* `set`: the name of the set the setting belongs to,
-				* `setting`: the name of the setting,
-				* `values`: the list of values to test.
-			The following key is optional:
-				* `set_index`: the index of the set where the setting should be looked for, default to 0.
+			Description of the setting to test. See `Simulation.getSetting()`.
+
+		values : list
+			The values to test.
 
 		evaluation : function
 			Function used to evaluate a simulation.
@@ -132,44 +194,22 @@ class Explorer():
 		Returns
 		-------
 		output : list
-			Output of the evaluation. Each item is a dict giving access to the evaluation value and to the corresponding Simulation object.
+			Output of the evaluation. Each item is a dict with the following keys:
+				* `simulation`: the considered Simulation object,
+				* `evaluation`: the result of the evaluation function for this simulation.
 		'''
 
-		if not('set_index' in setting):
-			setting['set_index'] = 0
+		self.events.trigger('test-values-start', setting, values)
 
-		self.events.trigger('test-values-start', setting)
+		self._setSimulations({'setting': setting, 'values': values})
+		self._evaluation = evaluation
 
-		simulations_dir = tempfile.mkdtemp(prefix = 'hateno-explorer_')
+		self._generateSimulations()
+		evaluation_result = self._evaluateEach()
+		output = [dict(zip(['simulation', 'evaluation'], sim_eval)) for sim_eval in zip(self._simulations, evaluation_result)]
+		self._deleteSimulations()
 
-		simulations = []
-		for k, value in enumerate(setting['values']):
-			simulation = copy.deepcopy(self._default_simulation)
-
-			simulation['folder'] = os.path.join(simulations_dir, str(k))
-			simulation.raw_settings[setting['set']][setting['set_index']][setting['setting']].value = value
-
-			simulations.append(simulation)
-
-		self.maker.run(simulations)
-
-		self.events.trigger('test-values-evaluation-start', simulations)
-
-		output = []
-		for simulation in simulations:
-			output.append({
-				'simulation': simulation,
-				'value': simulation.raw_settings[setting['set']][setting['set_index']][setting['setting']].value,
-				'evaluation': evaluation(simulation)
-			})
-
-			self.events.trigger('test-values-evaluation-progress')
-
-		self.events.trigger('test-values-evaluation-end')
-
-		# shutil.rmtree(simulations_dir)
-
-		self.events.trigger('test-values-end', setting)
+		self.events.trigger('test-values-end', setting, values)
 
 		return output
 
@@ -188,27 +228,15 @@ class ExplorerUI(MakerUI):
 
 		self._explorer = explorer
 
+		self._explorer.events.addListener('evaluate-each-start', self._evaluateEachStart)
+		self._explorer.events.addListener('evaluate-each-progress', self._evaluateEachProgress)
+		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
 		self._explorer.events.addListener('test-values-start', self._testValuesStart)
-		self._explorer.events.addListener('test-values-evaluation-start', self._testValuesEvaluationStart)
-		self._explorer.events.addListener('test-values-evaluation-progress', self._testValuesEvaluationProgress)
-		self._explorer.events.addListener('test-values-evaluation-end', self._testValuesEvaluationEnd)
 		self._explorer.events.addListener('test-values-end', self._testValuesEnd)
 
-	def _testValuesStart(self, setting):
+	def _evaluateEachStart(self, simulations):
 		'''
-		Explicit test of given values started.
-
-		Parameters
-		----------
-		setting : dict
-			Description of the tested setting and its values.
-		'''
-
-		pass
-
-	def _testValuesEvaluationStart(self, simulations):
-		'''
-		Evaluation of some simulations.
+		Evaluation of each simulation.
 
 		Parameters
 		----------
@@ -219,30 +247,53 @@ class ExplorerUI(MakerUI):
 		self._updateState('Evaluating the simulations…')
 		self._main_progress_bar = self.addProgressBar(len(simulations))
 
-	def _testValuesEvaluationProgress(self):
+	def _evaluateEachProgress(self):
 		'''
 		A simulation has just been evaluated.
 		'''
 
 		self._main_progress_bar.counter += 1
 
-	def _testValuesEvaluationEnd(self):
+	def _evaluateEachEnd(self, simulations):
 		'''
 		All simulations have been evaluated.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations that have been evaluated.
 		'''
 
 		self.removeItem(self._main_progress_bar)
 		self._main_progress_bar = None
 		self._updateState('Simulations evaluated')
 
-	def _testValuesEnd(self, setting):
+	def _testValuesStart(self, setting, values):
+		'''
+		Explicit test of given values started.
+
+		Parameters
+		----------
+		setting : dict
+			Description of the tested setting.
+
+		values : list
+			The tested values.
+		'''
+
+		pass
+
+	def _testValuesEnd(self, setting, values):
 		'''
 		Explicit test of given values ended.
 
 		Parameters
 		----------
 		setting : dict
-			Description of the tested setting and its values.
+			Description of the tested setting.
+
+		values : list
+			The tested values.
 		'''
 
-		self._updateState(string.plural(len(setting['values']), 'value tested', 'values tested'))
+		self._updateState(string.plural(len(values), 'value tested', 'values tested'))
