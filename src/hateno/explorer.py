@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import enum
 import os
 import shutil
 import copy
@@ -11,6 +12,14 @@ from .folder import Folder
 from .simulation import Simulation
 from .maker import Maker, MakerUI
 from .events import Events
+
+class EvaluationMode(enum.Enum):
+	'''
+	Evaluation mode (evaluate each simulation or a group).
+	'''
+
+	EACH = enum.auto()
+	GROUP = enum.auto()
 
 class Explorer():
 	'''
@@ -42,7 +51,7 @@ class Explorer():
 
 		self._evaluation = None
 
-		self.events = Events(['generate-start', 'generate-end', 'evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'test-values-start', 'test-values-end', 'map-start', 'map-end'])
+		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'test-values-start', 'test-values-end', 'map-start', 'map-end'])
 
 	def __enter__(self):
 		'''
@@ -147,16 +156,12 @@ class Explorer():
 
 		self._simulations_dir = tempfile.mkdtemp(prefix = 'hateno-explorer_')
 
-		settings_coords = simulations_settings.get('settings') or simulations_settings.get('setting')
-		if not(type(settings_coords) is list):
-			settings_coords = [settings_coords]
-
 		self._simulations = []
 		for k, values in enumerate(simulations_settings['values']):
 			simulation = self._default_simulation.copy()
 
 			simulation['folder'] = os.path.join(self._simulations_dir, str(k))
-			for coords, value in zip(settings_coords, values if type(values) is list else [values]):
+			for coords, value in zip(simulations_settings['settings'], values if type(values) is list else [values]):
 				simulation.getSetting(coords).value = value
 
 			self._simulations.append(simulation)
@@ -197,6 +202,24 @@ class Explorer():
 		self.events.trigger('evaluate-each-end', self._simulations)
 
 		return output
+
+	def _evaluateGroup(self):
+		'''
+		Call the evaluation function on all simulations in the current set, as a group.
+
+		Returns
+		-------
+		evaluation : mixed
+			Result of the evaluation of the group.
+		'''
+
+		self.events.trigger('evaluate-group-start', self._simulations)
+
+		evaluation = self._evaluation(self._simulations)
+
+		self.events.trigger('evaluate-group-end', self._simulations)
+
+		return evaluation
 
 	def testValues(self, setting, values, evaluation):
 		'''
@@ -252,29 +275,56 @@ class Explorer():
 				* `evaluation`: the result of the evaluation function on this simulation.
 		'''
 
+		if 'setting' in map_component:
+			if not('settings' in map_component):
+				map_component['settings'] = map_component['setting']
+
+			del map_component['setting']
+
+		if not(type(map_component['settings']) is list):
+			map_component['settings'] = [map_component['settings']]
+
 		self._setSimulations(map_component)
 
 		self._generateSimulations()
-		evaluation = self._evaluateEach()
+
+		output = None
+
+		if self._evaluation_mode == EvaluationMode.EACH:
+			evaluation = self._evaluateEach()
+
+			output = [
+				{
+					'settings': [
+						{'set_index': 0, **coords, 'value': value}
+						for coords, value in zip(map_component['settings'], values if type(values) is list else [values])
+					],
+					'evaluation': e
+				}
+				for values, e in zip(map_component['values'], evaluation)
+			]
+
+		elif self._evaluation_mode == EvaluationMode.GROUP:
+			evaluation = self._evaluateGroup()
+
+			output = [
+				{
+					'settings': [
+						[
+							{'set_index': 0, **coords, 'value': value}
+							for coords, value in zip(map_component['settings'], values if type(values) is list else [values])
+						]
+						for values in map_component['values']
+					],
+					'evaluation': evaluation
+				}
+			]
 
 		self._deleteSimulations()
 
-		settings_coords = map_component.get('settings') or map_component.get('setting')
-		if not(type(settings_coords) is list):
-			settings_coords = [settings_coords]
+		return output
 
-		return [
-			{
-				'settings': [
-					{'set_index': 0, **coords, 'value': value}
-					for coords, value in zip(settings_coords, values if type(values) is list else [values])
-				],
-				'evaluation': e
-			}
-			for values, e in zip(map_component['values'], evaluation)
-		]
-
-	def useMap(self, map_description, evaluation):
+	def useMap(self, map_description, evaluation, *, evaluation_mode = EvaluationMode.EACH):
 		'''
 		Follow a map to determine which setting(s) to alter and which values to consider.
 
@@ -286,6 +336,9 @@ class Explorer():
 		evaluation : function
 			Function used to evaluate the simulations.
 
+		evaluation_mode : EvaluationMode
+			Evaluation mode (one by one, or grouped).
+
 		Returns
 		-------
 		output : dict
@@ -295,11 +348,12 @@ class Explorer():
 		self.events.trigger('map-start', map_description)
 
 		self._evaluation = evaluation
+		self._evaluation_mode = evaluation_mode
 
 		output = {
 			'default_settings': self.default_simulation,
 			'map': map_description,
-			'simulations': self._mapComponent(map_description)
+			'evaluations': self._mapComponent(map_description)
 		}
 
 		self.events.trigger('map-end', map_description)
@@ -324,6 +378,8 @@ class ExplorerUI(MakerUI):
 		self._explorer.events.addListener('evaluate-each-start', self._evaluateEachStart)
 		self._explorer.events.addListener('evaluate-each-progress', self._evaluateEachProgress)
 		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
+		self._explorer.events.addListener('evaluate-group-start', self._evaluateGroupStart)
+		self._explorer.events.addListener('evaluate-group-end', self._evaluateGroupEnd)
 		self._explorer.events.addListener('test-values-start', self._testValuesStart)
 		self._explorer.events.addListener('test-values-end', self._testValuesEnd)
 		self._explorer.events.addListener('map-start', self._mapStart)
@@ -361,6 +417,30 @@ class ExplorerUI(MakerUI):
 
 		self.removeItem(self._main_progress_bar)
 		self._main_progress_bar = None
+		self._updateState('Simulations evaluated')
+
+	def _evaluateGroupStart(self, simulations):
+		'''
+		Evaluation of a group of simulations.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations that will be evaluated.
+		'''
+
+		self._updateState('Evaluating the simulations…')
+
+	def _evaluateGroupEnd(self, simulations):
+		'''
+		The group of simulations have been evaluated.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations that have been evaluated.
+		'''
+
 		self._updateState('Simulations evaluated')
 
 	def _testValuesStart(self, setting, values):

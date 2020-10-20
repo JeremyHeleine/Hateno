@@ -12,12 +12,13 @@ import json
 import tabulate
 
 from hateno import jsonfiles
-from hateno.explorer import Explorer, ExplorerUI
+from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
 	parser.add_argument('--default', type = argparse.FileType('r'), help = 'path to the file where the default settings are listed')
 	parser.add_argument('--map', type = argparse.FileType('r'), help = 'path to the file where the map is described')
+	parser.add_argument('--mode', choices = ['each', 'group'], default = 'each', help = 'evaluation mode')
 	parser.add_argument('--output', type = str, help = 'path to the file where the output should be written')
 	parser.add_argument('--setting', type = str, help = 'setting to test')
 	parser.add_argument('--test-values', type = float, nargs = '*', help = 'values to test')
@@ -39,7 +40,7 @@ def action(args):
 		spec.loader.exec_module(module)
 
 		if not(args.map is None):
-			output = explorer.useMap(jsonfiles.read(args.map.name, allow_generator = True), module.evaluate)
+			output = explorer.useMap(jsonfiles.read(args.map.name, allow_generator = True), module.evaluate, evaluation_mode = EvaluationMode[args.mode.upper()])
 
 			if args.output is None:
 				print(json.dumps(output, indent = '\t'))
