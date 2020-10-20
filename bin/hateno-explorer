@@ -16,6 +16,8 @@ from hateno.explorer import Explorer, ExplorerUI
 def addArguments(parser):
 	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
 	parser.add_argument('--default', type = argparse.FileType('r'), help = 'path to the file where the default settings are listed')
+	parser.add_argument('--map', type = argparse.FileType('r'), help = 'path to the file where the map is described')
+	parser.add_argument('--output', type = str, help = 'path to the file where the output should be written')
 	parser.add_argument('--setting', type = str, help = 'setting to test')
 	parser.add_argument('--test-values', type = float, nargs = '*', help = 'values to test')
 	parser.add_argument('--add-to-manager', action = 'store_true', help = 'add the generated simulations to the manager')
@@ -35,14 +37,29 @@ def action(args):
 		sys.modules[module_name] = module
 		spec.loader.exec_module(module)
 
-		setting_name = args.setting.split('/')
-		setting = {
-			'set': setting_name[0],
-			'name': setting_name[1]
-		}
+		if not(args.map is None):
+			output = explorer.useMap(jsonfiles.read(args.map.name))
 
-		output = explorer.testValues(setting, args.test_values, module.evaluate)
-		print(tabulate.tabulate([[o['simulation'].getSetting(setting).value, o['evaluation']] for o in output], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
+			if args.output is None:
+				print(output)
+
+			else:
+				jsonfiles.write(output, args.output)
+
+		else:
+			setting_name = args.setting.split('/')
+			setting = {
+				'set': setting_name[0],
+				'name': setting_name[1]
+			}
+
+			output = explorer.testValues(setting, args.test_values, module.evaluate)
+
+			if args.output is None:
+				print(tabulate.tabulate([[o['settings'][setting['set']][0][setting['name']], o['evaluation']] for o in output], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
+
+			else:
+				jsonfiles.write(output, args.output)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Find particular simulations.')

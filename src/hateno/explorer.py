@@ -42,7 +42,7 @@ class Explorer():
 
 		self._evaluation = None
 
-		self.events = Events(['generate-start', 'generate-end', 'evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'test-values-start', 'test-values-end'])
+		self.events = Events(['generate-start', 'generate-end', 'evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'test-values-start', 'test-values-end', 'map-start', 'map-end'])
 
 	def __enter__(self):
 		'''
@@ -99,7 +99,7 @@ class Explorer():
 			The default settings.
 		'''
 
-		return self._default_simulation
+		return self._default_simulation.settings
 
 	@default_simulation.setter
 	def default_simulation(self, settings):
@@ -116,6 +116,22 @@ class Explorer():
 			settings = {'settings': settings}
 
 		self._default_simulation = Simulation(self._simulations_folder, settings)
+
+	@property
+	def _simulations_settings(self):
+		'''
+		Get the list of the settings of the current set of simulations.
+
+		Returns
+		-------
+		settings : list
+			List of settings.
+		'''
+
+		if self._simulations is None:
+			return None
+
+		return [simulation.settings for simulation in self._simulations]
 
 	def _setSimulations(self, simulations_settings):
 		'''
@@ -153,6 +169,7 @@ class Explorer():
 		'''
 
 		shutil.rmtree(self._simulations_dir)
+		self._simulations_dir = None
 		self._simulations = None
 
 	def _evaluateEach(self):
@@ -195,7 +212,7 @@ class Explorer():
 		-------
 		output : list
 			Output of the evaluation. Each item is a dict with the following keys:
-				* `simulation`: the considered Simulation object,
+				* `settings`: the settings of the simulation,
 				* `evaluation`: the result of the evaluation function for this simulation.
 		'''
 
@@ -206,12 +223,34 @@ class Explorer():
 
 		self._generateSimulations()
 		evaluation_result = self._evaluateEach()
-		output = [dict(zip(['simulation', 'evaluation'], sim_eval)) for sim_eval in zip(self._simulations, evaluation_result)]
+		output = [dict(zip(['settings', 'evaluation'], sim_eval)) for sim_eval in zip(self._simulations_settings, evaluation_result)]
 		self._deleteSimulations()
 
 		self.events.trigger('test-values-end', setting, values)
 
 		return output
+
+	def useMap(self, map, evaluation):
+		'''
+		Follow a map to determine which setting(s) to alter and which values to consider.
+
+		Parameters
+		----------
+		map : dict
+			Description of the path to follow.
+
+		evaluation : function
+			Function used to evaluate the simulations.
+
+		Returns
+		-------
+		output : dict
+			Output of the evaluations and tests described in the map.
+		'''
+
+		self.events.trigger('map-start', map)
+
+		self.events.trigger('map-end', map)
 
 class ExplorerUI(MakerUI):
 	'''
@@ -233,6 +272,8 @@ class ExplorerUI(MakerUI):
 		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
 		self._explorer.events.addListener('test-values-start', self._testValuesStart)
 		self._explorer.events.addListener('test-values-end', self._testValuesEnd)
+		self._explorer.events.addListener('map-start', self._mapStart)
+		self._explorer.events.addListener('map-end', self._mapEnd)
 
 	def _evaluateEachStart(self, simulations):
 		'''
@@ -297,3 +338,27 @@ class ExplorerUI(MakerUI):
 		'''
 
 		self._updateState(string.plural(len(values), 'value tested', 'values tested'))
+
+	def _mapStart(self, map):
+		'''
+		The following of a map is started.
+
+		Parameters
+		----------
+		map : dict
+			Map that will be followed.
+		'''
+
+		pass
+
+	def _mapEnd(self, map):
+		'''
+		The following of a map has ended.
+
+		Parameters
+		----------
+		map : dict
+			Map that has been followed.
+		'''
+
+		pass
