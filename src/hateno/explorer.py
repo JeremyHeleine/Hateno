@@ -51,7 +51,7 @@ class Explorer():
 
 		self._evaluation = None
 
-		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'test-values-start', 'test-values-end', 'map-start', 'map-end'])
+		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'map-start', 'map-end'])
 
 	def __enter__(self):
 		'''
@@ -126,22 +126,6 @@ class Explorer():
 
 		self._default_simulation = Simulation(self._simulations_folder, settings)
 
-	@property
-	def _simulations_settings(self):
-		'''
-		Get the list of the settings of the current set of simulations.
-
-		Returns
-		-------
-		settings : list
-			List of settings.
-		'''
-
-		if self._simulations is None:
-			return None
-
-		return [simulation.settings for simulation in self._simulations]
-
 	def _setSimulations(self, simulations_settings):
 		'''
 		Set the current set of simulations to consider, based on the default simulation and the given settings.
@@ -169,6 +153,8 @@ class Explorer():
 
 			self._simulations.append(simulation)
 
+		self._simulations_settings = copy.deepcopy(simulations_settings)
+
 	def _generateSimulations(self):
 		'''
 		Generate the current set of simulations.
@@ -192,14 +178,19 @@ class Explorer():
 		Returns
 		-------
 		output : list
-			Result of the evaluation of each simulation.
+			Result of the evaluation of each simulation. Each item is a dictionary with keys:
+				* `settings`: the altered settings of the simulation,
+				* `evaluation`: the result of the evaluation of the simulation.
 		'''
 
 		self.events.trigger('evaluate-each-start', self._simulations)
 
 		output = []
-		for simulation in self._simulations:
-			output.append(self._evaluation(simulation))
+		for simulation, settings in zip(self._simulations, self._simulations_settings):
+			output.append({
+				'settings': settings,
+				'evaluation': self._evaluation(simulation)
+			})
 			self.events.trigger('evaluate-each-progress')
 
 		self.events.trigger('evaluate-each-end', self._simulations)
@@ -212,8 +203,10 @@ class Explorer():
 
 		Returns
 		-------
-		evaluation : mixed
-			Result of the evaluation of the group.
+		output : dict
+			Result of the evaluation of the group. The dictionary has the following keys:
+				* `settings`: the altered settings of all simulations for the group,
+				* `evaluation`: the result of the evaluation.
 		'''
 
 		self.events.trigger('evaluate-group-start', self._simulations)
@@ -222,44 +215,10 @@ class Explorer():
 
 		self.events.trigger('evaluate-group-end', self._simulations)
 
-		return evaluation
-
-	def testValues(self, setting, values, evaluation):
-		'''
-		Evaluate the simulations corresponding to a given list of values for a parameter.
-
-		Parameters
-		----------
-		setting : dict
-			Description of the setting to test. See `Simulation.getSetting()`.
-
-		values : list
-			The values to test.
-
-		evaluation : function
-			Function used to evaluate a simulation.
-
-		Returns
-		-------
-		output : list
-			Output of the evaluation. Each item is a dict with the following keys:
-				* `settings`: the settings of the simulation,
-				* `evaluation`: the result of the evaluation function for this simulation.
-		'''
-
-		self.events.trigger('test-values-start', setting, values)
-
-		self._setSimulations({'setting': setting, 'values': values})
-		self._evaluation = evaluation
-
-		self._generateSimulations()
-		evaluation_result = self._evaluateEach()
-		output = [dict(zip(['settings', 'evaluation'], sim_eval)) for sim_eval in zip(self._simulations_settings, evaluation_result)]
-		self._deleteSimulations()
-
-		self.events.trigger('test-values-end', setting, values)
-
-		return output
+		return {
+			'settings': self._simulations_settings,
+			'evaluation': evaluation
+		}
 
 	def _buildSettings(self, map_component, additional_settings = []):
 		'''
@@ -328,25 +287,10 @@ class Explorer():
 		self._generateSimulations()
 
 		if self._evaluation_mode == EvaluationMode.EACH:
-			evaluation = self._evaluateEach()
-
-			output = [
-				{
-					'settings': settings,
-					'evaluation': e
-				}
-				for settings, e in zip(simulations_settings, evaluation)
-			]
+			output = self._evaluateEach()
 
 		elif self._evaluation_mode == EvaluationMode.GROUP:
-			evaluation = self._evaluateGroup()
-
-			output = [
-				{
-					'settings': simulations_settings,
-					'evaluation': evaluation
-				}
-			]
+			output = [self._evaluateGroup()]
 
 		self._deleteSimulations()
 
@@ -408,8 +352,6 @@ class ExplorerUI(MakerUI):
 		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
 		self._explorer.events.addListener('evaluate-group-start', self._evaluateGroupStart)
 		self._explorer.events.addListener('evaluate-group-end', self._evaluateGroupEnd)
-		self._explorer.events.addListener('test-values-start', self._testValuesStart)
-		self._explorer.events.addListener('test-values-end', self._testValuesEnd)
 		self._explorer.events.addListener('map-start', self._mapStart)
 		self._explorer.events.addListener('map-end', self._mapEnd)
 
@@ -470,36 +412,6 @@ class ExplorerUI(MakerUI):
 		'''
 
 		self._updateState('Simulations evaluated')
-
-	def _testValuesStart(self, setting, values):
-		'''
-		Explicit test of given values started.
-
-		Parameters
-		----------
-		setting : dict
-			Description of the tested setting.
-
-		values : list
-			The tested values.
-		'''
-
-		pass
-
-	def _testValuesEnd(self, setting, values):
-		'''
-		Explicit test of given values ended.
-
-		Parameters
-		----------
-		setting : dict
-			Description of the tested setting.
-
-		values : list
-			The tested values.
-		'''
-
-		self._updateState(string.plural(len(values), 'value tested', 'values tested'))
 
 	def _mapStart(self, map_description):
 		'''
