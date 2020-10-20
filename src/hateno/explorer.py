@@ -147,12 +147,17 @@ class Explorer():
 
 		self._simulations_dir = tempfile.mkdtemp(prefix = 'hateno-explorer_')
 
+		settings_coords = simulations_settings.get('settings') or simulations_settings.get('setting')
+		if not(type(settings_coords) is list):
+			settings_coords = [settings_coords]
+
 		self._simulations = []
-		for k, value in enumerate(simulations_settings['values']):
+		for k, values in enumerate(simulations_settings['values']):
 			simulation = self._default_simulation.copy()
 
 			simulation['folder'] = os.path.join(self._simulations_dir, str(k))
-			simulation.getSetting(simulations_settings['setting']).value = value
+			for coords, value in zip(settings_coords, values if type(values) is list else [values]):
+				simulation.getSetting(coords).value = value
 
 			self._simulations.append(simulation)
 
@@ -254,14 +259,19 @@ class Explorer():
 
 		self._deleteSimulations()
 
-		setting_coords = {'set_index': 0, **map_component['setting']}
+		settings_coords = map_component.get('settings') or map_component.get('setting')
+		if not(type(settings_coords) is list):
+			settings_coords = [settings_coords]
 
 		return [
 			{
-				'settings': {**setting_coords, 'value': v},
+				'settings': [
+					{'set_index': 0, **coords, 'value': value}
+					for coords, value in zip(settings_coords, values if type(values) is list else [values])
+				],
 				'evaluation': e
 			}
-			for v, e in zip(map_component['values'], evaluation)
+			for values, e in zip(map_component['values'], evaluation)
 		]
 
 	def useMap(self, map_description, evaluation):
