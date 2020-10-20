@@ -1,13 +1,15 @@
 {
-	"settings": [
-		{
-			"set": "range",
-			"name": "step"
-		},
-		{
+	"setting": {
+		"set": "range",
+		"name": "step"
+	},
+	"values": [1, 2, 3],
+
+	"foreach": {
+		"setting": {
 			"set": "range",
 			"name": "to"
-		}
-	],
-	"values": [[1, 10], [2, 20], [3, 30]]
+		},
+		"values": [10, 20]
+	}
 }
