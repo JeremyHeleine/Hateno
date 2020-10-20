@@ -1,0 +1,7 @@
+{
+	"setting": {
+		"set": "range",
+		"name": "step"
+	},
+	"values": [1, 2, 3]
+}

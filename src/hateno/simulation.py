@@ -60,20 +60,26 @@ class Simulation():
 
 		return cls(folder, simulation)
 
-	def as_dict(self):
+	def copy(self):
 		'''
-		Dictionary representation of the simulation.
+		Create a copy of the simulation.
 
 		Returns
 		-------
-		sim_dict : dict
-			The simulation as a dictionary.
+		simulation : Simulation
+			The copy of the simulation.
 		'''
 
-		return {
+		return Simulation(self._folder, {
 			**self.globalsettings,
-			'settings': self.settings
-		}
+			'settings': {
+				settings_set_name: [
+					{s.name: s._value for s in settings_set}
+					for settings_set in settings_sets
+				]
+				for settings_set_name, settings_sets in self._settings.items()
+			}
+		})
 
 	@property
 	def folder(self):
@@ -223,8 +229,10 @@ class Simulation():
 			The setting corresponding to the coordinates.
 		'''
 
-		if not('set_index' in coords):
-			coords['set_index'] = 0
+		coords = {
+			'set_index': 0,
+			**coords
+		}
 
 		return self.raw_settings[coords['set']][coords['set_index']][coords['name']]
 

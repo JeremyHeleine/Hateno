@@ -8,6 +8,7 @@ This script uses the Explorer class to find particular simulations.
 import sys
 import importlib.util
 import argparse
+import json
 import tabulate
 
 from hateno import jsonfiles
@@ -38,10 +39,10 @@ def action(args):
 		spec.loader.exec_module(module)
 
 		if not(args.map is None):
-			output = explorer.useMap(jsonfiles.read(args.map.name))
+			output = explorer.useMap(jsonfiles.read(args.map.name, allow_generator = True), module.evaluate)
 
 			if args.output is None:
-				print(output)
+				print(json.dumps(output, indent = '\t'))
 
 			else:
 				jsonfiles.write(output, args.output)
