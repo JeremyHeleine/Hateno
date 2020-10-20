@@ -220,6 +220,41 @@ class Explorer():
 			'evaluation': evaluation
 		}
 
+	def _buildValues(self, vdesc):
+		'''
+		Build a list of values from its description.
+
+		Parameters
+		----------
+		vdesc : list|dict
+			Explicit list, or description. A description is a dictionary with the following keys:
+				* `from`: the first value(s),
+				* `to`: the last value(s),
+				* `n`: the number of values.
+
+		Returns
+		-------
+		values : list
+			The complete list of values.
+		'''
+
+		if type(vdesc) is list:
+			return vdesc
+
+		if type(vdesc['from']) is list:
+			return [
+				[
+					a + k * (b - a) / (vdesc['n'] - 1)
+					for a, b in zip(vdesc['from'], vdesc['to'])
+				]
+				for k in range(0, vdesc['n'])
+			]
+
+		return [
+			vdesc['from'] + k * (vdesc['to'] - vdesc['from']) / (vdesc['n'] - 1)
+			for k in range(0, vdesc['n'])
+		]
+
 	def _buildSettings(self, map_component, additional_settings = []):
 		'''
 		Build a list of settings with their values from a map component.
@@ -252,7 +287,7 @@ class Explorer():
 				{'set_index': 0, **coords, 'value': value}
 				for coords, value in zip(map_component['settings'], values if type(values) is list else [values])
 			] + additional_settings
-			for values in map_component['values']
+			for values in self._buildValues(map_component['values'])
 		]
 
 	def _mapComponent(self, map_component, current_settings = []):

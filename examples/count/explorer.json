@@ -3,7 +3,11 @@
 		"set": "range",
 		"name": "step"
 	},
-	"values": [1, 2, 3],
+	"values": {
+		"from": 1,
+		"to": 3,
+		"n": 3
+	},
 
 	"foreach": {
 		"setting": {
