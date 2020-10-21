@@ -49,7 +49,11 @@ class UI():
 			The position of the last line.
 		'''
 
-		return sum([item.height for item in self._items])
+		items = sorted(self._items, key = lambda item: item.position)
+		if items:
+			return items[-1].position + items[-1].height
+
+		return 0
 
 	def moveCursorTo(self, pos):
 		'''
@@ -85,7 +89,7 @@ class UI():
 
 		self.moveCursorTo(last_line)
 
-	def _addItem(self, item_type, args):
+	def _addItem(self, item_type, args, *, position = -1):
 		'''
 		Add an item to display.
 
@@ -97,13 +101,21 @@ class UI():
 		args : dict
 			Args to pass to the constructor of the item to add.
 
+		position : int
+			Position of the item. Default to `-1`: the item is added at the end.
+
 		Returns
 		-------
 		item : UIDisplayedItem
 			The newly added item.
 		'''
 
-		self.moveToLastLine()
+		if position >= 0:
+			self.moveDownFrom(position)
+			self.moveCursorTo(position)
+
+		else:
+			self.moveToLastLine()
 
 		item = item_type(self, **args)
 		self._items.append(item)
@@ -111,7 +123,7 @@ class UI():
 
 		return item
 
-	def addTextLine(self, text):
+	def addTextLine(self, text, *, position = -1):
 		'''
 		Add a new text line to display.
 
@@ -119,6 +131,9 @@ class UI():
 		----------
 		text : str
 			The text to display
+
+		position : int
+			Position of the text line. Default to `-1`: the text line is added at the end.
 
 		Returns
 		-------
@@ -128,9 +143,9 @@ class UI():
 
 		return self._addItem(UITextLine, {
 			'text': text
-		})
+		}, position = position)
 
-	def addProgressBar(self, total, *, bar_length = None, empty_char = None, full_char = None, percentage_precision = None):
+	def addProgressBar(self, total, *, bar_length = None, empty_char = None, full_char = None, percentage_precision = None, position = -1):
 		'''
 		Add a new progress bar.
 
@@ -151,6 +166,9 @@ class UI():
 		percentage_precision : int
 			Precision to use for the display of the percentage.
 
+		position : int
+			Position of the progress bar. Default to `-1`: the progress bar is added at the end.
+
 		Returns
 		-------
 		progress_bar : UIProgressBar
@@ -163,7 +181,7 @@ class UI():
 			'empty_char': empty_char or self._progress_bars_empty_char,
 			'full_char': full_char or self._progress_bars_full_char,
 			'percentage_precision': percentage_precision or self._progress_bars_percentage_precision
-		})
+		}, position = position)
 
 	def moveUp(self, item):
 		'''
@@ -190,7 +208,7 @@ class UI():
 
 	def moveUpFrom(self, pos):
 		'''
-		Move all lines starting at a given position.
+		Move up all lines starting at a given position.
 
 		Parameters
 		----------
@@ -211,6 +229,53 @@ class UI():
 
 		for item in items_to_move:
 			self.moveUp(item)
+
+	def moveDown(self, item):
+		'''
+		Move an item to the line below, assuming it is empty.
+
+		Parameters
+		----------
+		item : UIDisplayedItem
+			Item to move.
+
+		Raises
+		------
+		UINonMovableLine
+			The line can't be moved.
+		'''
+
+		if item.position >= self._last_line:
+			raise UINonMovableLine(item.position)
+
+		item.clear()
+		self.moveCursorTo(item.position + 1)
+		item.position += 1
+		item.render()
+
+	def moveDownFrom(self, pos):
+		'''
+		Move down all lines starting at a given position.
+
+		Parameters
+		----------
+		pos : int
+			Position to start from.
+
+		Raises
+		------
+		UINonMovableLine
+			The line can't be moved.
+		'''
+
+		if pos >= self._last_line:
+			raise UINonMovableLine(pos)
+
+		items_to_move = [item for item in self._items if item.position >= pos]
+		items_to_move.sort(key = lambda item: item.position, reverse = True)
+
+		for item in items_to_move:
+			self.moveDown(item)
 
 	def removeItem(self, item):
 		'''
