@@ -359,9 +359,13 @@ class Explorer():
 
 			output.append(o)
 
-			if self._checkStopCondition(stop_condition, evaluations):
-				self.events.trigger('stopped')
-				break
+			if not(stop_condition is None):
+				check_stop = self._checkStopCondition(stop_condition, evaluations)
+				o['inner_stop'] = check_stop
+
+				if check_stop:
+					self.events.trigger('stopped')
+					break
 
 			self.events.trigger('evaluate-each-progress')
 
@@ -497,9 +501,14 @@ class Explorer():
 				output += self._mapComponent(map_component['foreach'], settings)
 				evaluations.append(output[-1]['evaluation'])
 
-				if self._checkStopCondition(map_component.get('stop'), evaluations):
-					self.events.trigger('stopped')
-					break
+				outer_stop = map_component.get('stop')
+				if not(outer_stop is None):
+					check_outer_stop = self._checkStopCondition(map_component.get('stop'), evaluations)
+					output[-1]['outer_stop'] = check_outer_stop
+
+					if check_outer_stop:
+						self.events.trigger('stopped')
+						break
 
 			return output
 
