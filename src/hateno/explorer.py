@@ -252,16 +252,11 @@ class Explorer():
 	def _generateSimulations(self):
 		'''
 		Generate the current set of simulations.
-
-		Returns
-		-------
-		folder : str
-			The folder where have been saved the wanted parts of the simulations.
 		'''
 
 		self.maker.run(self._simulations)
 
-		return self._saveSimulations(self._simulations)
+		self._saved_simulations_folders = self._saveSimulations(self._simulations)
 
 	def _deleteSimulations(self):
 		'''
@@ -271,6 +266,8 @@ class Explorer():
 		shutil.rmtree(self._simulations_dir)
 		self._simulations_dir = None
 		self._simulations = None
+		self._simulations_settings = None
+		self._saved_simulations_folders = None
 
 	def _checkStopCondition(self, stop_condition, evaluations):
 		'''
@@ -323,15 +320,12 @@ class Explorer():
 		else:
 			return string.safeEval(stop_condition)
 
-	def _evaluateEach(self, folders, stop_condition = None):
+	def _evaluateEach(self, stop_condition = None):
 		'''
 		Call the evaluation function on each simulation of the current set.
 
 		Parameters
 		----------
-		folders : list
-			The folders where the simulations have been saved.
-
 		stop_condition : str
 			Condition to stop the evaluation.
 
@@ -348,10 +342,10 @@ class Explorer():
 		output = []
 		evaluations = []
 
-		if folders is None:
-			folders = [None] * len(self._simulations)
+		if self._saved_simulations_folders is None:
+			self._saved_simulations_folders = [None] * len(self._simulations)
 
-		for simulation, settings, folder in zip(self._simulations, self._simulations_settings, folders):
+		for simulation, settings, folder in zip(self._simulations, self._simulations_settings, self._saved_simulations_folders):
 			evaluation = self._evaluation(simulation)
 			evaluations.append(evaluation)
 
@@ -375,14 +369,9 @@ class Explorer():
 
 		return output
 
-	def _evaluateGroup(self, folders):
+	def _evaluateGroup(self):
 		'''
 		Call the evaluation function on all simulations in the current set, as a group.
-
-		Parameters
-		----------
-		folders : list
-			The folders where the simulations have been saved.
 
 		Returns
 		-------
@@ -403,8 +392,8 @@ class Explorer():
 			'evaluation': evaluation
 		}
 
-		if not(folders is None):
-			output['save'] = os.path.dirname(folders[0])
+		if not(self._saved_simulations_folders is None):
+			output['save'] = os.path.dirname(self._saved_simulations_folders[0])
 
 		return output
 
@@ -515,13 +504,13 @@ class Explorer():
 			return output
 
 		self._setSimulations(simulations_settings)
-		folders = self._generateSimulations()
+		self._generateSimulations()
 
 		if self._evaluation_mode == EvaluationMode.EACH:
-			output = self._evaluateEach(folders, map_component.get('stop'))
+			output = self._evaluateEach(map_component.get('stop'))
 
 		elif self._evaluation_mode == EvaluationMode.GROUP:
-			output = [self._evaluateGroup(folders)]
+			output = [self._evaluateGroup()]
 
 		self._deleteSimulations()
 
