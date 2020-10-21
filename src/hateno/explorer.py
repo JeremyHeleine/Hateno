@@ -52,6 +52,9 @@ class Explorer():
 
 		self._evaluation = None
 
+		self._save_function = None
+		self._save_folder = None
+
 		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'stopped', 'map-start', 'map-end'])
 
 	def __enter__(self):
@@ -127,6 +130,96 @@ class Explorer():
 
 		self._default_simulation = Simulation(self._simulations_folder, settings)
 
+	@property
+	def save_function(self):
+		'''
+		Get the function currently used to save a simulation.
+
+		Returns
+		-------
+		save_function : function
+			The function.
+		'''
+
+		return self._save_function
+
+	@save_function.setter
+	def save_function(self, f):
+		'''
+		Set the function used to save a simulation.
+
+		Parameters
+		----------
+		f : function
+			The function to use. Use `None` to not save anything.
+		'''
+
+		self._save_function = f
+
+	@property
+	def save_folder(self):
+		'''
+		Get the folder currently used to save the simulations.
+
+		Returns
+		-------
+		save_folder : str
+			The folder.
+		'''
+
+		return self._save_folder
+
+	@save_folder.setter
+	def save_folder(self, folder):
+		'''
+		Set the folder to use to save the simulations.
+
+		Parameters
+		----------
+		folder : str
+			The folder to use.
+		'''
+
+		self._save_folder = folder
+
+	def _saveSimulations(self, simulations):
+		'''
+		Save some simulations using the saving function and folder.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations to save.
+
+		Returns
+		-------
+		folder : list
+			The folders where the files have been saved.
+		'''
+
+		if self._save_function is None or self._save_folder is None:
+			return None
+
+		try:
+			n = len(os.listdir(self._save_folder))
+
+		except FileNotFoundError:
+			n = 0
+
+		folder = os.path.join(self._save_folder, str(n))
+		folders = []
+
+		for k, simulation in enumerate(simulations):
+			subfolder = os.path.join(folder, str(k))
+			os.makedirs(subfolder)
+
+			self._save_function(simulation, subfolder)
+			simulation.writeSettingsFile('settings.json', folder = subfolder)
+
+			folders.append(subfolder)
+
+		return folders
+
 	def _setSimulations(self, simulations_settings):
 		'''
 		Set the current set of simulations to consider, based on the default simulation and the given settings.
@@ -159,9 +252,16 @@ class Explorer():
 	def _generateSimulations(self):
 		'''
 		Generate the current set of simulations.
+
+		Returns
+		-------
+		folder : str
+			The folder where have been saved the wanted parts of the simulations.
 		'''
 
 		self.maker.run(self._simulations)
+
+		return self._saveSimulations(self._simulations)
 
 	def _deleteSimulations(self):
 		'''
@@ -223,9 +323,14 @@ class Explorer():
 		else:
 			return string.safeEval(stop_condition)
 
-	def _evaluateEach(self, stop_condition = None):
+	def _evaluateEach(self, folders, stop_condition = None):
 		'''
 		Call the evaluation function on each simulation of the current set.
+
+		Parameters
+		----------
+		folders : list
+			The folders where the simulations have been saved.
 
 		stop_condition : str
 			Condition to stop the evaluation.
@@ -243,14 +348,22 @@ class Explorer():
 		output = []
 		evaluations = []
 
-		for simulation, settings in zip(self._simulations, self._simulations_settings):
+		if folders is None:
+			folders = [None] * len(self._simulations)
+
+		for simulation, settings, folder in zip(self._simulations, self._simulations_settings, folders):
 			evaluation = self._evaluation(simulation)
 			evaluations.append(evaluation)
 
-			output.append({
+			o = {
 				'settings': settings,
 				'evaluation': evaluation
-			})
+			}
+
+			if not(folder is None):
+				o['save'] = folder
+
+			output.append(o)
 
 			if self._checkStopCondition(stop_condition, evaluations):
 				self.events.trigger('stopped')
@@ -262,9 +375,14 @@ class Explorer():
 
 		return output
 
-	def _evaluateGroup(self):
+	def _evaluateGroup(self, folders):
 		'''
 		Call the evaluation function on all simulations in the current set, as a group.
+
+		Parameters
+		----------
+		folders : list
+			The folders where the simulations have been saved.
 
 		Returns
 		-------
@@ -280,10 +398,15 @@ class Explorer():
 
 		self.events.trigger('evaluate-group-end', self._simulations)
 
-		return {
+		output = {
 			'settings': self._simulations_settings,
 			'evaluation': evaluation
 		}
+
+		if not(folders is None):
+			output['save'] = os.path.dirname(folders[0])
+
+		return output
 
 	def _buildValues(self, vdesc):
 		'''
@@ -392,13 +515,13 @@ class Explorer():
 			return output
 
 		self._setSimulations(simulations_settings)
-		self._generateSimulations()
+		folders = self._generateSimulations()
 
 		if self._evaluation_mode == EvaluationMode.EACH:
-			output = self._evaluateEach(map_component.get('stop'))
+			output = self._evaluateEach(folders, map_component.get('stop'))
 
 		elif self._evaluation_mode == EvaluationMode.GROUP:
-			output = [self._evaluateGroup()]
+			output = [self._evaluateGroup(folders)]
 
 		self._deleteSimulations()
 

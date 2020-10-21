@@ -147,7 +147,7 @@ class Simulation():
 		else:
 			setting.value = value
 
-	def writeSettingsFile(self, filename):
+	def writeSettingsFile(self, filename, *, folder = None):
 		'''
 		Write the settings into a file in the simulation's folder.
 
@@ -155,9 +155,12 @@ class Simulation():
 		----------
 		filename : str
 			Name of the file to write.
+
+		folder : str
+			Name of the folder in which the file should be saved. Default to the simulation's folder.
 		'''
 
-		jsonfiles.write(self.settings, os.path.join(self['folder'], filename))
+		jsonfiles.write(self.settings, os.path.join(folder or self['folder'], filename))
 
 	@property
 	def _globalsettings(self):
