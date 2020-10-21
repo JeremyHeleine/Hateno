@@ -6,6 +6,7 @@ import os
 import shutil
 import copy
 import tempfile
+import re
 
 from . import string
 from .folder import Folder
@@ -171,17 +172,20 @@ class Explorer():
 		self._simulations_dir = None
 		self._simulations = None
 
-	def _checkStopCondition(self, stop_condition, current_evaluation):
+	def _checkStopCondition(self, stop_condition, evaluations):
 		'''
 		If a stop condition is provided, check if it is true or false.
+		Access to specific evaluations is possible with indices (e.g. "[0] > [-1]" to check whether the first evaluation is greater than the latest one).
+		By default, the condition is tested against the latest evaluation (e.g. "> 0" is then equivalent to "[-1] > 0").
+		If we try to access non-existing indices, or if we expect a certain number of evaluations that is not reached yet, always return `False`.
 
 		Parameters
 		----------
 		stop_condition : str
 			Condition to evaluate.
 
-		current_evaluation : mixed
-			Latest evaluation available.
+		evaluations : list
+			List of evaluations to consider.
 
 		Returns
 		-------
@@ -192,7 +196,32 @@ class Explorer():
 		if stop_condition is None:
 			return False
 
-		return string.safeEval(f'{current_evaluation} {stop_condition}')
+		first_operator_match = re.search(r'([<>]=?|[!=]=|in)', stop_condition.strip())
+
+		if first_operator_match and first_operator_match.start() == 0:
+			return string.safeEval(f'{evaluations[-1]} {stop_condition}')
+
+		index_regex = re.compile(r'\[(-?[0-9]+)\]')
+
+		# Retrieve the requested indices and first see if the ones which should be different are really different
+		# To do that, we "fix" negative indexes so they should be equal to their positive counterparts
+		# If they are still negative, it seems that we don't have enough elements in the list: it will be detected in the next part
+		# It is important to add the length of the list and to not use the modulo, to be sure we consider different elements
+
+		requested_indices = set(map(int, index_regex.findall(stop_condition)))
+		unique_requested_indices = set(map(lambda k: k if k >= 0 else k + len(evaluations), requested_indices))
+
+		if len(unique_requested_indices) < len(requested_indices):
+			return False
+
+		try:
+			stop_condition = index_regex.sub(lambda m: str(evaluations[int(m.group(1))]), stop_condition)
+
+		except IndexError:
+			return False
+
+		else:
+			return string.safeEval(stop_condition)
 
 	def _evaluateEach(self, stop_condition = None):
 		'''
@@ -212,15 +241,18 @@ class Explorer():
 		self.events.trigger('evaluate-each-start', self._simulations)
 
 		output = []
+		evaluations = []
+
 		for simulation, settings in zip(self._simulations, self._simulations_settings):
 			evaluation = self._evaluation(simulation)
+			evaluations.append(evaluation)
 
 			output.append({
 				'settings': settings,
 				'evaluation': evaluation
 			})
 
-			if self._checkStopCondition(stop_condition, evaluation):
+			if self._checkStopCondition(stop_condition, evaluations):
 				self.events.trigger('stopped')
 				break
 
@@ -347,11 +379,13 @@ class Explorer():
 
 		if 'foreach' in map_component:
 			output = []
+			evaluations = []
+
 			for settings in simulations_settings:
 				output += self._mapComponent(map_component['foreach'], settings)
-				evaluation = output[-1]['evaluation']
+				evaluations.append(output[-1]['evaluation'])
 
-				if self._checkStopCondition(map_component.get('stop'), evaluation):
+				if self._checkStopCondition(map_component.get('stop'), evaluations):
 					self.events.trigger('stopped')
 					break
 
