@@ -51,7 +51,7 @@ class Explorer():
 
 		self._evaluation = None
 
-		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'map-start', 'map-end'])
+		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'stopped', 'map-start', 'map-end'])
 
 	def __enter__(self):
 		'''
@@ -171,6 +171,26 @@ class Explorer():
 		self._simulations_dir = None
 		self._simulations = None
 
+	def _checkStopCondition(self, current_evaluation):
+		'''
+		If a stop condition is provided, check if it is true or false.
+
+		Parameters
+		----------
+		current_evaluation : mixed
+			Latest evaluation available.
+
+		Returns
+		-------
+		stop : bool
+			Result of the test. Always `False` if there is no stop condition.
+		'''
+
+		if self._stop_condition is None:
+			return False
+
+		return string.safeEval(f'{current_evaluation} {self._stop_condition}')
+
 	def _evaluateEach(self):
 		'''
 		Call the evaluation function on each simulation of the current set.
@@ -187,10 +207,17 @@ class Explorer():
 
 		output = []
 		for simulation, settings in zip(self._simulations, self._simulations_settings):
+			evaluation = self._evaluation(simulation)
+
 			output.append({
 				'settings': settings,
-				'evaluation': self._evaluation(simulation)
+				'evaluation': evaluation
 			})
+
+			if self._checkStopCondition(evaluation):
+				self.events.trigger('stopped')
+				break
+
 			self.events.trigger('evaluate-each-progress')
 
 		self.events.trigger('evaluate-each-end', self._simulations)
@@ -283,10 +310,10 @@ class Explorer():
 			map_component['settings'] = [map_component['settings']]
 
 		return [
-			[
+			additional_settings + [
 				{'set_index': 0, **coords, 'value': value}
 				for coords, value in zip(map_component['settings'], values if type(values) is list else [values])
-			] + additional_settings
+			]
 			for values in self._buildValues(map_component['values'])
 		]
 
@@ -317,6 +344,8 @@ class Explorer():
 				self._mapComponent(map_component['foreach'], settings)
 				for settings in simulations_settings
 			], [])
+
+		self._stop_condition = map_component.get('stop')
 
 		self._setSimulations(simulations_settings)
 		self._generateSimulations()
@@ -387,6 +416,7 @@ class ExplorerUI(MakerUI):
 		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
 		self._explorer.events.addListener('evaluate-group-start', self._evaluateGroupStart)
 		self._explorer.events.addListener('evaluate-group-end', self._evaluateGroupEnd)
+		self._explorer.events.addListener('stopped', self._stopped)
 		self._explorer.events.addListener('map-start', self._mapStart)
 		self._explorer.events.addListener('map-end', self._mapEnd)
 
@@ -447,6 +477,13 @@ class ExplorerUI(MakerUI):
 		'''
 
 		self._updateState('Simulations evaluated')
+
+	def _stopped(self):
+		'''
+		A stop condition is verified.
+		'''
+
+		pass
 
 	def _mapStart(self, map_description):
 		'''

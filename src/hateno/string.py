@@ -9,7 +9,7 @@ import uuid
 import json
 import ast
 
-from math import sqrt, cos, sin
+from math import sqrt, cos, sin, tan
 
 def intOrNone(s):
 	'''

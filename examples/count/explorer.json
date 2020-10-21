@@ -14,6 +14,8 @@
 			"set": "range",
 			"name": "to"
 		},
-		"values": [10, 20]
+		"values": [10, 20],
+
+		"stop": ">= 20"
 	}
 }

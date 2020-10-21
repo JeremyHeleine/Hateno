@@ -46,7 +46,7 @@ def action(args):
 				print(json.dumps(output, indent = '\t'))
 
 			else:
-				jsonfiles.write(output, args.output)
+				jsonfiles.write(output, args.output, sort_keys = False)
 
 		else:
 			setting_name = args.setting.split('/')
@@ -64,7 +64,7 @@ def action(args):
 				print(tabulate.tabulate([[o['settings'][0]['value'], o['evaluation']] for o in output['evaluations']], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
 
 			else:
-				jsonfiles.write(output, args.output)
+				jsonfiles.write(output, args.output, sort_keys = False)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Find particular simulations.')
