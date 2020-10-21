@@ -171,12 +171,15 @@ class Explorer():
 		self._simulations_dir = None
 		self._simulations = None
 
-	def _checkStopCondition(self, current_evaluation):
+	def _checkStopCondition(self, stop_condition, current_evaluation):
 		'''
 		If a stop condition is provided, check if it is true or false.
 
 		Parameters
 		----------
+		stop_condition : str
+			Condition to evaluate.
+
 		current_evaluation : mixed
 			Latest evaluation available.
 
@@ -186,14 +189,17 @@ class Explorer():
 			Result of the test. Always `False` if there is no stop condition.
 		'''
 
-		if self._stop_condition is None:
+		if stop_condition is None:
 			return False
 
-		return string.safeEval(f'{current_evaluation} {self._stop_condition}')
+		return string.safeEval(f'{current_evaluation} {stop_condition}')
 
-	def _evaluateEach(self):
+	def _evaluateEach(self, stop_condition = None):
 		'''
 		Call the evaluation function on each simulation of the current set.
+
+		stop_condition : str
+			Condition to stop the evaluation.
 
 		Returns
 		-------
@@ -214,7 +220,7 @@ class Explorer():
 				'evaluation': evaluation
 			})
 
-			if self._checkStopCondition(evaluation):
+			if self._checkStopCondition(stop_condition, evaluation):
 				self.events.trigger('stopped')
 				break
 
@@ -340,18 +346,22 @@ class Explorer():
 		simulations_settings = self._buildSettings(map_component, current_settings)
 
 		if 'foreach' in map_component:
-			return sum([
-				self._mapComponent(map_component['foreach'], settings)
-				for settings in simulations_settings
-			], [])
+			output = []
+			for settings in simulations_settings:
+				output += self._mapComponent(map_component['foreach'], settings)
+				evaluation = output[-1]['evaluation']
 
-		self._stop_condition = map_component.get('stop')
+				if self._checkStopCondition(map_component.get('stop'), evaluation):
+					self.events.trigger('stopped')
+					break
+
+			return output
 
 		self._setSimulations(simulations_settings)
 		self._generateSimulations()
 
 		if self._evaluation_mode == EvaluationMode.EACH:
-			output = self._evaluateEach()
+			output = self._evaluateEach(map_component.get('stop'))
 
 		elif self._evaluation_mode == EvaluationMode.GROUP:
 			output = [self._evaluateGroup()]
