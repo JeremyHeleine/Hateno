@@ -578,6 +578,9 @@ class ExplorerUI(MakerUI):
 
 		self._explorer = explorer
 
+		self._explorer_state_line = None
+		self._explorer_main_progress_bar = None
+
 		self._explorer.events.addListener('evaluate-each-start', self._evaluateEachStart)
 		self._explorer.events.addListener('evaluate-each-progress', self._evaluateEachProgress)
 		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
@@ -586,6 +589,31 @@ class ExplorerUI(MakerUI):
 		self._explorer.events.addListener('stopped', self._stopped)
 		self._explorer.events.addListener('map-start', self._mapStart)
 		self._explorer.events.addListener('map-end', self._mapEnd)
+
+		self._explorer.maker.events.addListener('run-end', self._clearMakerState)
+
+	def _updateExplorerState(self, state):
+		'''
+		Text line to display the current state of the Explorer.
+
+		Parameters
+		----------
+		state : str
+			State to display.
+		'''
+
+		if self._explorer_state_line is None:
+			self._explorer_state_line = self.addTextLine(state, position = 0)
+
+		else:
+			self._explorer_state_line.text = state
+
+	def _clearMakerState(self, *args, **kwargs):
+		'''
+		We don't need the Maker state anymore: we erase it.
+		'''
+
+		self._clearState()
 
 	def _evaluateEachStart(self, simulations):
 		'''
@@ -597,15 +625,15 @@ class ExplorerUI(MakerUI):
 			The simulations that will be evaluated.
 		'''
 
-		self._updateState('Evaluating the simulations…')
-		self._main_progress_bar = self.addProgressBar(len(simulations))
+		self._updateExplorerState('Evaluating the simulations…')
+		self._explorer_main_progress_bar = self.addProgressBar(len(simulations), position = 1)
 
 	def _evaluateEachProgress(self):
 		'''
 		A simulation has just been evaluated.
 		'''
 
-		self._main_progress_bar.counter += 1
+		self._explorer_main_progress_bar.counter += 1
 
 	def _evaluateEachEnd(self, simulations):
 		'''
@@ -617,9 +645,9 @@ class ExplorerUI(MakerUI):
 			The simulations that have been evaluated.
 		'''
 
-		self.removeItem(self._main_progress_bar)
-		self._main_progress_bar = None
-		self._updateState('Simulations evaluated')
+		self.removeItem(self._explorer_main_progress_bar)
+		self._explorer_main_progress_bar = None
+		self._updateExplorerState('Simulations evaluated')
 
 	def _evaluateGroupStart(self, simulations):
 		'''
@@ -631,7 +659,7 @@ class ExplorerUI(MakerUI):
 			The simulations that will be evaluated.
 		'''
 
-		self._updateState('Evaluating the simulations…')
+		self._updateExplorerState('Evaluating the simulations…')
 
 	def _evaluateGroupEnd(self, simulations):
 		'''
@@ -643,7 +671,7 @@ class ExplorerUI(MakerUI):
 			The simulations that have been evaluated.
 		'''
 
-		self._updateState('Simulations evaluated')
+		self._updateExplorerState('Simulations evaluated')
 
 	def _stopped(self):
 		'''
@@ -662,7 +690,7 @@ class ExplorerUI(MakerUI):
 			Map that will be followed.
 		'''
 
-		pass
+		self._updateExplorerState('Start to follow a map…')
 
 	def _mapEnd(self, map_description):
 		'''
@@ -674,4 +702,4 @@ class ExplorerUI(MakerUI):
 			Map that has been followed.
 		'''
 
-		pass
+		self._updateExplorerState('Map followed')

@@ -245,9 +245,6 @@ class UI():
 			The line can't be moved.
 		'''
 
-		if item.position >= self._last_line:
-			raise UINonMovableLine(item.position)
-
 		item.clear()
 		self.moveCursorTo(item.position + 1)
 		item.position += 1
@@ -267,9 +264,6 @@ class UI():
 		UINonMovableLine
 			The line can't be moved.
 		'''
-
-		if pos >= self._last_line:
-			raise UINonMovableLine(pos)
 
 		items_to_move = [item for item in self._items if item.position >= pos]
 		items_to_move.sort(key = lambda item: item.position, reverse = True)

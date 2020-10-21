@@ -567,6 +567,15 @@ class MakerUI(UI):
 		else:
 			self._state_line.text = state
 
+	def _clearState(self):
+		'''
+		Remove the state line.
+		'''
+
+		if not(self._state_line is None):
+			self.removeItem(self._state_line)
+			self._state_line = None
+
 	def _closeStart(self):
 		'''
 		Maker starts closing.
