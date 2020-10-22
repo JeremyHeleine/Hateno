@@ -55,7 +55,7 @@ class Explorer():
 		self._save_function = None
 		self._save_folder = None
 
-		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'stopped', 'map-start', 'map-end'])
+		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-end'])
 
 	def __enter__(self):
 		'''
@@ -249,25 +249,42 @@ class Explorer():
 
 		self._simulations_settings = copy.deepcopy(simulations_settings)
 
-	def _generateSimulations(self):
+	def _generateSimulations(self, simulations = None):
 		'''
-		Generate the current set of simulations.
+		Generate some simulations.
+
+		Parameters
+		----------
+		simulations : list
+			The simulations to generate. If `None`, generate the full set defined by `_setSimulations()`.
+
+		Returns
+		-------
+		saved_folders : list
+			The list of folders where the simulations have been saved.
 		'''
 
-		self.maker.run(self._simulations)
+		if simulations is None:
+			simulations = self._simulations
 
-		self._saved_simulations_folders = self._saveSimulations(self._simulations)
+		self.maker.run(simulations)
+
+		return self._saveSimulations(simulations)
 
 	def _deleteSimulations(self):
 		'''
 		Delete the current set of simulations.
 		'''
 
-		shutil.rmtree(self._simulations_dir)
+		try:
+			shutil.rmtree(self._simulations_dir)
+
+		except FileNotFoundError:
+			pass
+
 		self._simulations_dir = None
 		self._simulations = None
 		self._simulations_settings = None
-		self._saved_simulations_folders = None
 
 	def _checkStopCondition(self, stop_condition, evaluations):
 		'''
@@ -384,10 +401,9 @@ class Explorer():
 		output = []
 		evaluations = []
 
-		if self._saved_simulations_folders is None:
-			self._saved_simulations_folders = [None] * len(self._simulations)
+		for simulation, settings in zip(self._simulations, self._simulations_settings):
+			folders = self._generateSimulations([simulation])
 
-		for simulation, settings, folder in zip(self._simulations, self._simulations_settings, self._saved_simulations_folders):
 			evaluation = self._evaluation(simulation)
 			evaluations.append(evaluation)
 
@@ -396,8 +412,8 @@ class Explorer():
 				'evaluation': evaluation
 			}
 
-			if not(folder is None):
-				o['save'] = folder
+			if not(folders is None):
+				o['save'] = folders[0]
 
 			output.append(o)
 
@@ -425,6 +441,8 @@ class Explorer():
 
 		self.events.trigger('evaluate-group-start', self._simulations)
 
+		saved_folders = self._generateSimulations()
+
 		evaluation = self._evaluation(self._simulations)
 
 		self.events.trigger('evaluate-group-end', self._simulations)
@@ -434,8 +452,8 @@ class Explorer():
 			'evaluation': evaluation
 		}
 
-		if not(self._saved_simulations_folders is None):
-			output['save'] = os.path.dirname(self._saved_simulations_folders[0])
+		if not(saved_folders is None):
+			output['save'] = os.path.dirname(saved_folders[0])
 
 		return output
 
@@ -534,6 +552,8 @@ class Explorer():
 
 		simulations_settings = self._buildSettings(map_component, current_settings)
 
+		self.events.trigger('map-component-start', depth, simulations_settings)
+
 		if 'foreach' in map_component:
 			output = []
 			evaluations = []
@@ -549,7 +569,6 @@ class Explorer():
 			return output
 
 		self._setSimulations(simulations_settings)
-		self._generateSimulations()
 
 		if self._evaluation_mode == EvaluationMode.EACH:
 			output = self._evaluateEach(depth, map_component.get('stop'))
@@ -558,6 +577,8 @@ class Explorer():
 			output = [self._evaluateGroup()]
 
 		self._deleteSimulations()
+
+		self.events.trigger('map-component-end', depth, simulations_settings)
 
 		return output
 
