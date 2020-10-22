@@ -320,12 +320,54 @@ class Explorer():
 		else:
 			return string.safeEval(stop_condition)
 
-	def _evaluateEach(self, stop_condition = None):
+	def _checkAndStoreStopCondition(self, stop_condition, evaluations, output, depth):
+		'''
+		Check if a stop condition is verified and store the result.
+
+		Parameters
+		----------
+		stop_condition : str
+			Condition to evaluate.
+
+		evaluations : list
+			List of evaluations to consider.
+
+		output : dict
+			Dictionary in which the ouput should be stored.
+
+		depth : int
+			Depth to use in the output.
+
+		Returns
+		-------
+		stop : bool
+			Result of the test.
+		'''
+
+		if stop_condition is None:
+			return False
+
+		stop_result = self._checkStopCondition(stop_condition, evaluations)
+
+		if not('stops' in output):
+			output['stops'] = []
+
+		output['stops'].append({
+			'depth': depth,
+			'result': stop_result
+		})
+
+		return stop_result
+
+	def _evaluateEach(self, depth, stop_condition = None):
 		'''
 		Call the evaluation function on each simulation of the current set.
 
 		Parameters
 		----------
+		depth : int
+			Current depth in the exploration tree.
+
 		stop_condition : str
 			Condition to stop the evaluation.
 
@@ -359,13 +401,9 @@ class Explorer():
 
 			output.append(o)
 
-			if not(stop_condition is None):
-				check_stop = self._checkStopCondition(stop_condition, evaluations)
-				o['inner_stop'] = check_stop
-
-				if check_stop:
-					self.events.trigger('stopped')
-					break
+			if self._checkAndStoreStopCondition(stop_condition, evaluations, o, depth):
+				self.events.trigger('stopped')
+				break
 
 			self.events.trigger('evaluate-each-progress')
 
@@ -471,7 +509,7 @@ class Explorer():
 			for values in self._buildValues(map_component['values'])
 		]
 
-	def _mapComponent(self, map_component, current_settings = []):
+	def _mapComponent(self, map_component, current_settings = [], depth = 0):
 		'''
 		Interpret a component of a map.
 
@@ -482,6 +520,9 @@ class Explorer():
 
 		current_settings : list
 			List of settings to alter (that are not listed in this component), with their values.
+
+		depth : int
+			Current depth in the exploration tree.
 
 		Returns
 		-------
@@ -498,17 +539,12 @@ class Explorer():
 			evaluations = []
 
 			for settings in simulations_settings:
-				output += self._mapComponent(map_component['foreach'], settings)
+				output += self._mapComponent(map_component['foreach'], settings, depth + 1)
 				evaluations.append(output[-1]['evaluation'])
 
-				outer_stop = map_component.get('stop')
-				if not(outer_stop is None):
-					check_outer_stop = self._checkStopCondition(map_component.get('stop'), evaluations)
-					output[-1]['outer_stop'] = check_outer_stop
-
-					if check_outer_stop:
-						self.events.trigger('stopped')
-						break
+				if self._checkAndStoreStopCondition(map_component.get('stop'), evaluations, output[-1], depth):
+					self.events.trigger('stopped')
+					break
 
 			return output
 
@@ -516,7 +552,7 @@ class Explorer():
 		self._generateSimulations()
 
 		if self._evaluation_mode == EvaluationMode.EACH:
-			output = self._evaluateEach(map_component.get('stop'))
+			output = self._evaluateEach(depth, map_component.get('stop'))
 
 		elif self._evaluation_mode == EvaluationMode.GROUP:
 			output = [self._evaluateGroup()]
