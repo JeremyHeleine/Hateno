@@ -13,6 +13,7 @@ from .folder import Folder
 from .simulation import Simulation
 from .maker import Maker, MakerUI
 from .events import Events
+from .errors import *
 
 class EvaluationMode(enum.Enum):
 	'''
@@ -47,10 +48,14 @@ class Explorer():
 
 		self.default_simulation = {}
 
+		self._map = None
+		self._map_output = None
+
 		self._simulations_dir = None
 		self._simulations = None
 
 		self._evaluation = None
+		self._evaluation_mode = EvaluationMode.EACH
 
 		self._save_function = None
 		self._save_folder = None
@@ -129,6 +134,148 @@ class Explorer():
 			settings = {'settings': settings}
 
 		self._default_simulation = Simulation(self._simulations_folder, settings)
+
+	@property
+	def map(self):
+		'''
+		Get the current map.
+
+		Returns
+		-------
+		map : dict
+			Description of the map.
+		'''
+
+		return self._map
+
+	def _normalizeSettings(self, map_component):
+		'''
+		Normalize the way the settings are defined in a map component.
+
+		Parameters
+		----------
+		map_component : dict
+			The component to alter.
+		'''
+
+		if 'setting' in map_component:
+			if not('settings' in map_component):
+				map_component['settings'] = map_component['setting']
+
+			del map_component['setting']
+
+		if not(type(map_component['settings']) is list):
+			map_component['settings'] = [map_component['settings']]
+
+		map_component['settings'] = [{'set_index': 0, **coords} for coords in map_component['settings']]
+
+		if 'foreach' in map_component:
+			self._normalizeSettings(map_component['foreach'])
+
+	@map.setter
+	def map(self, new_map):
+		'''
+		Set the map to follow.
+
+		Parameters
+		----------
+		new_map : dict
+			Description of the map.
+		'''
+
+		self._map = new_map
+
+		self._normalizeSettings(self._map)
+
+	@property
+	def map_depths(self):
+		'''
+		Extract the different depth levels from the map.
+
+		Returns
+		-------
+		depths : dict
+			The descriptions of the levels.
+		'''
+
+		if self._map is None:
+			return None
+
+		depth = 0
+		depths = {depth: self._map}
+
+		current_depth = self._map
+		while 'foreach' in current_depth:
+			depth += 1
+			current_depth = current_depth['foreach']
+			depths[depth] = current_depth
+
+		return depths
+
+	@property
+	def evaluation(self):
+		'''
+		Get the current evaluation function.
+
+		Returns
+		-------
+		evaluation : function
+			Function used to evaluate the simulations.
+		'''
+
+		return self._evaluation
+
+	@evaluation.setter
+	def evaluation(self, new_evaluation):
+		'''
+		Set the evaluation function.
+
+		Parameters
+		----------
+		new_evaluation : function
+			The function to use to evaluate the simulations.
+		'''
+
+		self._evaluation = new_evaluation
+
+	@property
+	def evaluation_mode(self):
+		'''
+		Get the current evaluation mode.
+
+		Returns
+		-------
+		evaluation_mode : EvaluationMode
+			Current mode.
+		'''
+
+		return self._evaluation_mode
+
+	@evaluation_mode.setter
+	def evaluation_mode(self, new_mode):
+		'''
+		Set the evaluation mode.
+
+		Parameters
+		----------
+		new_mode : EvaluationMode
+			Evaluation mode to use.
+		'''
+
+		self._evaluation_mode = new_mode
+
+	@property
+	def output(self):
+		'''
+		Get the output of the map exploration.
+
+		Returns
+		-------
+		map_output : dict
+			Output of the exploration.
+		'''
+
+		return self._map_output
 
 	@property
 	def save_function(self):
@@ -502,18 +649,9 @@ class Explorer():
 			Each item is the list of all altered settings with their values for one simulation.
 		'''
 
-		if 'setting' in map_component:
-			if not('settings' in map_component):
-				map_component['settings'] = map_component['setting']
-
-			del map_component['setting']
-
-		if not(type(map_component['settings']) is list):
-			map_component['settings'] = [map_component['settings']]
-
 		return [
 			additional_settings + [
-				{'set_index': 0, **coords, 'value': value}
+				{**coords, 'value': value}
 				for coords, value in zip(map_component['settings'], values if type(values) is list else [values])
 			]
 			for values in self._buildValues(map_component['values'])
@@ -576,41 +714,74 @@ class Explorer():
 
 		return output
 
-	def useMap(self, map_description, evaluation, *, evaluation_mode = EvaluationMode.EACH):
+	def followMap(self):
 		'''
-		Follow a map to determine which setting(s) to alter and which values to consider.
+		Follow the map to determine which setting(s) to alter and which values to consider.
+		'''
+
+		self.events.trigger('map-start')
+
+		self._map_output = {
+			'default_settings': self.default_simulation,
+			'map': self._map,
+			'evaluations': self._mapComponent(self._map)
+		}
+
+		self.events.trigger('map-end')
+
+	def findStops(self, depth):
+		'''
+		Find where the stops of a given depth are verified in the current output.
+		Return the settings defined until the given depth. Deeper settings are ignored.
 
 		Parameters
 		----------
-		map_description : dict
-			Description of the path to follow.
+		depth : int
+			Depth to find the stops of.
 
-		evaluation : function
-			Function used to evaluate the simulations.
+		Raises
+		------
+		ExplorerDepthNotFoundError
+			The depth has not been found in the map.
 
-		evaluation_mode : EvaluationMode
-			Evaluation mode (one by one, or grouped).
+		ExplorerStopNotFoundError
+			There is no stop in the description of the given depth.
 
 		Returns
 		-------
-		output : dict
-			Output of the evaluations and tests described in the map.
+		settings : list
+			Settings that led to the verified stop.
 		'''
 
-		self.events.trigger('map-start', map_description)
+		if self._map_output is None:
+			return None
 
-		self._evaluation = evaluation
-		self._evaluation_mode = evaluation_mode
+		depths = self.map_depths
 
-		output = {
-			'default_settings': self.default_simulation,
-			'map': map_description,
-			'evaluations': self._mapComponent(map_description)
-		}
+		if not(depth in depths):
+			raise ExplorerDepthNotFoundError(depth)
 
-		self.events.trigger('map-end', map_description)
+		level = depths[depth]
 
-		return output
+		if not('stop' in level):
+			raise ExplorerStopNotFoundError(depth)
+
+		k_max = sum([len(l['settings']) for d, l in depths.items() if d < depth]) + len(level['settings'])
+
+		values = []
+		for evaluation in self._map_output['evaluations']:
+			try:
+				stops = evaluation['stops']
+
+			except KeyError:
+				pass
+
+			else:
+				if list(filter(lambda stop: stop['depth'] == depth and stop['result'], stops)):
+					settings = evaluation['settings'] if self._evaluation_mode == EvaluationMode.EACH else evaluation['settings'][0]
+					values.append(settings[:k_max])
+
+		return values
 
 class ExplorerUI(MakerUI):
 	'''
@@ -664,6 +835,15 @@ class ExplorerUI(MakerUI):
 
 		self._clearState()
 
+	def clearState(self):
+		'''
+		Clear the Explorer state.
+		'''
+
+		if self._explorer_state_line is not None:
+			self.removeItem(self._explorer_state_line)
+			self._explorer_state_line = None
+
 	def _stopped(self):
 		'''
 		A stop condition is verified.
@@ -671,26 +851,16 @@ class ExplorerUI(MakerUI):
 
 		pass
 
-	def _mapStart(self, map_description):
+	def _mapStart(self):
 		'''
 		The following of a map is started.
-
-		Parameters
-		----------
-		map_description : dict
-			Map that will be followed.
 		'''
 
 		self._updateExplorerState('Following a map…')
 
-	def _mapEnd(self, map_description):
+	def _mapEnd(self):
 		'''
 		The following of a map has ended.
-
-		Parameters
-		----------
-		map_description : dict
-			Map that has been followed.
 		'''
 
 		self._updateExplorerState('Map followed')
