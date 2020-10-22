@@ -55,7 +55,7 @@ class Explorer():
 		self._save_function = None
 		self._save_folder = None
 
-		self.events = Events(['evaluate-each-start', 'evaluate-each-progress', 'evaluate-each-end', 'evaluate-group-start', 'evaluate-group-end', 'stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-end'])
+		self.events = Events(['stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-progress', 'map-component-end'])
 
 	def __enter__(self):
 		'''
@@ -396,8 +396,6 @@ class Explorer():
 				* `evaluation`: the result of the evaluation of the simulation.
 		'''
 
-		self.events.trigger('evaluate-each-start', self._simulations)
-
 		output = []
 		evaluations = []
 
@@ -417,13 +415,11 @@ class Explorer():
 
 			output.append(o)
 
+			self.events.trigger('map-component-progress', depth)
+
 			if self._checkAndStoreStopCondition(stop_condition, evaluations, o, depth):
 				self.events.trigger('stopped')
 				break
-
-			self.events.trigger('evaluate-each-progress')
-
-		self.events.trigger('evaluate-each-end', self._simulations)
 
 		return output
 
@@ -439,13 +435,9 @@ class Explorer():
 				* `evaluation`: the result of the evaluation.
 		'''
 
-		self.events.trigger('evaluate-group-start', self._simulations)
-
 		saved_folders = self._generateSimulations()
 
 		evaluation = self._evaluation(self._simulations)
-
-		self.events.trigger('evaluate-group-end', self._simulations)
 
 		output = {
 			'settings': self._simulations_settings,
@@ -552,33 +544,35 @@ class Explorer():
 
 		simulations_settings = self._buildSettings(map_component, current_settings)
 
-		self.events.trigger('map-component-start', depth, simulations_settings)
+		self.events.trigger('map-component-start', depth, map_component, simulations_settings)
+
+		output = []
 
 		if 'foreach' in map_component:
-			output = []
 			evaluations = []
 
 			for settings in simulations_settings:
 				output += self._mapComponent(map_component['foreach'], settings, depth + 1)
 				evaluations.append(output[-1]['evaluation'])
 
+				self.events.trigger('map-component-progress', depth)
+
 				if self._checkAndStoreStopCondition(map_component.get('stop'), evaluations, output[-1], depth):
 					self.events.trigger('stopped')
 					break
 
-			return output
+		else:
+			self._setSimulations(simulations_settings)
 
-		self._setSimulations(simulations_settings)
+			if self._evaluation_mode == EvaluationMode.EACH:
+				output = self._evaluateEach(depth, map_component.get('stop'))
 
-		if self._evaluation_mode == EvaluationMode.EACH:
-			output = self._evaluateEach(depth, map_component.get('stop'))
+			elif self._evaluation_mode == EvaluationMode.GROUP:
+				output = [self._evaluateGroup()]
 
-		elif self._evaluation_mode == EvaluationMode.GROUP:
-			output = [self._evaluateGroup()]
+			self._deleteSimulations()
 
-		self._deleteSimulations()
-
-		self.events.trigger('map-component-end', depth, simulations_settings)
+		self.events.trigger('map-component-end', depth, map_component, simulations_settings)
 
 		return output
 
@@ -634,16 +628,16 @@ class ExplorerUI(MakerUI):
 		self._explorer = explorer
 
 		self._explorer_state_line = None
-		self._explorer_main_progress_bar = None
 
-		self._explorer.events.addListener('evaluate-each-start', self._evaluateEachStart)
-		self._explorer.events.addListener('evaluate-each-progress', self._evaluateEachProgress)
-		self._explorer.events.addListener('evaluate-each-end', self._evaluateEachEnd)
-		self._explorer.events.addListener('evaluate-group-start', self._evaluateGroupStart)
-		self._explorer.events.addListener('evaluate-group-end', self._evaluateGroupEnd)
+		self._components_lines = {}
+		self._components_bars = {}
+
 		self._explorer.events.addListener('stopped', self._stopped)
 		self._explorer.events.addListener('map-start', self._mapStart)
 		self._explorer.events.addListener('map-end', self._mapEnd)
+		self._explorer.events.addListener('map-component-start', self._mapComponentStart)
+		self._explorer.events.addListener('map-component-progress', self._mapComponentProgress)
+		self._explorer.events.addListener('map-component-end', self._mapComponentEnd)
 
 		self._explorer.maker.events.addListener('run-end', self._clearMakerState)
 
@@ -670,64 +664,6 @@ class ExplorerUI(MakerUI):
 
 		self._clearState()
 
-	def _evaluateEachStart(self, simulations):
-		'''
-		Evaluation of each simulation.
-
-		Parameters
-		----------
-		simulations : list
-			The simulations that will be evaluated.
-		'''
-
-		self._updateExplorerState('Evaluating the simulations…')
-		self._explorer_main_progress_bar = self.addProgressBar(len(simulations), position = 1)
-
-	def _evaluateEachProgress(self):
-		'''
-		A simulation has just been evaluated.
-		'''
-
-		self._explorer_main_progress_bar.counter += 1
-
-	def _evaluateEachEnd(self, simulations):
-		'''
-		All simulations have been evaluated.
-
-		Parameters
-		----------
-		simulations : list
-			The simulations that have been evaluated.
-		'''
-
-		self.removeItem(self._explorer_main_progress_bar)
-		self._explorer_main_progress_bar = None
-		self._updateExplorerState('Simulations evaluated')
-
-	def _evaluateGroupStart(self, simulations):
-		'''
-		Evaluation of a group of simulations.
-
-		Parameters
-		----------
-		simulations : list
-			The simulations that will be evaluated.
-		'''
-
-		self._updateExplorerState('Evaluating the simulations…')
-
-	def _evaluateGroupEnd(self, simulations):
-		'''
-		The group of simulations have been evaluated.
-
-		Parameters
-		----------
-		simulations : list
-			The simulations that have been evaluated.
-		'''
-
-		self._updateExplorerState('Simulations evaluated')
-
 	def _stopped(self):
 		'''
 		A stop condition is verified.
@@ -745,7 +681,7 @@ class ExplorerUI(MakerUI):
 			Map that will be followed.
 		'''
 
-		self._updateExplorerState('Start to follow a map…')
+		self._updateExplorerState('Following a map…')
 
 	def _mapEnd(self, map_description):
 		'''
@@ -758,3 +694,59 @@ class ExplorerUI(MakerUI):
 		'''
 
 		self._updateExplorerState('Map followed')
+
+	def _mapComponentStart(self, depth, map_component, simulations_settings):
+		'''
+		The exploration of a new map component has begun.
+
+		Parameters
+		----------
+		depth : int
+			Depth of the component.
+
+		map_component : dict
+			Description of the component.
+
+		simulations_settings : list
+			Settings of the simulations in the component.
+		'''
+
+		if 'foreach' in map_component or self._explorer._evaluation_mode == EvaluationMode.EACH:
+			self._components_lines[depth] = self.addTextLine(f'Component {depth}…', position = 1 + 2*depth)
+			self._components_bars[depth] = self.addProgressBar(len(simulations_settings), position = 2 + 2*depth)
+
+	def _mapComponentProgress(self, depth):
+		'''
+		The exploration of a new map component has progressed.
+
+		Parameters
+		----------
+		depth : int
+			Depth of the component.
+		'''
+
+		if depth in self._components_bars:
+			self._components_bars[depth].counter += 1
+
+	def _mapComponentEnd(self, depth, map_component, simulations_settings):
+		'''
+		The exploration of a map component has ended.
+
+		Parameters
+		----------
+		depth : int
+			Depth of the component.
+
+		map_component : dict
+			Description of the component.
+
+		simulations_settings : list
+			Settings of the simulations in the component.
+		'''
+
+		if depth in self._components_lines:
+			self.removeItem(self._components_bars[depth])
+			del self._components_bars[depth]
+
+			self.removeItem(self._components_lines[depth])
+			del self._components_lines[depth]
