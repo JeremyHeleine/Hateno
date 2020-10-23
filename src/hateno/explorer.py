@@ -8,7 +8,7 @@ import copy
 import tempfile
 import re
 
-from . import string
+from . import string, jsonfiles
 from .folder import Folder
 from .simulation import Simulation
 from .maker import Maker, MakerUI
@@ -924,6 +924,8 @@ class Explorer():
 		self._searches = []
 		initial_output = self._map_output
 
+		depth_setting_k0 = len(settings_with_stop[0][0]) - 1
+
 		for stopped, k in settings_with_stop:
 			self.events.trigger('search-start')
 
@@ -932,8 +934,8 @@ class Explorer():
 				'iterations': []
 			})
 
-			a = (initial_output['evaluations'][k-1]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k-1]['settings'])[-1]['value']
-			b = (initial_output['evaluations'][k]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k]['settings'])[-1]['value']
+			a = (initial_output['evaluations'][k-1]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k-1]['settings'][-1])[depth_setting_k0]['value']
+			b = (initial_output['evaluations'][k]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k]['settings'][-1])[depth_setting_k0]['value']
 
 			i0 = 0
 			for d in range(0, depth):
