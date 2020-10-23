@@ -10,6 +10,7 @@ import importlib.util
 import argparse
 import json
 import tabulate
+from math import floor, log10
 
 from hateno import jsonfiles
 from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
@@ -80,7 +81,7 @@ def action(args):
 
 			elif args.search is not None:
 				try:
-					interval = explorer.search(args.search, args.search_tolerance, args.search_itermax)
+					explorer.search(args.search, args.search_tolerance, args.search_itermax)
 
 				except ExplorerSearchNoSolutionError:
 					ui.clearState()
@@ -88,10 +89,27 @@ def action(args):
 
 				else:
 					ui.clearState()
-					print(f'A solution can be found between {interval[0]} and {interval[1]}')
+
+					headers = [f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}' for setting in explorer.searches[0]['previous_settings']]
+					n_previous_settings = len(headers)
+
+					setting = explorer.map_depths[args.search]['settings'][0]
+					setting_path = f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}'
+					headers+= [f'{setting_path} (lower)', f'{setting_path} (upper)']
+
+					lines = [
+						[
+							setting['value']
+							for setting in search['previous_settings']
+						] + [value for value in search['iterations'][-1]['interval']]
+						for search in explorer.searches
+					]
+
+					results_fmt = f'.{max(-floor(log10(args.search_tolerance)), 0)+2}f'
+					print(tabulate.tabulate(lines, headers = headers, tablefmt = 'github', floatfmt = ('g',)*n_previous_settings + (results_fmt,)*2))
 
 					if args.iterations is not None:
-						jsonfiles.write(explorer.search_iterations, args.iterations, sort_keys = False)
+						jsonfiles.write(explorer.searches, args.iterations, sort_keys = False)
 
 			elif args.output is None:
 				print(json.dumps(explorer.output, indent = '\t'))

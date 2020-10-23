@@ -60,7 +60,7 @@ class Explorer():
 		self._save_function = None
 		self._save_folder = None
 
-		self.events = Events(['stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-progress', 'map-component-end', 'search-start', 'search-iteration', 'search-end'])
+		self.events = Events(['stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-progress', 'map-component-end', 'searches-start', 'searches-end', 'search-start', 'search-iteration', 'search-end'])
 
 	def __enter__(self):
 		'''
@@ -787,20 +787,24 @@ class Explorer():
 		return settings_with_stop
 
 	@property
-	def search_iterations(self):
+	def searches(self):
 		'''
-		Get the iterations details of the latest search.
+		Get the iterations details of the latest searches.
 
 		Returns
 		--------
-		iterations : list
+		searches : list
+			Each item represent a search by a dictionary with the following keys:
+				* `settings`: the settings of the upper levels,
+				* `iterations`: the details of the iterations for this search.
+
 			Each iteration is a dictionary with the following keys:
 				* `interval`: the interval considered at this iteration,
 				* `evaluations`: the evaluations values for the bounds of the interval.
 		'''
 
 		try:
-			return self._search_iterations
+			return self._searches
 
 		except AttributeError:
 			return None
@@ -834,14 +838,14 @@ class Explorer():
 
 		a, b = interval
 
-		self._search_iterations.append({
+		self._searches[-1]['iterations'].append({
 			'interval': interval,
 			'evaluations': evaluations
 		})
 
 		self.events.trigger('search-iteration')
 
-		if abs(b - a) < tolerance or len(self._search_iterations) > itermax:
+		if abs(b - a) < tolerance or len(self._searches[-1]['iterations']) > itermax:
 			return interval
 
 		c = 0.5 * (a + b)
@@ -887,11 +891,6 @@ class Explorer():
 
 		ExplorerSearchNoSolutionError
 			The stop has not been verified with the initial values.
-
-		Returns
-		--------
-		interval : tuple
-			The latest search interval.
 		'''
 
 		if self._map is None:
@@ -920,25 +919,33 @@ class Explorer():
 		# Then, the searched value is between evaluation k-1 and evaluation k
 		# We also fix the previous settings to the values allowing a solution
 
-		self.events.trigger('search-start')
+		self.events.trigger('searches-start', len(settings_with_stop))
 
-		first_stopped, k = settings_with_stop[0]
+		self._searches = []
+		initial_output = self._map_output
 
-		a = (self._map_output['evaluations'][k-1]['settings'] if self._evaluation_mode == EvaluationMode.EACH else self._map_output['evaluations'][k-1]['settings'])[-1]['value']
-		b = (self._map_output['evaluations'][k]['settings'] if self._evaluation_mode == EvaluationMode.EACH else self._map_output['evaluations'][k]['settings'])[-1]['value']
+		for stopped, k in settings_with_stop:
+			self.events.trigger('search-start')
 
-		i0 = 0
-		for d in range(0, depth):
-			values = [setting['value'] for setting in first_stopped[i0:i0+len(depths[d]['settings'])]]
-			depths[d]['values'] = values if len(values) == 1 else [values]
-			i0 += len(depths[d]['settings'])
+			self._searches.append({
+				'previous_settings': stopped[:-1],
+				'iterations': []
+			})
 
-		self._search_iterations = []
-		latest_interval = self._searchIteration(depth, (a, b), (self._map_output['evaluations'][k-1]['evaluation'], self._map_output['evaluations'][k]['evaluation']), tolerance, itermax)
+			a = (initial_output['evaluations'][k-1]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k-1]['settings'])[-1]['value']
+			b = (initial_output['evaluations'][k]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k]['settings'])[-1]['value']
 
-		self.events.trigger('search-end')
+			i0 = 0
+			for d in range(0, depth):
+				values = [setting['value'] for setting in stopped[i0:i0+len(depths[d]['settings'])]]
+				depths[d]['values'] = values if len(values) == 1 else [values]
+				i0 += len(depths[d]['settings'])
 
-		return latest_interval
+			self._searchIteration(depth, (a, b), (initial_output['evaluations'][k-1]['evaluation'], initial_output['evaluations'][k]['evaluation']), tolerance, itermax)
+
+			self.events.trigger('search-end')
+
+		self.events.trigger('searches-end')
 
 class ExplorerUI(MakerUI):
 	'''
@@ -956,6 +963,7 @@ class ExplorerUI(MakerUI):
 		self._explorer = explorer
 
 		self._explorer_state_line = None
+		self._explorer_bar = None
 
 		self._components_lines = {}
 		self._components_bars = {}
@@ -968,6 +976,8 @@ class ExplorerUI(MakerUI):
 		self._explorer.events.addListener('map-component-start', self._mapComponentStart)
 		self._explorer.events.addListener('map-component-progress', self._mapComponentProgress)
 		self._explorer.events.addListener('map-component-end', self._mapComponentEnd)
+		self._explorer.events.addListener('searches-start', self._searchesStart)
+		self._explorer.events.addListener('searches-end', self._searchesEnd)
 		self._explorer.events.addListener('search-start', self._searchStart)
 		self._explorer.events.addListener('search-iteration', self._searchIteration)
 		self._explorer.events.addListener('search-end', self._searchEnd)
@@ -1046,8 +1056,9 @@ class ExplorerUI(MakerUI):
 		'''
 
 		if 'foreach' in map_component or self._explorer._evaluation_mode == EvaluationMode.EACH:
-			self._components_lines[depth] = self.addTextLine(f'Component {depth}…', position = 1 + 2*depth)
-			self._components_bars[depth] = self.addProgressBar(len(simulations_settings), position = 2 + 2*depth)
+			offset = 1 if self._explorer_bar is None else 2
+			self._components_lines[depth] = self.addTextLine(f'Component {depth}…', position = offset + 2*depth)
+			self._components_bars[depth] = self.addProgressBar(len(simulations_settings), position = offset + 1 + 2*depth)
 
 	def _mapComponentProgress(self, depth):
 		'''
@@ -1085,27 +1096,56 @@ class ExplorerUI(MakerUI):
 			self.removeItem(self._components_lines[depth])
 			del self._components_lines[depth]
 
-	def _searchStart(self):
+	def _searchesStart(self, n_searches):
 		'''
 		A search for a best value has begun.
+
+		Parameters
+		----------
+		n_searches : int
+			Number of searches that will be performed.
 		'''
 
 		self._search_started = True
 		self._updateExplorerState('Searching for the best value…')
+
+		if n_searches > 1:
+			self._explorer_bar = self.addProgressBar(n_searches, position = 1)
+
+	def _searchesEnd(self):
+		'''
+		A search for a best value has ended.
+		'''
+
+		self._updateExplorerState('Search finished')
+
+		if self._explorer_bar is not None:
+			self.removeItem(self._explorer_bar)
+			self._explorer_bar = None
+
+		self._search_started = False
+
+	def _searchStart(self):
+		'''
+		A search for a best value has begun, with specific previous settings.
+		'''
+
+		pass
 
 	def _searchIteration(self):
 		'''
 		An iteration in the search loop has begun.
 		'''
 
-		n_iterations = len(self._explorer.search_iterations)
-		interval = self._explorer.search_iterations[-1]['interval']
+		current_search = self._explorer.searches[-1]
+		n_iterations = len(current_search['iterations'])
+		interval = current_search['iterations'][-1]['interval']
 		self._updateExplorerState(f'Iteration {n_iterations}, interval length: {abs(interval[1] - interval[0])}')
 
 	def _searchEnd(self):
 		'''
-		A search for a best value has ended.
+		A search for a best value has ended, with specific previous settings.
 		'''
 
-		self._updateExplorerState('Search finished')
-		self._search_started = False
+		if self._explorer_bar is not None:
+			self._explorer_bar.counter += 1
