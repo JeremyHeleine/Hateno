@@ -60,7 +60,7 @@ class Explorer():
 		self._save_function = None
 		self._save_folder = None
 
-		self.events = Events(['stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-progress', 'map-component-end'])
+		self.events = Events(['stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-progress', 'map-component-end', 'search-start', 'search-iteration', 'search-end'])
 
 	def __enter__(self):
 		'''
@@ -729,7 +729,7 @@ class Explorer():
 
 		self.events.trigger('map-end')
 
-	def findStops(self, depth):
+	def findStops(self, depth, *, get_index = False):
 		'''
 		Find where the stops of a given depth are verified in the current output.
 		Return the settings defined until the given depth. Deeper settings are ignored.
@@ -738,6 +738,9 @@ class Explorer():
 		----------
 		depth : int
 			Depth to find the stops of.
+
+		get_index : bool
+			If `True`, the returned list's items are tuples and their second element is the index at which the settings have been found.
 
 		Raises
 		------
@@ -749,7 +752,7 @@ class Explorer():
 
 		Returns
 		-------
-		settings : list
+		settings_with_stop : list
 			Settings that led to the verified stop.
 		'''
 
@@ -768,8 +771,8 @@ class Explorer():
 
 		k_max = sum([len(l['settings']) for d, l in depths.items() if d < depth]) + len(level['settings'])
 
-		values = []
-		for evaluation in self._map_output['evaluations']:
+		settings_with_stop = []
+		for i, evaluation in enumerate(self._map_output['evaluations']):
 			try:
 				stops = evaluation['stops']
 
@@ -779,9 +782,163 @@ class Explorer():
 			else:
 				if list(filter(lambda stop: stop['depth'] == depth and stop['result'], stops)):
 					settings = evaluation['settings'] if self._evaluation_mode == EvaluationMode.EACH else evaluation['settings'][0]
-					values.append(settings[:k_max])
+					settings_with_stop.append(settings[:k_max] if not(get_index) else (settings[:k_max],i))
 
-		return values
+		return settings_with_stop
+
+	@property
+	def search_iterations(self):
+		'''
+		Get the iterations details of the latest search.
+
+		Returns
+		--------
+		iterations : list
+			Each iteration is a dictionary with the following keys:
+				* `interval`: the interval considered at this iteration,
+				* `evaluations`: the evaluations values for the bounds of the interval.
+		'''
+
+		try:
+			return self._search_iterations
+
+		except AttributeError:
+			return None
+
+	def _searchIteration(self, depth, interval, evaluations, tolerance, itermax):
+		'''
+		Iteration of the search.
+
+		Parameters
+		----------
+		depth : int
+			The depth to optimize.
+
+		interval : tuple
+			Lower and upper bounds of the current search interval.
+
+		evaluations : tuple
+			Values of the evaluations at the bounds of the interval.
+
+		tolerance : float
+			Length of the interval at which the precision is considered enough.
+
+		itermax : int
+			Maximal number of iterations if the tolerance is not reached.
+
+		Returns
+		--------
+		interval : tuple
+			The latest search interval.
+		'''
+
+		a, b = interval
+
+		self._search_iterations.append({
+			'interval': interval,
+			'evaluations': evaluations
+		})
+
+		self.events.trigger('search-iteration')
+
+		if abs(b - a) < tolerance or len(self._search_iterations) > itermax:
+			return interval
+
+		c = 0.5 * (a + b)
+
+		level = self.map_depths[depth]
+		level['values'] = [c]
+		self.followMap()
+
+		eval_c = self._map_output['evaluations'][-1]['evaluation']
+
+		if self._checkStopCondition(level['stop'], [evaluations[0], eval_c]):
+			return self._searchIteration(depth, (a, c), (evaluations[0], eval_c), tolerance, itermax)
+
+		else:
+			return self._searchIteration(depth, (c, b), (eval_c, evaluations[1]), tolerance, itermax)
+
+	def search(self, depth, tolerance = 1E-5, itermax = 100):
+		'''
+		Search for the best value to verify a stop.
+		There must be only one setting at the given depth, as the search is performed using a dichotomy algorithm.
+		The stop must involve the last two evaluations.
+		The initial values indicated in the map are used to define the search interval: the solution is assumed to be inside it.
+		At first, all the initial values are used until the stop is verified.
+
+		Parameters
+		----------
+		depth : int
+			The depth at which the stop should be verified.
+
+		tolerance : float
+			Length of the interval at which the precision is considered enough.
+
+		itermax : int
+			Maximal number of iterations if the tolerance is not reached.
+
+		Raises
+		------
+		ExplorerDepthNotFoundError
+			The depth has not been found in the map.
+
+		ExplorerStopNotFoundError
+			There is no stop in the description of the given depth.
+
+		ExplorerSearchNoSolutionError
+			The stop has not been verified with the initial values.
+
+		Returns
+		--------
+		interval : tuple
+			The latest search interval.
+		'''
+
+		if self._map is None:
+			return None
+
+		depths = self.map_depths
+
+		if not(depth in depths):
+			raise ExplorerDepthNotFoundError(depth)
+
+		level = depths[depth]
+
+		if not('stop' in level):
+			raise ExplorerStopNotFoundError(depth)
+
+		if self._map_output is None:
+			self.followMap()
+
+		settings_with_stop = self.findStops(depth, get_index = True)
+
+		if not(settings_with_stop):
+			raise ExplorerSearchNoSolutionError()
+
+		# Get the first setting combination that led to a stop
+		# The stop has been verified at evaluation k
+		# Then, the searched value is between evaluation k-1 and evaluation k
+		# We also fix the previous settings to the values allowing a solution
+
+		self.events.trigger('search-start')
+
+		first_stopped, k = settings_with_stop[0]
+
+		a = (self._map_output['evaluations'][k-1]['settings'] if self._evaluation_mode == EvaluationMode.EACH else self._map_output['evaluations'][k-1]['settings'])[-1]['value']
+		b = (self._map_output['evaluations'][k]['settings'] if self._evaluation_mode == EvaluationMode.EACH else self._map_output['evaluations'][k]['settings'])[-1]['value']
+
+		i0 = 0
+		for d in range(0, depth):
+			values = [setting['value'] for setting in first_stopped[i0:i0+len(depths[d]['settings'])]]
+			depths[d]['values'] = values if len(values) == 1 else [values]
+			i0 += len(depths[d]['settings'])
+
+		self._search_iterations = []
+		latest_interval = self._searchIteration(depth, (a, b), (self._map_output['evaluations'][k-1]['evaluation'], self._map_output['evaluations'][k]['evaluation']), tolerance, itermax)
+
+		self.events.trigger('search-end')
+
+		return latest_interval
 
 class ExplorerUI(MakerUI):
 	'''
@@ -803,12 +960,17 @@ class ExplorerUI(MakerUI):
 		self._components_lines = {}
 		self._components_bars = {}
 
+		self._search_started = False
+
 		self._explorer.events.addListener('stopped', self._stopped)
 		self._explorer.events.addListener('map-start', self._mapStart)
 		self._explorer.events.addListener('map-end', self._mapEnd)
 		self._explorer.events.addListener('map-component-start', self._mapComponentStart)
 		self._explorer.events.addListener('map-component-progress', self._mapComponentProgress)
 		self._explorer.events.addListener('map-component-end', self._mapComponentEnd)
+		self._explorer.events.addListener('search-start', self._searchStart)
+		self._explorer.events.addListener('search-iteration', self._searchIteration)
+		self._explorer.events.addListener('search-end', self._searchEnd)
 
 		self._explorer.maker.events.addListener('run-end', self._clearMakerState)
 
@@ -856,14 +1018,16 @@ class ExplorerUI(MakerUI):
 		The following of a map is started.
 		'''
 
-		self._updateExplorerState('Following a map…')
+		if not(self._search_started):
+			self._updateExplorerState('Following a map…')
 
 	def _mapEnd(self):
 		'''
 		The following of a map has ended.
 		'''
 
-		self._updateExplorerState('Map followed')
+		if not(self._search_started):
+			self._updateExplorerState('Map followed')
 
 	def _mapComponentStart(self, depth, map_component, simulations_settings):
 		'''
@@ -920,3 +1084,28 @@ class ExplorerUI(MakerUI):
 
 			self.removeItem(self._components_lines[depth])
 			del self._components_lines[depth]
+
+	def _searchStart(self):
+		'''
+		A search for a best value has begun.
+		'''
+
+		self._search_started = True
+		self._updateExplorerState('Searching for the best value…')
+
+	def _searchIteration(self):
+		'''
+		An iteration in the search loop has begun.
+		'''
+
+		n_iterations = len(self._explorer.search_iterations)
+		interval = self._explorer.search_iterations[-1]['interval']
+		self._updateExplorerState(f'Iteration {n_iterations}, interval length: {abs(interval[1] - interval[0])}')
+
+	def _searchEnd(self):
+		'''
+		A search for a best value has ended.
+		'''
+
+		self._updateExplorerState('Search finished')
+		self._search_started = False

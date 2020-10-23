@@ -13,6 +13,7 @@ import tabulate
 
 from hateno import jsonfiles
 from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
+from hateno.errors import *
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
@@ -20,6 +21,10 @@ def addArguments(parser):
 	parser.add_argument('--map', type = argparse.FileType('r'), help = 'path to the file where the map is described')
 	parser.add_argument('--mode', choices = ['each', 'group'], default = 'each', help = 'evaluation mode')
 	parser.add_argument('--find-stops', type = int, help = 'find the verified stops at the depth')
+	parser.add_argument('--search', type = int, help = 'search for the best value at the depth')
+	parser.add_argument('--search-tolerance', type = float, default = 1E-5, help = 'tolerance for the search of the best value')
+	parser.add_argument('--search-itermax', type = int, default = 100, help = 'maximal number of iterations for the search of the best value')
+	parser.add_argument('--iterations', type = str, help = 'path to the file where the search iterations should be written')
 	parser.add_argument('--output', type = str, help = 'path to the file where the output should be written')
 	parser.add_argument('--setting', type = str, help = 'setting to test')
 	parser.add_argument('--test-values', type = float, nargs = '*', help = 'values to test')
@@ -72,6 +77,21 @@ def action(args):
 					]
 
 					print(tabulate.tabulate(lines, headers = headers, tablefmt = 'github'))
+
+			elif args.search is not None:
+				try:
+					interval = explorer.search(args.search, args.search_tolerance, args.search_itermax)
+
+				except ExplorerSearchNoSolutionError:
+					ui.clearState()
+					print('No solution found in the given interval')
+
+				else:
+					ui.clearState()
+					print(f'A solution can be found between {interval[0]} and {interval[1]}')
+
+					if args.iterations is not None:
+						jsonfiles.write(explorer.search_iterations, args.iterations, sort_keys = False)
 
 			elif args.output is None:
 				print(json.dumps(explorer.output, indent = '\t'))

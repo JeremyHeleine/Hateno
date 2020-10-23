@@ -383,3 +383,10 @@ class ExplorerStopNotFoundError(Error):
 
 	def __init__(self, depth):
 		self.depth = depth
+
+class ExplorerSearchNoSolutionError(Error):
+	'''
+	Exception raised when we search in the wrong interval.
+	'''
+
+	pass
