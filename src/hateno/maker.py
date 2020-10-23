@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 import stat
 import time
 import tempfile
 
 from . import string, jsonfiles
 
-from .fcollection import FCollection
+from .events import Events
 from .folder import Folder
 from .simulation import Simulation
 from .manager import Manager
@@ -24,53 +25,40 @@ class Maker():
 
 	Parameters
 	----------
-	simulations_folder : str
+	simulations_folder : Folder|str
 		The simulations folder. Must contain a settings file.
 
-	remote_folder_conf : dict
-		Configuration of the remote folder.
+	config_name : str
+		Name of the config to use.
 
-	generator_recipe : dict
-		Recipe to use to generate the simulations.
-
-	settings_file : str
-		Name of the settings file to create (for the extraction).
-
-	max_corrupted : int
-		Maximum number of allowed corruptions. Corruptions counter is incremented each time at least one simulation is corrupted. If negative, there is no limit.
-
-	max_failures : int
-		Maximum number of allowed failures in the execution of a job. The counter is incremented each time at least one job fails. If negative, there is no limit.
+	override_options : dict
+		Options to override.
 	'''
 
-	def __init__(self, simulations_folder, remote_folder_conf, *, generator_recipe = None, settings_file = None, max_corrupted = -1, max_failures = 0):
-		self._simulations_folder = Folder(simulations_folder)
-		self._remote_folder_conf = remote_folder_conf
+	def __init__(self, simulations_folder, config_name, *, override_options = {}):
+		self._simulations_folder = simulations_folder if type(simulations_folder) is Folder else Folder(simulations_folder)
+		self._config_name = config_name
 
 		self._manager_instance = None
 		self._generator_instance = None
 		self._remote_folder_instance = None
 		self._jobs_manager = JobsManager()
 
-		self._settings_file = settings_file
-		self._script_coords = None
-		self._generator_recipe = None
-		self.generator_recipe = generator_recipe
+		self._loadOptions(override_options)
 
 		self._simulations_to_extract = []
 		self._unknown_simulations = []
 		self._jobs_ids = []
 
-		self._max_corrupted = max_corrupted
-		self._corruptions_counter = 0
+		self._remote_scripts_dir = None
 
-		self._max_failures = max_failures
+		self._corruptions_counter = 0
 		self._failures_counter = 0
 
 		self._paused = False
-		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'generator_recipe']
+		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'remote_scripts_dir']
 
-		self._events_callbacks = FCollection(categories = ['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
+		self.events = Events(['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
 
 	def __enter__(self):
 		'''
@@ -143,11 +131,11 @@ class Maker():
 		'''
 
 		if not(self._remote_folder_instance):
-			self._remote_folder_instance = RemoteFolder(self._remote_folder_conf)
+			self._remote_folder_instance = RemoteFolder(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'folder.json')))
 
-			self._triggerEvent('remote-open-start')
+			self.events.trigger('remote-open-start')
 			self._remote_folder_instance.open()
-			self._triggerEvent('remote-open-end')
+			self.events.trigger('remote-open-end')
 
 		return self._remote_folder_instance
 
@@ -156,7 +144,7 @@ class Maker():
 		Clear all instances of the modules.
 		'''
 
-		self._triggerEvent('close-start')
+		self.events.trigger('close-start')
 
 		self._generator_instance = None
 
@@ -174,59 +162,34 @@ class Maker():
 
 		self._remote_folder_instance = None
 
-		self._triggerEvent('close-end')
+		self.events.trigger('close-end')
 
-	def addEventListener(self, event, f):
+	def _loadOptions(self, override = {}):
 		'''
-		Add a callback function to a given event.
+		Load the options of the Maker, stored in the config folder.
 
 		Parameters
 		----------
-		event : str
-			Name of the event.
-
-		f : function
-			Function to attach.
-
-		Raises
-		------
-		EventUnknownError
-			The event does not exist.
+		override : dict
+			Options to impose the value of, despite the values in the config folder.
 		'''
+
+		self._options = {
+			'settings_file': 'settings.json',
+			'max_corrupted': -1,
+			'max_failures': 0,
+			'jobs_states_filename': 'jobs.txt',
+			'jobs_output_filename': 'job.out',
+			'generate_only': False
+		}
 
 		try:
-			self._events_callbacks.set(f.__name__, f, category = event)
+			self._options.update(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'maker.json')))
 
-		except FCollectionCategoryNotFoundError:
-			raise EventUnknownError(event)
+		except FileNotFoundError:
+			pass
 
-	def _triggerEvent(self, event, *args):
-		'''
-		Call all functions attached to a given event.
-
-		Parameters
-		----------
-		event : str
-			Name of the event to trigger.
-
-		args : mixed
-			Arguments to pass to the callback functions.
-
-		Raises
-		------
-		EventUnknownError
-			The event does not exist.
-		'''
-
-		try:
-			functions = self._events_callbacks.getAll(category = event)
-
-		except FCollectionCategoryNotFoundError:
-			raise EventUnknownError(event)
-
-		else:
-			for f in functions:
-				f(*args)
+		self._options.update(override)
 
 	@property
 	def paused(self):
@@ -255,7 +218,7 @@ class Maker():
 			raise MakerPausedError()
 
 		self._paused = True
-		self._triggerEvent('paused')
+		self.events.trigger('paused')
 
 	def resume(self):
 		'''
@@ -276,7 +239,7 @@ class Maker():
 			raise MakerNotPausedError()
 
 		self._paused = False
-		self._triggerEvent('resume')
+		self.events.trigger('resume')
 		return self.run(self._simulations_to_extract)
 
 	def saveState(self, filename):
@@ -331,52 +294,6 @@ class Maker():
 		except KeyError:
 			raise MakerStateWrongFormatError()
 
-	@property
-	def generator_recipe(self):
-		'''
-		Get the current generator recipe.
-
-		Returns
-		-------
-		recipe : dict
-			Current recipe.
-		'''
-
-		return self._generator_recipe
-
-	@generator_recipe.setter
-	def generator_recipe(self, recipe):
-		'''
-		Define the recipe to use to generate the simulations.
-
-		Parameters
-		----------
-		recipe : dict
-			The recipe to use.
-		'''
-
-		self._generator_recipe = recipe
-		self._parseScriptToLaunch()
-
-	def _parseScriptToLaunch(self):
-		'''
-		Parse the `launch` option of a recipe to determine which skeleton/script must be called.
-		'''
-
-		option_split = self.generator_recipe['launch'].rsplit(':', maxsplit = 2)
-		option_split_num = [string.intOrNone(s) for s in option_split]
-
-		cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
-
-		coords = option_split_num[cut:]
-		coords += [-1] * (2 - len(coords))
-
-		self._script_coords = {
-			'name': ':'.join(option_split[:cut]),
-			'skeleton': coords[0],
-			'script': coords[1]
-		}
-
 	def run(self, simulations, *, corruptions_counter = 0, failures_counter = 0):
 		'''
 		Main loop, run until all simulations are extracted or some jobs failed.
@@ -398,7 +315,7 @@ class Maker():
 			List of simulations that failed to be generated. `None` if the Maker has been paused.
 		'''
 
-		self._triggerEvent('run-start')
+		self.events.trigger('run-start')
 
 		self._simulations_to_extract = simulations
 
@@ -411,7 +328,7 @@ class Maker():
 		if self.paused:
 			return None
 
-		self._triggerEvent('run-end', self._unknown_simulations)
+		self.events.trigger('run-end', self._unknown_simulations)
 
 		return self._unknown_simulations
 
@@ -444,30 +361,28 @@ class Maker():
 		if not(self.downloadSimulations()):
 			self._corruptions_counter += 1
 
-		self._triggerEvent('delete-scripts')
-		self._remote_folder.deleteRemote([self._generator_recipe['basedir']])
+		self.events.trigger('delete-scripts')
+		self._remote_folder.deleteRemote([self._remote_scripts_dir])
 
-		return (self._max_corrupted < 0 or self._corruptions_counter <= self._max_corrupted) and (self._max_failures < 0 or self._failures_counter <= self._max_failures)
+		return (self._options['max_corrupted'] < 0 or self._corruptions_counter <= self._options['max_corrupted']) and (self._options['max_failures'] < 0 or self._failures_counter <= self._options['max_failures'])
 
 	def extractSimulations(self):
 		'''
 		Try to extract the simulations.
 		'''
 
-		self._triggerEvent('extract-start', self._simulations_to_extract)
+		self.events.trigger('extract-start', self._simulations_to_extract)
 
-		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._settings_file, callback = lambda : self._triggerEvent('extract-progress'))
+		self._unknown_simulations = self.manager.batchExtract(self._simulations_to_extract, settings_file = self._options['settings_file'], callback = lambda : self.events.trigger('extract-progress'))
 
-		self._triggerEvent('extract-end')
+		if self._options['generate_only']:
+			self._unknown_simulations = list(filter(lambda simulation: not(os.path.isdir(simulation['folder'])), self._unknown_simulations))
+
+		self.events.trigger('extract-end')
 
 	def generateSimulations(self):
 		'''
 		Generate the scripts to generate the unknown simulations, and run them.
-
-		Raises
-		------
-		ScriptNotFoundError
-			The script to launch has not been found.
 
 		Returns
 		-------
@@ -475,37 +390,21 @@ class Maker():
 			IDs of the jobs to wait.
 		'''
 
-		self._triggerEvent('generate-start')
+		self.events.trigger('generate-start')
 
 		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
-		self._generator_recipe['basedir'] = self._remote_folder.sendDir(scripts_dir)
+		self._remote_scripts_dir = self._remote_folder.sendDir(scripts_dir)
 
 		self.generator.add(self._unknown_simulations)
-		generated_scripts = self.generator.generate(scripts_dir, self._generator_recipe, empty_dest = True)
+		generated_scripts, script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 		self.generator.clear()
-
-		possible_skeletons_to_launch = [
-			k
-			for k, s in enumerate(self._generator_recipe['subgroups_skeletons'] + self._generator_recipe['wholegroup_skeletons'])
-			if s == self._script_coords['name']
-		]
-
-		try:
-			script_to_launch = generated_scripts[possible_skeletons_to_launch[self._script_coords['skeleton']]][self._script_coords['script']]
-
-		except IndexError:
-			raise ScriptNotFoundError(self._script_coords)
-
-		script_mode = os.stat(script_to_launch['localpath']).st_mode
-		if not(script_mode & stat.S_IXUSR & stat.S_IXGRP & stat.S_IXOTH):
-			os.chmod(script_to_launch['localpath'], script_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 		self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
 
-		output = self._remote_folder.execute(script_to_launch['finalpath'])
+		output = self._remote_folder.execute(script_to_launch)
 		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
 
-		self._triggerEvent('generate-end')
+		self.events.trigger('generate-end')
 
 	def waitForJobs(self):
 		'''
@@ -517,13 +416,13 @@ class Maker():
 			`True` is all jobs were finished normally, `False` if there was at least one failure.
 		'''
 
-		self._triggerEvent('wait-start', self._jobs_ids)
+		self.events.trigger('wait-start', self._jobs_ids)
 
 		jobs_by_state = {}
 		previous_states = {}
 
 		self._jobs_manager.add(*self._jobs_ids, ignore_existing = True)
-		self._jobs_manager.linkToFile(self._generator_recipe['jobs_states_filename'], remote_folder = self._remote_folder)
+		self._jobs_manager.linkToFile(self._options['jobs_states_filename'], remote_folder = self._remote_folder)
 
 		while True:
 			self._jobs_manager.updateFromFile()
@@ -533,7 +432,7 @@ class Maker():
 			}
 
 			if jobs_by_state != previous_states:
-				self._triggerEvent('wait-progress', jobs_by_state)
+				self.events.trigger('wait-progress', jobs_by_state)
 
 				if set([job['name'] for job in jobs_by_state['succeed'] + jobs_by_state['failed']]) == set(self._jobs_ids):
 					break
@@ -544,9 +443,9 @@ class Maker():
 		self._jobs_manager.clear()
 		self._jobs_ids = []
 
-		self._remote_folder.deleteRemote([self._generator_recipe['jobs_states_filename']])
+		self._remote_folder.deleteRemote([self._options['jobs_states_filename']])
 
-		self._triggerEvent('wait-end')
+		self.events.trigger('wait-end')
 
 		return not(jobs_by_state['failed'])
 
@@ -560,9 +459,9 @@ class Maker():
 			`True` if all simulations has successfully been downloaded and added, `False` if there has been at least one issue.
 		'''
 
-		self._triggerEvent('download-start', self._unknown_simulations)
+		self.events.trigger('download-start', self._unknown_simulations)
 
-		simulations_to_add = []
+		success = True
 
 		for simulation in self._unknown_simulations:
 			simulation = Simulation.ensureType(simulation, self._simulations_folder)
@@ -574,20 +473,38 @@ class Maker():
 			except RemotePathNotFoundError:
 				pass
 
+			simulation_dest = simulation['folder']
 			simulation['folder'] = tmpdir
-			simulations_to_add.append(simulation)
 
-			self._triggerEvent('download-progress')
+			if self._options['generate_only']:
+				if self.manager.checkIntegrity(simulation):
+					destination_path = os.path.dirname(os.path.normpath(simulation_dest))
+					if destination_path and not(os.path.isdir(destination_path)):
+						os.makedirs(destination_path)
 
-		self._triggerEvent('download-end')
+					os.rename(simulation['folder'], simulation_dest)
+					simulation['folder'] = simulation_dest
 
-		self._triggerEvent('addition-start', simulations_to_add)
+					if self._options['settings_file']:
+						simulation.writeSettingsFile(self._options['settings_file'])
 
-		failed_to_add = self.manager.batchAdd(simulations_to_add, callback = lambda : self._triggerEvent('addition-progress'))
+				else:
+					shutil.rmtree(simulation['folder'])
+					success = False
 
-		self._triggerEvent('addition-end')
+			else:
+				try:
+					self.manager.add(simulation)
+					simulation['folder'] = simulation_dest
 
-		return not(bool(failed_to_add))
+				except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
+					success = False
+
+			self.events.trigger('download-progress')
+
+		self.events.trigger('download-end')
+
+		return success
 
 class MakerUI(UI):
 	'''
@@ -613,29 +530,26 @@ class MakerUI(UI):
 		self._jobs_lines = {}
 		self._jobs_bars = {}
 
-		self._maker.addEventListener('close-start', self._closeStart)
-		self._maker.addEventListener('close-end', self._closeEnd)
-		self._maker.addEventListener('remote-open-start', self._remoteOpenStart)
-		self._maker.addEventListener('remote-open-end', self._remoteOpenEnd)
-		self._maker.addEventListener('delete-scripts', self._deleteScripts)
-		self._maker.addEventListener('paused', self._paused)
-		self._maker.addEventListener('resume', self._resume)
-		self._maker.addEventListener('run-start', self._runStart)
-		self._maker.addEventListener('run-end', self._runEnd)
-		self._maker.addEventListener('extract-start', self._extractStart)
-		self._maker.addEventListener('extract-progress', self._extractProgress)
-		self._maker.addEventListener('extract-end', self._extractEnd)
-		self._maker.addEventListener('generate-start', self._generateStart)
-		self._maker.addEventListener('generate-end', self._generateEnd)
-		self._maker.addEventListener('wait-start', self._waitStart)
-		self._maker.addEventListener('wait-progress', self._waitProgress)
-		self._maker.addEventListener('wait-end', self._waitEnd)
-		self._maker.addEventListener('download-start', self._downloadStart)
-		self._maker.addEventListener('download-progress', self._downloadProgress)
-		self._maker.addEventListener('download-end', self._downloadEnd)
-		self._maker.addEventListener('addition-start', self._additionStart)
-		self._maker.addEventListener('addition-progress', self._additionProgress)
-		self._maker.addEventListener('addition-end', self._additionEnd)
+		self._maker.events.addListener('close-start', self._closeStart)
+		self._maker.events.addListener('close-end', self._closeEnd)
+		self._maker.events.addListener('remote-open-start', self._remoteOpenStart)
+		self._maker.events.addListener('remote-open-end', self._remoteOpenEnd)
+		self._maker.events.addListener('delete-scripts', self._deleteScripts)
+		self._maker.events.addListener('paused', self._paused)
+		self._maker.events.addListener('resume', self._resume)
+		self._maker.events.addListener('run-start', self._runStart)
+		self._maker.events.addListener('run-end', self._runEnd)
+		self._maker.events.addListener('extract-start', self._extractStart)
+		self._maker.events.addListener('extract-progress', self._extractProgress)
+		self._maker.events.addListener('extract-end', self._extractEnd)
+		self._maker.events.addListener('generate-start', self._generateStart)
+		self._maker.events.addListener('generate-end', self._generateEnd)
+		self._maker.events.addListener('wait-start', self._waitStart)
+		self._maker.events.addListener('wait-progress', self._waitProgress)
+		self._maker.events.addListener('wait-end', self._waitEnd)
+		self._maker.events.addListener('download-start', self._downloadStart)
+		self._maker.events.addListener('download-progress', self._downloadProgress)
+		self._maker.events.addListener('download-end', self._downloadEnd)
 
 	def _updateState(self, state):
 		'''
@@ -652,6 +566,15 @@ class MakerUI(UI):
 
 		else:
 			self._state_line.text = state
+
+	def _clearState(self):
+		'''
+		Remove the state line.
+		'''
+
+		if not(self._state_line is None):
+			self.removeItem(self._state_line)
+			self._state_line = None
 
 	def _closeStart(self):
 		'''
@@ -839,7 +762,7 @@ class MakerUI(UI):
 
 	def _downloadStart(self, simulations):
 		'''
-		Start to download the simulations.
+		Start to download and add the simulations.
 
 		Parameters
 		----------
@@ -852,45 +775,16 @@ class MakerUI(UI):
 
 	def _downloadProgress(self):
 		'''
-		A simulation has just been downloaded.
+		A simulation has just been downloaded and added.
 		'''
 
 		self._main_progress_bar.counter += 1
 
 	def _downloadEnd(self):
 		'''
-		All simulations have been downloaded.
+		All simulations have been downloaded and added.
 		'''
 
 		self.removeItem(self._main_progress_bar)
 		self._main_progress_bar = None
 		self._updateState('Simulations downloaded')
-
-	def _additionStart(self, simulations):
-		'''
-		Start to add the simulations.
-
-		Parameters
-		----------
-		simulations : list
-			The simulations that will be added.
-		'''
-
-		self._updateState('Adding the simulations to the manager…')
-		self._main_progress_bar = self.addProgressBar(len(simulations))
-
-	def _additionProgress(self):
-		'''
-		A simulation has just been added.
-		'''
-
-		self._main_progress_bar.counter += 1
-
-	def _additionEnd(self):
-		'''
-		All simulations have been added.
-		'''
-
-		self.removeItem(self._main_progress_bar)
-		self._main_progress_bar = None
-		self._updateState('Simulations added')

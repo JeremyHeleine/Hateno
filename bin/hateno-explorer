@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script uses the Explorer class to find particular simulations.
+'''
+
+import sys
+import importlib.util
+import argparse
+import json
+import tabulate
+from math import floor, log10
+
+from hateno import jsonfiles
+from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
+from hateno.errors import *
+
+def addArguments(parser):
+	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
+	parser.add_argument('--default', type = argparse.FileType('r'), help = 'path to the file where the default settings are listed')
+	parser.add_argument('--map', type = argparse.FileType('r'), help = 'path to the file where the map is described')
+	parser.add_argument('--mode', choices = ['each', 'group'], default = 'each', help = 'evaluation mode')
+	parser.add_argument('--find-stops', type = int, help = 'find the verified stops at the depth')
+	parser.add_argument('--search', type = int, help = 'search for the best value at the depth')
+	parser.add_argument('--search-tolerance', type = float, default = 1E-5, help = 'tolerance for the search of the best value')
+	parser.add_argument('--search-itermax', type = int, default = 100, help = 'maximal number of iterations for the search of the best value')
+	parser.add_argument('--iterations', type = str, help = 'path to the file where the search iterations should be written')
+	parser.add_argument('--output', type = str, help = 'path to the file where the output should be written')
+	parser.add_argument('--setting', type = str, help = 'setting to test')
+	parser.add_argument('--test-values', type = float, nargs = '*', help = 'values to test')
+	parser.add_argument('--add-to-manager', action = 'store_true', help = 'add the generated simulations to the manager')
+	parser.add_argument('--save-to', type = str, help = 'name of the folder where parts of the simulations should be saved')
+	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
+	parser.add_argument('evaluation_script', type = argparse.FileType('r'), help = 'path to the script where the evaluation function is defined')
+
+def action(args):
+	with Explorer(args.folder_path, args.config, generate_only = not(args.add_to_manager)) as explorer:
+		ui = ExplorerUI(explorer)
+
+		if args.default is not None:
+			explorer.default_simulation = jsonfiles.read(args.default.name, allow_generator = True)
+
+		module_name = 'tmpsimulationevaluation'
+		spec = importlib.util.spec_from_file_location(module_name, args.evaluation_script.name)
+		module = importlib.util.module_from_spec(spec)
+		sys.modules[module_name] = module
+		spec.loader.exec_module(module)
+
+		try:
+			explorer.save_function = module.save
+
+		except AttributeError:
+			pass
+
+		explorer.evaluation = module.evaluate
+		explorer.save_folder = args.save_to
+
+		if args.map is not None:
+			explorer.map = jsonfiles.read(args.map.name, allow_generator = True)
+			explorer.evaluation_mode = EvaluationMode[args.mode.upper()]
+
+			explorer.followMap()
+
+			if args.find_stops is not None:
+				ui.clearState()
+
+				settings_with_stops = explorer.findStops(args.find_stops)
+
+				if not(settings_with_stops):
+					print(f'No stop has been verified at depth {args.find_stops}')
+
+				else:
+					headers = [f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}' for setting in settings_with_stops[0]]
+					lines = [
+						[setting['value'] for setting in settings]
+						for settings in settings_with_stops
+					]
+
+					print(tabulate.tabulate(lines, headers = headers, tablefmt = 'github'))
+
+			elif args.search is not None:
+				try:
+					explorer.search(args.search, args.search_tolerance, args.search_itermax)
+
+				except ExplorerSearchNoSolutionError:
+					ui.clearState()
+					print('No solution found in the given interval')
+
+				else:
+					ui.clearState()
+
+					headers = [f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}' for setting in explorer.searches[0]['previous_settings']]
+					n_previous_settings = len(headers)
+
+					setting = explorer.map_depths[args.search]['settings'][0]
+					setting_path = f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}'
+					headers+= [f'{setting_path} (lower)', f'{setting_path} (upper)']
+
+					lines = [
+						[
+							setting['value']
+							for setting in search['previous_settings']
+						] + [value for value in search['iterations'][-1]['interval']]
+						for search in explorer.searches
+					]
+
+					results_fmt = f'.{max(-floor(log10(args.search_tolerance)), 0)+2}f'
+					print(tabulate.tabulate(lines, headers = headers, tablefmt = 'github', floatfmt = ('g',)*n_previous_settings + (results_fmt,)*2))
+
+					if args.iterations is not None:
+						jsonfiles.write(explorer.searches, args.iterations, sort_keys = False)
+
+			elif args.output is None:
+				print(json.dumps(explorer.output, indent = '\t'))
+
+		else:
+			setting_name = args.setting.split('/')
+			explorer.map = {
+				'setting': {
+					'set': setting_name[0],
+					'name': setting_name[1]
+				},
+				'values': args.test_values
+			}
+
+			explorer.followMap()
+
+			ui.clearState()
+			print(tabulate.tabulate([[o['settings'][0]['value'], o['evaluation']] for o in explorer.output['evaluations']], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
+
+		if args.output is not None:
+			jsonfiles.write(explorer.output, args.output, sort_keys = False)
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Find particular simulations.')
+	addArguments(parser)
+	action(parser.parse_args())

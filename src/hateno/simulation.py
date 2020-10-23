@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import copy
 import functools
 import re
 import abc
 
 from .errors import *
-from . import string
+from . import string, jsonfiles
 
 class Simulation():
 	'''
@@ -58,6 +59,27 @@ class Simulation():
 			return simulation
 
 		return cls(folder, simulation)
+
+	def copy(self):
+		'''
+		Create a copy of the simulation.
+
+		Returns
+		-------
+		simulation : Simulation
+			The copy of the simulation.
+		'''
+
+		return Simulation(self._folder, {
+			**self.globalsettings,
+			'settings': {
+				settings_set_name: [
+					{s.name: s._value for s in settings_set}
+					for settings_set in settings_sets
+				]
+				for settings_set_name, settings_sets in self._settings.items()
+			}
+		})
 
 	@property
 	def folder(self):
@@ -125,6 +147,21 @@ class Simulation():
 		else:
 			setting.value = value
 
+	def writeSettingsFile(self, filename, *, folder = None):
+		'''
+		Write the settings into a file in the simulation's folder.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file to write.
+
+		folder : str
+			Name of the folder in which the file should be saved. Default to the simulation's folder.
+		'''
+
+		jsonfiles.write(self.settings, os.path.join(folder or self['folder'], filename))
+
 	@property
 	def _globalsettings(self):
 		'''
@@ -156,6 +193,51 @@ class Simulation():
 			self.generateSettings()
 
 		return self._raw_settings
+
+	@property
+	def raw_settings(self):
+		'''
+		Return a dictionary with the complete list of sets of settings.
+
+		Returns
+		-------
+		settings : dict
+			The list of settings.
+		'''
+
+		return {
+			settings_set_name: [
+				{s.name: s for s in settings_set}
+				for settings_set in settings_sets
+			]
+			for settings_set_name, settings_sets in self._settings.items()
+		}
+
+	def getSetting(self, coords):
+		'''
+		Retrieve a setting from its set and name.
+
+		Parameters
+		----------
+		coords : dict
+			Describe the "coordinates" of the setting. Must contain the following keys:
+				* `set`: the name of the set the setting belongs to,
+				* `name`: the name of the setting.
+			The following key is optional:
+				* `set_index`: the index of the set. If not provided, default to 0.
+
+		Returns
+		-------
+		setting : SimulationSetting
+			The setting corresponding to the coordinates.
+		'''
+
+		coords = {
+			'set_index': 0,
+			**coords
+		}
+
+		return self.raw_settings[coords['set']][coords['set_index']][coords['name']]
 
 	@property
 	def settings(self):

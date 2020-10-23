@@ -10,6 +10,7 @@ import copy
 from math import ceil
 from string import Template
 
+from . import string, jsonfiles
 from .errors import *
 from .fcollection import FCollection
 from .folder import Folder
@@ -23,7 +24,7 @@ class Generator():
 
 	Parameters
 	----------
-	folder : Folder|string
+	folder : Folder|str
 		The folder to manage. Either a `Folder` instance or the path to the folder (used to create a `Folder` instance).
 	'''
 
@@ -167,7 +168,7 @@ class Generator():
 
 		return variables
 
-	def generateScriptFromSkeleton(self, skeleton_name, output_name, lists, variables, *, make_executable = False):
+	def generateScriptFromSkeleton(self, skeleton_name, output_name, lists, variables, *, make_executable = True):
 		'''
 		Generate a script from a skeleton, using a given set of command lines.
 
@@ -240,37 +241,23 @@ class Generator():
 		if make_executable:
 			os.chmod(output_name, os.stat(output_name).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-	def generate(self, dest_folder, recipe, *, empty_dest = False):
+	def _createDestinationFolder(self, dest_folder, *, empty_dest = False):
 		'''
-		Generate the scripts to launch the simulations by subgroups.
+		Create the folder where the scripts will be stored.
 
 		Parameters
 		----------
 		dest_folder : str
 			Destination folder where scripts should be stored.
 
-		recipe : dict
-			Parameters to generate the scripts.
-
 		empty_dest : boolean
 			If `True` and if the destination folder already exists, empty it before generating the scripts. If `False` the existence of the folder raises an error.
 
 		Raises
 		------
-		EmptyListError
-			The list of simulations to generate is empty.
-
 		DestinationFolderExistsError
 			The destination folder already exists.
-
-		Returns
-		-------
-		generated_scripts : list
-			List of generated scripts, separated: one list per skeleton, in the order they are called.
 		'''
-
-		if not(self._simulations_to_generate):
-			raise EmptyListError()
 
 		if os.path.isdir(dest_folder):
 			if empty_dest:
@@ -283,69 +270,183 @@ class Generator():
 		else:
 			os.makedirs(dest_folder)
 
-		if not('max_simulations' in recipe):
-			if 'max_subgroups' in recipe:
-				recipe['max_simulations'] = ceil(len(self._simulations_to_generate) / recipe['max_subgroups'])
+	def _loadRecipe(self, config_name):
+		'''
+		Load the recipe to use to generate the scripts.
 
-			else:
-				recipe['max_simulations'] = len(self._simulations_to_generate)
+		Parameters
+		----------
+		config_name : str
+			Name of the config folder where `generator.json` will be found.
+		'''
 
-		else:
-			if recipe['max_simulations'] <= 0:
-				recipe['max_simulations'] = len(self._simulations_to_generate)
+		self._recipe = jsonfiles.read(os.path.join(self._folder.config_folder, config_name, 'generator.json'))
 
-			if 'max_subgroups' in recipe and len(self._simulations_to_generate) / recipe['max_simulations'] > recipe['max_subgroups']:
-				recipe['max_simulations'] = ceil(len(self._simulations_to_generate) / recipe['max_subgroups'])
+	def _splitSimulationsList(self):
+		'''
+		Split the simulations list into subgroups, according to the recipe.
 
-		simulations_sets = [self._simulations_to_generate[k:k+recipe['max_simulations']] for k in range(0, len(self._simulations_to_generate), recipe['max_simulations'])]
+		Returns
+		-------
+		subgroups : list
+			The subgroups of simulations.
+		'''
 
+		simulations_per_group = len(self._simulations_to_generate)
+
+		if 'max_simulations' in self._recipe:
+			if self._recipe['max_simulations'] > 0:
+				simulations_per_group = self._recipe['max_simulations']
+
+			if 'max_subgroups' in self._recipe and len(self._simulations_to_generate) / simulations_per_group > self._recipe['max_subgroups']:
+				simulations_per_group = ceil(len(self._simulations_to_generate) / self._recipe['max_subgroups'])
+
+		elif 'max_subgroups' in self._recipe:
+			simulations_per_group = ceil(len(self._simulations_to_generate) / self._recipe['max_subgroups'])
+
+		return [self._simulations_to_generate[k:k+simulations_per_group] for k in range(0, len(self._simulations_to_generate), simulations_per_group)]
+
+	def _dataVariables(self):
+		'''
+		Use the recipe to define the data variables and lists.
+
+		Returns
+		-------
+		variables : tuple
+			A tuple with (in this order) the data variables, and the data lists.
+		'''
+
+		data_variables = {}
 		data_lists = {}
-		data_variables = {
-			'JOBS_OUTPUT_FILENAME': recipe['jobs_output_filename']
-		}
 
-		if 'jobs_states_filename' in recipe:
-			data_variables['JOBS_STATES_FILENAME'] = recipe['jobs_states_filename']
+		if 'data_lists' in self._recipe:
+			data_lists.update(self._recipe['data_lists'])
 
-		if 'data_lists' in recipe:
-			data_lists.update(recipe['data_lists'])
+		if 'data_variables' in self._recipe:
+			data_variables.update(self._recipe['data_variables'])
 
-		if 'data_variables' in recipe:
-			data_variables.update(recipe['data_variables'])
+		return (data_variables, data_lists)
 
-		n_subgroups_skeletons = len(recipe['subgroups_skeletons'])
-		n_skeletons = n_subgroups_skeletons + len(recipe['wholegroup_skeletons'])
+	def _skeletons(self):
+		'''
+		Use the recipe to get the list of skeletons.
+
+		Returns
+		-------
+		skeletons : tuple
+			A tuple with (in this order) the subgroups skeletons, and the wholegroup ones.
+		'''
+
+		skeletons_folder = os.path.join(self._folder.skeletons_folder, self._recipe['skeletons'])
+		skeletons_recipe = jsonfiles.read(os.path.join(skeletons_folder, 'recipe.json'))
+
+		subgroups_skeletons = [os.path.join(skeletons_folder, skeleton) for skeleton in skeletons_recipe['subgroups']]
+		wholegroup_skeletons = [os.path.join(skeletons_folder, skeleton) for skeleton in skeletons_recipe['wholegroup']]
+
+		return (subgroups_skeletons, wholegroup_skeletons)
+
+	def _scriptToLaunch(self, generated_scripts, skeletons):
+		'''
+		Use the recipe to determine which generated should be called to launch the whole thing.
+
+		Parameters
+		----------
+		generated_scripts : list
+			The list of generated scripts where the one to launch will be picked.
+
+		skeletons : list
+			Full list of skeletons.
+
+		Returns
+		-------
+		script_to_launch : str
+			The path to the script to launch.
+		'''
+
+		skeletons_folder = os.path.join(self._folder.skeletons_folder, self._recipe['skeletons'])
+		skeletons_recipe = jsonfiles.read(os.path.join(skeletons_folder, 'recipe.json'))
+
+		option_split = os.path.join(skeletons_folder, skeletons_recipe['launch']).rsplit(':', maxsplit = 2)
+		option_split_num = [string.intOrNone(s) for s in option_split]
+
+		cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
+
+		script_name = ':'.join(option_split[:cut])
+		coords = option_split_num[cut:]
+		coords += [-1] * (2 - len(coords))
+
+		possible_skeletons_to_launch = [
+			k
+			for k, s in enumerate(skeletons)
+			if s == script_name
+		]
+
+		return generated_scripts[possible_skeletons_to_launch[coords[0]]][coords[1]]['finalpath']
+
+	def generate(self, dest_folder, config_name, *, empty_dest = False, basedir = None):
+		'''
+		Generate the scripts to launch the simulations by subgroups.
+
+		Parameters
+		----------
+		dest_folder : str
+			Destination folder where scripts should be stored.
+
+		config_name : str
+			Name of the config to use.
+
+		empty_dest : boolean
+			If `True` and if the destination folder already exists, empty it before generating the scripts. If `False` the existence of the folder raises an error.
+
+		basedir : str
+			Path to the "final" directory from which the scripts will be executed.
+
+		Raises
+		------
+		EmptyListError
+			The list of simulations to generate is empty.
+
+		Returns
+		-------
+		generated_scripts, script_to_launch : tuple
+			List of generated scripts, separated: one list per skeleton, in the order they are called. Second output is the "final" path of the script to launch.
+		'''
+
+		if not(self._simulations_to_generate):
+			raise EmptyListError()
+
+		self._createDestinationFolder(dest_folder, empty_dest = empty_dest)
+
+		self._loadRecipe(config_name)
+		simulations_sets = self._splitSimulationsList()
+		data_variables, data_lists = self._dataVariables()
+		subgroups_skeletons, wholegroup_skeletons = self._skeletons()
 
 		skeletons_calls = []
-		generated_scripts = [[]] * n_skeletons
+		generated_scripts = [[]] * (len(subgroups_skeletons) + len(wholegroup_skeletons))
 
 		jobs_ids = [f'job-{k}' for k in range(0, len(simulations_sets))]
 
-		if 'subgroups_skeletons' in recipe:
-			skeletons_calls += [
-				{
-					'skeleton_name_joiner': f'-{k}.',
-					'skeletons': enumerate(recipe['subgroups_skeletons']),
-					'job_id': jobs_ids[k],
-					'jobs_ids': jobs_ids,
-					**self.parse(simulations_set)
-				}
-				for k, simulations_set in enumerate(simulations_sets)
-			]
-
-		if 'wholegroup_skeletons' in recipe:
-			skeletons_calls.append({
-				'skeleton_name_joiner': '.',
-				'skeletons': [(n_subgroups_skeletons + j, s) for j, s in enumerate(recipe['wholegroup_skeletons'])],
-				'job_id': '',
+		skeletons_calls += [
+			{
+				'skeleton_name_joiner': f'-{k}.',
+				'skeletons': enumerate(subgroups_skeletons),
+				'job_id': jobs_ids[k],
 				'jobs_ids': jobs_ids,
-				**self.parse()
-			})
+				**self.parse(simulations_set)
+			}
+			for k, simulations_set in enumerate(simulations_sets)
+		]
 
-		if not('make_executable' in recipe):
-			recipe['make_executable'] = False
+		skeletons_calls.append({
+			'skeleton_name_joiner': '.',
+			'skeletons': [(len(subgroups_skeletons) + j, s) for j, s in enumerate(wholegroup_skeletons)],
+			'job_id': '',
+			'jobs_ids': jobs_ids,
+			**self.parse()
+		})
 
-		scripts_basedir = dest_folder if not('basedir' in recipe) else recipe['basedir']
+		scripts_basedir = basedir or dest_folder
 
 		for skeletons_call in skeletons_calls:
 			data_lists.update(skeletons_call['data_lists'])
@@ -354,8 +455,8 @@ class Generator():
 			data_variables['JOB_ID'] = skeletons_call['job_id']
 			data_lists['JOBS_IDS'] = skeletons_call['jobs_ids']
 
-			if 'data_variables_cases' in recipe:
-				for varname, varparams in recipe['data_variables_cases'].items():
+			if 'data_variables_cases' in self._recipe:
+				for varname, varparams in self._recipe['data_variables_cases'].items():
 					vartest = data_variables[varparams['variable']]
 					data_variables[varname] = [value for bound, value in zip(varparams['bounds'], varparams['values']) if bound <= vartest][-1]
 
@@ -366,7 +467,7 @@ class Generator():
 				script_localpath = os.path.join(dest_folder, script_name)
 				script_finalpath = os.path.join(scripts_basedir, script_name)
 
-				self.generateScriptFromSkeleton(skeleton_name, script_localpath, data_lists, data_variables, make_executable = recipe['make_executable'])
+				self.generateScriptFromSkeleton(skeleton_name, script_localpath, data_lists, data_variables)
 				data_variables[skeleton_tag] = script_finalpath
 
 				try:
@@ -377,4 +478,4 @@ class Generator():
 
 				generated_scripts[j].append({'name': script_name, 'localpath': script_localpath, 'finalpath': script_finalpath})
 
-		return generated_scripts
+		return (generated_scripts, self._scriptToLaunch(generated_scripts, subgroups_skeletons + wholegroup_skeletons))

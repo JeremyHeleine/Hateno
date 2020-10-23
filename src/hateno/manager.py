@@ -413,7 +413,7 @@ class Manager():
 		self.uncompress(simulation_name, simulation['folder'])
 
 		if settings_file:
-			jsonfiles.write(simulation.settings, os.path.join(simulation['folder'], settings_file))
+			simulation.writeSettingsFile(settings_file)
 
 	def batchAction(self, simulations, action, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error), callback = None):
 		'''

@@ -357,3 +357,36 @@ class MakerStateWrongFormatError(Error):
 	'''
 
 	pass
+
+class ExplorerDepthNotFoundError(Error):
+	'''
+	Exception raised when we try to access a non existing depth in a map.
+
+	Parameters
+	----------
+	depth : int
+		The non existing depth.
+	'''
+
+	def __init__(self, depth):
+		self.depth = depth
+
+class ExplorerStopNotFoundError(Error):
+	'''
+	Exception raised when we try to access a stop that is not defined.
+
+	Parameters
+	----------
+	depth : int
+		The depth at which the stop was requested.
+	'''
+
+	def __init__(self, depth):
+		self.depth = depth
+
+class ExplorerSearchNoSolutionError(Error):
+	'''
+	Exception raised when we search in the wrong interval.
+	'''
+
+	pass
