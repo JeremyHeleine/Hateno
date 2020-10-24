@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11 - 2020-10-24
+
+* New: Explorer
+* New: jobs progress indicator
+* New: watch mode in hateno-jobs to watch a jobs states file
+* New: read-only mode in Manager
+* Configurations and skeletons files all moved to `.hateno`
+* Maker adds simulations right after downloading them
+* The copied list in hateno-maker can be merged with another
+* Events have their own separate class
+* Fix: progress bars are now fully erased, even with high numbers
+* Fix: jobs progress bars removed when the Maker is paused
+
 ## 0.10.1 - 2020-09-03
 
 * Fix: bug preventing the use of global settings tags in global settings
