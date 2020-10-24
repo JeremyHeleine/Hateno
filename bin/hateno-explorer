@@ -62,6 +62,9 @@ def action(args):
 
 			explorer.followMap()
 
+			if args.output is not None:
+				jsonfiles.write(explorer.output, args.output, sort_keys = False)
+
 			if args.find_stops is not None:
 				ui.clearState()
 
@@ -126,11 +129,11 @@ def action(args):
 
 			explorer.followMap()
 
+			if args.output is not None:
+				jsonfiles.write(explorer.output, args.output, sort_keys = False)
+
 			ui.clearState()
 			print(tabulate.tabulate([[o['settings'][0]['value'], o['evaluation']] for o in explorer.output['evaluations']], headers = ['Tested value', 'Evaluation'], tablefmt = 'github'))
-
-		if args.output is not None:
-			jsonfiles.write(explorer.output, args.output, sort_keys = False)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Find particular simulations.')
