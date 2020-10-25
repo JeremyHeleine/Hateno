@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1 - 2020-10-26
+
+* Maps' outputs stored in search iterations
+
 ## 0.11 - 2020-10-24
 
 * New: Explorer
