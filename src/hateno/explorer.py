@@ -839,6 +839,7 @@ class Explorer():
 		a, b = interval
 
 		self._searches[-1]['iterations'].append({
+			'map_output': self._map_output,
 			'interval': interval,
 			'evaluations': evaluations
 		})
