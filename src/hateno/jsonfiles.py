@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import os
 import importlib.util
 import json
 
@@ -54,6 +55,10 @@ def write(obj, filename, *, sort_keys = True):
 	sort_keys : bool
 		`True` to sort the keys before writing the file.
 	'''
+
+	dirname = os.path.dirname(filename)
+	if dirname and not(os.path.isdir(dirname)):
+		os.makedirs(dirname)
 
 	with open(filename, 'w') as f:
 		json.dump(obj, f, sort_keys = sort_keys, indent = '\t', separators = (',', ': '))
