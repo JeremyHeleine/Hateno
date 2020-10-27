@@ -18,8 +18,8 @@ from hateno.errors import *
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
-	parser.add_argument('--default', type = argparse.FileType('r'), help = 'path to the file where the default settings are listed')
-	parser.add_argument('--map', type = argparse.FileType('r'), help = 'path to the file where the map is described')
+	parser.add_argument('--default', type = str, help = 'path to the file where the default settings are listed')
+	parser.add_argument('--map', type = str, help = 'path to the file where the map is described')
 	parser.add_argument('--mode', choices = ['each', 'group'], default = 'each', help = 'evaluation mode')
 	parser.add_argument('--find-stops', type = int, help = 'find the verified stops at the depth')
 	parser.add_argument('--search', type = int, help = 'search for the best value at the depth')
@@ -39,7 +39,7 @@ def action(args):
 		ui = ExplorerUI(explorer)
 
 		if args.default is not None:
-			explorer.default_simulation = jsonfiles.read(args.default.name, allow_generator = True)
+			explorer.default_simulation = jsonfiles.read(args.default, allow_generator = True)
 
 		module_name = 'tmpsimulationevaluation'
 		spec = importlib.util.spec_from_file_location(module_name, args.evaluation_script.name)
@@ -57,7 +57,7 @@ def action(args):
 		explorer.save_folder = args.save_to
 
 		if args.map is not None:
-			explorer.map = jsonfiles.read(args.map.name, allow_generator = True)
+			explorer.map = jsonfiles.read(args.map, allow_generator = True)
 			explorer.evaluation_mode = EvaluationMode[args.mode.upper()]
 
 			explorer.followMap()

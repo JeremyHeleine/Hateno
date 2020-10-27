@@ -18,13 +18,13 @@ def addArguments(parser):
 	parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
 	parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
 	parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
-	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list to add/delete/extract can be found')
+	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list to add/delete/extract can be found')
 
 def action(args):
 	with Manager(args.folder_path, readonly = args.readonly) as manager:
 		ui = UI()
 
-		simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+		simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 
 		if not(type(simulations) is list):
 			simulations = [simulations]

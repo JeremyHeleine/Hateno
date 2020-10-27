@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-def generate():
+def generate(n = 1):
+	n = int(n)
+
 	return [
 		{
 			'folder': f'test/{k}',
@@ -12,5 +14,5 @@ def generate():
 				}
 			}
 		}
-		for k in range(0, 10)
+		for k in range(0, 10, n)
 	]

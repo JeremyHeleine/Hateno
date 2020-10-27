@@ -25,6 +25,14 @@ def read(filename, *, allow_generator = False):
 	'''
 
 	try:
+		file_parts = os.path.splitext(filename)
+		ext_parts = file_parts[1].split(':', maxsplit = 1)
+
+		args = []
+		if len(ext_parts) == 2:
+			args = ext_parts[1].split(',')
+			filename = ''.join([file_parts[0], ext_parts[0]])
+
 		with open(filename, 'r') as f:
 			return json.loads(f.read())
 
@@ -38,7 +46,7 @@ def read(filename, *, allow_generator = False):
 		sys.modules[module_name] = module
 		spec.loader.exec_module(module)
 
-		return module.generate()
+		return module.generate(*args)
 
 def write(obj, filename, *, sort_keys = True):
 	'''

@@ -16,7 +16,7 @@ from hateno.manager import Manager
 def addArguments(parser):
 	parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
 	parser.add_argument('transform_script', type = argparse.FileType('r'), help = 'path to the script where the transformation function is defined')
-	parser.add_argument('simulations_list', type = argparse.FileType('r'), nargs = '?', help = 'path to the file where the simulations list to transform can be found')
+	parser.add_argument('simulations_list', type = str, nargs = '?', help = 'path to the file where the simulations list to transform can be found')
 
 def action(args):
 	with Manager(args.folder_path) as manager:
@@ -24,7 +24,7 @@ def action(args):
 
 		simulations = None
 		if args.simulations_list:
-			simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+			simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 
 			if not(type(simulations) is list):
 				simulations = [simulations]

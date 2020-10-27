@@ -16,12 +16,12 @@ def addArguments(parser):
 	parser.add_argument('--output-dir', type = str, help = 'folder to create')
 	parser.add_argument('--empty-output', action = 'store_true', help = 'ensure the output directory is empty')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
-	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list can be found')
+	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
 def action(args):
 	generator = Generator(args.folder_path)
 
-	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 	generator.add(simulations)
 
 	if args.config is None or args.output_dir is None:

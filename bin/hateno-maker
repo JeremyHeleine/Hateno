@@ -18,10 +18,10 @@ def addArguments(parser):
 	parser.add_argument('--save-unknown', type = str, help = 'path to the file where simulations that failed to be generated must be stored')
 	parser.add_argument('--pause-file', type = str, default = 'maker.state', help = 'path to the file to read/write for the pauses')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
-	parser.add_argument('simulations_list', type = argparse.FileType('r'), help = 'path to the file where the simulations list can be found')
+	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
 def action(args):
-	simulations = jsonfiles.read(args.simulations_list.name, allow_generator = True)
+	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 
 	if not(type(simulations) is list):
 		simulations = [simulations]
