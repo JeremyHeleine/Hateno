@@ -47,6 +47,24 @@ def namer_appendLocalIndex(name, local_index, local_total, global_index, global_
 
 	return name + separator + str(local_index)
 
+def namer_prependLocalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
+	'''
+	Prepend the local index to the name.
+
+	Parameters
+	----------
+	only_if_multiple : bool
+		Prepend the index only if the setting is used more than once (locally).
+
+	separator : str
+		Separator between the name and the index.
+	'''
+
+	if only_if_multiple and local_total <= 1:
+		return name
+
+	return str(local_index) + separator + name
+
 def namer_appendGlobalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
 	'''
 	Append the local index to the name.
@@ -64,6 +82,24 @@ def namer_appendGlobalIndex(name, local_index, local_total, global_index, global
 		return name
 
 	return name + separator + str(global_index)
+
+def namer_prependGlobalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
+	'''
+	Prepend the local index to the name.
+
+	Parameters
+	----------
+	only_if_multiple : bool
+		Prepend the index only if the setting is used more than once (globally).
+
+	separator : str
+		Separator between the name and the index.
+	'''
+
+	if only_if_multiple and global_total <= 1:
+		return name
+
+	return str(global_index) + separator + name
 
 def namer_suffix(name, local_index, local_total, global_index, global_total, suffix = ''):
 	'''
