@@ -838,11 +838,16 @@ class Explorer():
 
 		a, b = interval
 
-		self._searches[-1]['iterations'].append({
-			'map_output': self._map_output,
+		iterations = self._searches[-1]['iterations']
+		iter_infos = {
 			'interval': interval,
 			'evaluations': evaluations
-		})
+		}
+
+		if iterations:
+			iter_infos['map_output'] = self._map_output
+
+		iterations.append(iter_infos)
 
 		self.events.trigger('search-iteration')
 
