@@ -553,7 +553,7 @@ class Simulation():
 		'''
 
 		try:
-			return str(self.getSettingValueFromTag(match))
+			return repr(self.getSettingValueFromTag(match))
 
 		except SettingTagNotRecognizedError:
 			return match.group(0)
@@ -934,7 +934,7 @@ class SimulationSetting(SimulationBaseSetting):
 				if first_operator_match.start() > 0:
 					return self._simulation.parseString(f'(({self._only_if_value}))')
 
-				return self._simulation.parseString(f'(({self.value} {self._only_if_value}))')
+				return self._simulation.parseString(f'(({repr(self.value)} {self._only_if_value}))')
 
 			return self.value == self._simulation.parseString(self._only_if_value)
 
