@@ -99,7 +99,7 @@ class Maker():
 		'''
 
 		if not(self._manager_instance):
-			self._manager_instance = Manager(self._simulations_folder)
+			self._manager_instance = Manager(self._simulations_folder, readonly = self._options['generate_only'])
 
 		return self._manager_instance
 
