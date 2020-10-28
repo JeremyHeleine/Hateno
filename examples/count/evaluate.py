@@ -12,7 +12,11 @@ def evaluateSingle(simulation):
 def evaluateMultiple(simulations):
 	return sum([evaluateSingle(s) for s in simulations])
 
-evaluate = evaluateMultiple
+def evaluate(arg, depth = 0):
+	if type(arg) is list:
+		return evaluateMultiple(arg)
+
+	return evaluateSingle(arg)
 
 def save(simulation, save_dir):
 	with open(os.path.join(simulation['folder'], simulation.settings['output'][0]['file']), 'r') as f:

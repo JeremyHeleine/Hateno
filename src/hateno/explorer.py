@@ -238,6 +238,32 @@ class Explorer():
 
 		self._evaluation = new_evaluation
 
+	def _callEvaluation(self, arg, depth):
+		'''
+		Call the evaluation function.
+
+		Parameters
+		----------
+		arg : Simulation|list
+			Either a simulation or a list of simulations.
+
+		depth : int
+			Current depth.
+
+		Returns
+		-------
+		res : mixed
+			Result of the evaluation.
+		'''
+
+		try:
+			return self._evaluation(arg, depth)
+
+		# If the evaluation function does not expect a depth argument, we will get a TypeError exception
+
+		except TypeError:
+			return self._evaluation(arg)
+
 	@property
 	def evaluation_mode(self):
 		'''
@@ -549,7 +575,7 @@ class Explorer():
 		for simulation, settings in zip(self._simulations, self._simulations_settings):
 			folders = self._generateSimulations([simulation])
 
-			evaluation = self._evaluation(simulation)
+			evaluation = self._callEvaluation(simulation, depth)
 			evaluations.append(evaluation)
 
 			o = {
@@ -570,9 +596,14 @@ class Explorer():
 
 		return output
 
-	def _evaluateGroup(self):
+	def _evaluateGroup(self, depth):
 		'''
 		Call the evaluation function on all simulations in the current set, as a group.
+
+		Parameters
+		----------
+		depth : int
+			Current depth in the exploration tree.
 
 		Returns
 		-------
@@ -584,7 +615,7 @@ class Explorer():
 
 		saved_folders = self._generateSimulations()
 
-		evaluation = self._evaluation(self._simulations)
+		evaluation = self._callEvaluation(self._simulations, depth)
 
 		output = {
 			'settings': self._simulations_settings,
@@ -706,7 +737,7 @@ class Explorer():
 				output = self._evaluateEach(depth, map_component.get('stop'))
 
 			elif self._evaluation_mode == EvaluationMode.GROUP:
-				output = [self._evaluateGroup()]
+				output = [self._evaluateGroup(depth)]
 
 			self._deleteSimulations()
 
