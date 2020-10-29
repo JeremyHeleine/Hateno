@@ -553,7 +553,7 @@ class Simulation():
 		'''
 
 		try:
-			return repr(self.getSettingValueFromTag(match))
+			return str(self.getSettingValueFromTag(match))
 
 		except SettingTagNotRecognizedError:
 			return match.group(0)
