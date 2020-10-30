@@ -16,7 +16,7 @@ def fixer_protectStrings(value):
 	Protect strings by encapsulating them into quotes if necessary.
 	'''
 
-	if type(value) is str and not(re.search(r'\s', value) is None):
+	if type(value) is str and (not(value) or re.search(r'\s', value) is not None):
 		return repr(value)
 
 	return value
