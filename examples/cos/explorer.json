@@ -21,8 +21,8 @@
 			"name": "coef"
 		},
 		"values": {
-			"from": 1,
-			"to": 4,
+			"from": "pi / {setting:b} - 0.2",
+			"to": "pi / {setting:b} + 0.3",
 			"n": 30
 		},
 

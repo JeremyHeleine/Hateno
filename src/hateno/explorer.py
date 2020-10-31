@@ -416,7 +416,9 @@ class Explorer():
 			simulation['folder'] = os.path.join(self._simulations_dir, str(k))
 
 			for setting in settings:
-				simulation.getSetting(setting).value = setting['value']
+				simulation_setting = simulation.getSetting(setting)
+				simulation_setting.value = setting['value']
+				setting['value'] = simulation_setting.value
 
 			self._simulations.append(simulation)
 
@@ -651,14 +653,14 @@ class Explorer():
 		if type(vdesc['from']) is list:
 			return [
 				[
-					a + k * (b - a) / (vdesc['n'] - 1)
+					f'((({a}) + {k} * (({b}) - ({a})) / {vdesc["n"] - 1}))'
 					for a, b in zip(vdesc['from'], vdesc['to'])
 				]
 				for k in range(0, vdesc['n'])
 			]
 
 		return [
-			vdesc['from'] + k * (vdesc['to'] - vdesc['from']) / (vdesc['n'] - 1)
+			f'((({vdesc["from"]}) + {k} * (({vdesc["to"]}) - ({vdesc["from"]})) / {vdesc["n"] - 1}))'
 			for k in range(0, vdesc['n'])
 		]
 

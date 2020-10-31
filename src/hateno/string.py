@@ -9,7 +9,7 @@ import uuid
 import json
 import ast
 
-from math import sqrt, cos, sin, tan
+from math import sqrt, cos, sin, tan, pi
 
 def intOrNone(s):
 	'''
@@ -166,7 +166,7 @@ def safeEval(expr):
 
 	whitelist_sample = 'False - True <= -1**2 < 1 + f(1) > 1.5 * 2 >= 2 / 2 and 1 // 2 == 0 or not(1 % 2 != 0) or "a" in ["a", "b"]'
 	nodes_whitelist = set([x.__class__.__name__ for x in ast.walk(ast.parse(whitelist_sample))])
-	names_whitelist = set(['abs', 'sqrt', 'cos', 'sin', 'tan'])
+	names_whitelist = set(['abs', 'sqrt', 'cos', 'sin', 'tan', 'pi'])
 
 	nodes = set([x.__class__.__name__ for x in ast.walk(ast.parse(expr))])
 	names = set([x.id for x in ast.walk(ast.parse(expr)) if x.__class__.__name__ == 'Name'])
