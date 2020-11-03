@@ -16,18 +16,16 @@ def addArguments(parser):
 
 def action(args):
 	with Manager(args.folder_path) as manager:
+		n_simulations = manager.getSimulationsNumber()
+
+		if n_simulations == 0:
+			print('This folder is empty.')
+			return
+
 		ui = UI()
 
-		infos_line = ui.addTextLine('Checking the simulations list…')
-		progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
-
-		manager.checkSimulationsList(callback = progress_bar.update)
-
-		ui.removeItem(progress_bar)
-		infos_line.text = 'Simulations list checked'
-
-		infos_line.text = 'Updating the simulations list…'
-		progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+		infos_line = ui.addTextLine('Updating the simulations list…')
+		progress_bar = ui.addProgressBar(n_simulations)
 
 		manager.update(callback = progress_bar.update)
 

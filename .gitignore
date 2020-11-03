@@ -6,4 +6,4 @@ dist
 src/hateno.egg-info
 
 examples/*/.hateno/simulations.list
-examples/*/*.tar.bz2
+examples/*/.hateno/simulations

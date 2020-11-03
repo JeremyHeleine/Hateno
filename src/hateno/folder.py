@@ -14,8 +14,9 @@ from . import fixers as default_fixers
 MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'
 SKELETONS_FOLDER = 'skeletons'
+SIMULATIONS_FOLDER = 'simulations'
 
-CONF_FILENAME = 'simulations.conf'
+CONF_FILENAME = 'hateno.conf'
 SIMULATIONS_LIST_FILENAME = 'simulations.list'
 RUNNING_MANAGER_INDICATOR_FILENAME = 'manager.running'
 
@@ -149,6 +150,24 @@ class Folder():
 		'''
 
 		return os.path.join(self._conf_folder_path, SIMULATIONS_LIST_FILENAME)
+
+	@property
+	def simulations_folder(self):
+		'''
+		Return the path to the folder where the simulations are stored.
+		Create the folder if it does not exist.
+
+		Returns
+		-------
+		path : str
+			Path to the simulations folder.
+		'''
+
+		path = os.path.join(self._conf_folder_path, SIMULATIONS_FOLDER)
+		if not(os.path.isdir(path)):
+			os.makedirs(path)
+
+		return path
 
 	@property
 	def running_manager_indicator_filename(self):

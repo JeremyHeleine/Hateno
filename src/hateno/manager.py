@@ -214,7 +214,7 @@ class Manager():
 			Name to use for the archive.
 		'''
 
-		with tarfile.open(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'), 'w:bz2') as tar:
+		with tarfile.open(os.path.join(self._folder.simulations_folder, f'{simulation_name}.tar.bz2'), 'w:bz2') as tar:
 			tar.add(folder, arcname = simulation_name)
 
 		shutil.rmtree(folder)
@@ -232,7 +232,7 @@ class Manager():
 			Folder into which the files must go.
 		'''
 
-		with tarfile.open(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
+		with tarfile.open(os.path.join(self._folder.simulations_folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
 			tar.extractall(path = self._folder.folder)
 
 		if os.path.isdir(folder):
@@ -366,7 +366,7 @@ class Manager():
 
 		simulation_name = self._simulations_list[settings_hashed]['name']
 
-		os.unlink(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'))
+		os.unlink(os.path.join(self._folder.simulations_folder, f'{simulation_name}.tar.bz2'))
 		del self._simulations_list[settings_hashed]
 
 		if save_list:
@@ -537,49 +537,6 @@ class Manager():
 
 		return self.batchAction(simulations, self.extract, {'settings_file': settings_file}, save_list = False, errors_store = errors_store, errors_pass = errors_pass, callback = callback)
 
-	def checkSimulationsList(self, callback = None):
-		'''
-		Check whether the simulations list has the right format.
-		If it has the old one, update all the necessary files.
-
-		Parameters
-		----------
-		callback : function
-			Function to call at each treated simulation.
-
-		Raises
-		------
-		OperationNotAllowed
-			Checking the folder is not allowed in read only mode.
-		'''
-
-		if self._readonly:
-			raise OperationNotAllowed()
-
-		test_infos = self._simulations_list[list(self._simulations_list.keys())[0]]
-
-		if not(type(test_infos) is dict) or not('name' in test_infos and 'settings' in test_infos):
-			new_simulations_list = {}
-
-			for settings_hashed, settings_str in self._simulations_list.items():
-				simulation_name = string.uniqueID()
-				tmp_path = os.path.join(self._folder.folder, simulation_name)
-
-				self.uncompress(settings_hashed, tmp_path)
-				os.unlink(os.path.join(self._folder.folder, f'{settings_hashed}.tar.bz2'))
-				self.compress(tmp_path, simulation_name)
-
-				new_simulations_list[settings_hashed] = {
-					'name': simulation_name,
-					'settings': settings_str
-				}
-
-				if not(callback is None):
-					callback()
-
-			self._simulations_list_dict = new_simulations_list
-			self.saveSimulationsList()
-
 	def update(self, callback = None):
 		'''
 		Update the simulations list to take into account new settings.
@@ -666,7 +623,7 @@ class Manager():
 
 			self.uncompress(simulation_name, simulation_dir)
 			new_settings = transformation(simulation)
-			os.unlink(os.path.join(self._folder.folder, f'{simulation_name}.tar.bz2'))
+			os.unlink(os.path.join(self._folder.simulations_folder, f'{simulation_name}.tar.bz2'))
 			self.compress(simulation_dir, simulation_name)
 
 			if not(new_settings is None):
@@ -709,7 +666,7 @@ class Manager():
 			raise OperationNotAllowed()
 
 		for infos in self._simulations_list.values():
-			os.unlink(os.path.join(self._folder.folder, f'{infos["name"]}.tar.bz2'))
+			os.unlink(os.path.join(self._folder.simulations_folder, f'{infos["name"]}.tar.bz2'))
 
 			if not(callback is None):
 				callback()

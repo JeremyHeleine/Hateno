@@ -18,33 +18,33 @@ def action(args):
 	with Manager(args.folder_path) as manager:
 		if manager.getSimulationsNumber() == 0:
 			print('This folder is empty.')
+			return
+
+		if args.confirm:
+			clear_folder = False
+
+			while True:
+				answer = input('Do you really want to clear this folder? [y/N] ').strip().lower()
+
+				if answer in ['', 'y', 'n']:
+					clear_folder = (answer == 'y')
+					break
+
+				print('Please only answer by \'y\' or \'n\'')
 
 		else:
-			if args.confirm:
-				clear_folder = False
+			clear_folder = True
 
-				while True:
-					answer = input('Do you really want to clear this folder? [y/N] ').strip().lower()
+		if clear_folder:
+			ui = UI()
 
-					if answer in ['', 'y', 'n']:
-						clear_folder = (answer == 'y')
-						break
+			infos_line = ui.addTextLine('Clearing folder…')
+			progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
 
-					print('Please only answer by \'y\' or \'n\'')
+			manager.clear(callback = progress_bar.update)
 
-			else:
-				clear_folder = True
-
-			if clear_folder:
-				ui = UI()
-
-				infos_line = ui.addTextLine('Clearing folder…')
-				progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
-
-				manager.clear(callback = progress_bar.update)
-
-				ui.removeItem(progress_bar)
-				infos_line.text = 'Folder cleared'
+			ui.removeItem(progress_bar)
+			infos_line.text = 'Folder cleared'
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Clear a simulations folder.')
