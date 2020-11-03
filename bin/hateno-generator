@@ -24,7 +24,7 @@ def action(args):
 	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 	generator.add(simulations)
 
-	if args.config is None or args.output_dir is None:
+	if args.output_dir is None:
 		print('\n'.join(generator.parse()['data_lists']['COMMAND_LINES']))
 		exit()
 

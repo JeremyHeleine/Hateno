@@ -65,7 +65,7 @@ class Folder():
 
 		return self._folder
 
-	def config(self, configname, foldername):
+	def config(self, configname, foldername = None):
 		'''
 		Get a configuration object.
 
@@ -75,13 +75,23 @@ class Folder():
 			Name of the wanted configuration.
 
 		foldername : str
-			Name of the configuration folder.
+			Name of the configuration folder. If `None`, use the default config indicated in the configuration file.
+
+		Raises
+		------
+		NoConfigError
+			No configuration folder name given.
 
 		Returns
 		-------
 		config : dict
 			Dictionary stored in the right configuration file.
 		'''
+
+		foldername = foldername or self.settings.get('default_config')
+
+		if foldername is None:
+			raise NoConfigError()
 
 		if foldername not in self._configs:
 			self._configs[foldername] = {}

@@ -39,7 +39,7 @@ class Explorer():
 		`True` to not add the simulations to the manager.
 	'''
 
-	def __init__(self, simulations_folder, config_name, *, generate_only = True):
+	def __init__(self, simulations_folder, config_name = None, *, generate_only = True):
 		self._simulations_folder = simulations_folder if type(simulations_folder) is Folder else Folder(simulations_folder)
 		self._config_name = config_name
 

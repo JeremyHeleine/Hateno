@@ -29,13 +29,13 @@ class Maker():
 		The simulations folder. Must contain a settings file.
 
 	config_name : str
-		Name of the config to use.
+		Name of the config to use. Indicate `None` to use the default configuration.
 
 	override_options : dict
 		Options to override.
 	'''
 
-	def __init__(self, simulations_folder, config_name, *, override_options = {}):
+	def __init__(self, simulations_folder, config_name = None, *, override_options = {}):
 		self._simulations_folder = simulations_folder if type(simulations_folder) is Folder else Folder(simulations_folder)
 		self._config_name = config_name
 

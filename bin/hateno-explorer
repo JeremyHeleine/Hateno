@@ -17,7 +17,7 @@ from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
 from hateno.errors import *
 
 def addArguments(parser):
-	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
+	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--default', type = str, help = 'path to the file where the default settings are listed')
 	parser.add_argument('--map', type = str, help = 'path to the file where the map is described')
 	parser.add_argument('--mode', choices = ['each', 'group'], default = 'each', help = 'evaluation mode')

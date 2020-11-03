@@ -15,6 +15,13 @@ class OperationNotAllowed(Error):
 
 	pass
 
+class NoConfigError(Error):
+	'''
+	Exception raised when we try to access a configuration but no foldername is given.
+	'''
+
+	pass
+
 class FCollectionCategoryNotFoundError(Error):
 	'''
 	Exception raised when we try to access a non-existing category of an FCollection.

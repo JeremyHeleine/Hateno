@@ -270,7 +270,7 @@ class Generator():
 		else:
 			os.makedirs(dest_folder)
 
-	def _loadRecipe(self, config_name):
+	def _loadRecipe(self, config_name = None):
 		'''
 		Load the recipe to use to generate the scripts.
 
@@ -355,7 +355,7 @@ class Generator():
 
 		return generated_scripts[possible_skeletons_to_launch[script_to_launch['coords'][0]]][script_to_launch['coords'][1]]['finalpath']
 
-	def generate(self, dest_folder, config_name, *, empty_dest = False, basedir = None):
+	def generate(self, dest_folder, config_name = None, *, empty_dest = False, basedir = None):
 		'''
 		Generate the scripts to launch the simulations by subgroups.
 

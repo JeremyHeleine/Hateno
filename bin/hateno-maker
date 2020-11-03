@@ -12,7 +12,7 @@ from hateno import jsonfiles, string
 from hateno.maker import Maker, MakerUI
 
 def addArguments(parser):
-	parser.add_argument('--config', type = str, required = True, help = 'name of the config to use')
+	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--copy-list', type = str, help = 'path to use to save a copy of the list of the simulations to generate')
 	parser.add_argument('--merge-copy', action = 'store_true', help = 'if the copy file already exists, merge instead of replace')
 	parser.add_argument('--save-unknown', type = str, help = 'path to the file where simulations that failed to be generated must be stored')
