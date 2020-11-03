@@ -5,14 +5,12 @@
 This script uses the Explorer class to find particular simulations.
 '''
 
-import sys
-import importlib.util
 import argparse
 import json
 import tabulate
 from math import floor, log10
 
-from hateno import jsonfiles
+from hateno import utils, jsonfiles
 from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
 from hateno.errors import *
 
@@ -41,11 +39,7 @@ def action(args):
 		if args.default is not None:
 			explorer.default_simulation = jsonfiles.read(args.default, allow_generator = True)
 
-		module_name = 'tmpsimulationevaluation'
-		spec = importlib.util.spec_from_file_location(module_name, args.evaluation_script.name)
-		module = importlib.util.module_from_spec(spec)
-		sys.modules[module_name] = module
-		spec.loader.exec_module(module)
+		module = utils.loadModuleFromFile(args.evaluation_script.name)
 
 		try:
 			explorer.save_function = module.save

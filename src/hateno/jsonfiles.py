@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
 import os
-import importlib.util
 import json
+
+from . import utils
 
 def read(filename, *, allow_generator = False):
 	'''
@@ -40,12 +40,7 @@ def read(filename, *, allow_generator = False):
 		if not(allow_generator):
 			raise
 
-		module_name = 'tmpobjectgenerator'
-		spec = importlib.util.spec_from_file_location(module_name, filename)
-		module = importlib.util.module_from_spec(spec)
-		sys.modules[module_name] = module
-		spec.loader.exec_module(module)
-
+		module = utils.loadModuleFromFile(filename)
 		return module.generate(*args)
 
 def write(obj, filename, *, sort_keys = False):

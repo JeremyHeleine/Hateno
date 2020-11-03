@@ -5,11 +5,9 @@
 This script simply uses the Manager class to transform some simulations.
 '''
 
-import sys
-import importlib.util
 import argparse
 
-from hateno import jsonfiles, string
+from hateno import utils, jsonfiles, string
 from hateno.ui import UI
 from hateno.manager import Manager
 
@@ -39,11 +37,7 @@ def action(args):
 		infos_line = ui.addTextLine(f'Transforming {string.plural(n_simulations, "simulation", "simulations")}…')
 		progress_bar = ui.addProgressBar(n_simulations)
 
-		module_name = 'tmpsimulationstransformation'
-		spec = importlib.util.spec_from_file_location(module_name, args.transform_script.name)
-		module = importlib.util.module_from_spec(spec)
-		sys.modules[module_name] = module
-		spec.loader.exec_module(module)
+		module = utils.loadModuleFromFile(args.transform_script.name)
 
 		manager.transform(module.transform, simulations, callback = progress_bar.update)
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 import importlib.util
 import argparse
+
+from hateno import utils
 
 parser = argparse.ArgumentParser()
 subparsers = parser.add_subparsers()
@@ -21,12 +22,7 @@ scriptnames = [
 for scriptname in scriptnames:
 	subparser = subparsers.add_parser(scriptname)
 
-	module_name = f'hateno{scriptname.replace("-", "")}'
-	spec = importlib.util.spec_from_file_location(module_name, os.path.join(bin_folder, f'hateno-{scriptname}'))
-	module = importlib.util.module_from_spec(spec)
-	sys.modules[module_name] = module
-	spec.loader.exec_module(module)
-
+	module = utils.loadModuleFromFile(os.path.join(bin_folder, f'hateno-{scriptname}'))
 	module.addArguments(subparser)
 	subparser.set_defaults(func = module.action)
 
