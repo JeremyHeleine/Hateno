@@ -8,21 +8,21 @@ This script initializes a folder by creating the configuration folder and file.
 import os
 import argparse
 
-from hateno import jsonfiles
+from hateno import jsonfiles, folder
 
 def addArguments(parser):
 	parser.add_argument('folder_path', type = str, nargs = '?', help = 'path to the folder to manage (default to the current directory)')
 
 def action(args):
-	config_folder = '.hateno'
+	conf_folder = folder.MAIN_FOLDER
 
 	if not(args.folder_path is None):
-		config_folder = os.path.join(args.folder_path, config_folder)
+		conf_folder = os.path.join(args.folder_path, conf_folder)
 
-	config_file = os.path.join(config_folder, 'simulations.conf')
+	config_file = os.path.join(conf_folder, folder.CONF_FILENAME)
 
 	try:
-		os.makedirs(config_folder)
+		os.makedirs(conf_folder)
 
 	except FileExistsError:
 		pass
@@ -69,7 +69,7 @@ def action(args):
 				]
 			}
 		],
-		'fixers': ['intFloats']
+		'fixers': ['intFloats', 'protectStrings']
 	}, config_file, sort_keys = False)
 
 if __name__ == '__main__':

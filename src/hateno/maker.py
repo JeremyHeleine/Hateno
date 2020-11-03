@@ -131,7 +131,7 @@ class Maker():
 		'''
 
 		if not(self._remote_folder_instance):
-			self._remote_folder_instance = RemoteFolder(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'folder.json')))
+			self._remote_folder_instance = RemoteFolder(self.folder.config('folder', self._config_name))
 
 			self.events.trigger('remote-open-start')
 			self._remote_folder_instance.open()
@@ -184,9 +184,9 @@ class Maker():
 		}
 
 		try:
-			self._options.update(jsonfiles.read(os.path.join(self.folder.config_folder, self._config_name, 'maker.json')))
+			self._options.update(self.folder.config('maker', self._config_name))
 
-		except FileNotFoundError:
+		except TypeError:
 			pass
 
 		self._options.update(override)

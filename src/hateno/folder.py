@@ -5,11 +5,19 @@ import os
 import errno
 import copy
 
-from . import jsonfiles
+from . import string, jsonfiles
 from .errors import *
 from .fcollection import FCollection
 from . import namers as default_namers
 from . import fixers as default_fixers
+
+MAIN_FOLDER = '.hateno'
+CONFIG_FOLDER = 'config'
+SKELETONS_FOLDER = 'skeletons'
+
+CONF_FILENAME = 'simulations.conf'
+SIMULATIONS_LIST_FILENAME = 'simulations.list'
+RUNNING_MANAGER_INDICATOR_FILENAME = 'manager.running'
 
 class Folder():
 	'''
@@ -24,18 +32,21 @@ class Folder():
 	Raises
 	------
 	FileNotFoundError
-		No `simulations.conf` file found in the configuration folder.
+		No configuration file found in the configuration folder.
 	'''
 
 	def __init__(self, folder):
 		self._folder = folder
-		self._conf_folder_path = os.path.join(self._folder, '.hateno')
-		self._settings_file = self.confFilePath('simulations.conf')
+		self._conf_folder_path = os.path.join(self._folder, MAIN_FOLDER)
+		self._settings_file = os.path.join(self._conf_folder_path, CONF_FILENAME)
 
 		if not(os.path.isfile(self._settings_file)):
 			raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self._settings_file)
 
 		self._settings = None
+
+		self._configs = {}
+		self._skeletons = {}
 
 		self._namers = None
 		self._fixers = None
@@ -53,61 +64,104 @@ class Folder():
 
 		return self._folder
 
-	@property
-	def conf_folder(self):
+	def config(self, configname, foldername):
 		'''
-		Return the configuration folder path.
-
-		Returns
-		-------
-		path : str
-			The path.
-		'''
-
-		return self._conf_folder_path
-
-	@property
-	def config_folder(self):
-		'''
-		Return the path to the `config` folder.
-
-		Returns
-		-------
-		path : str
-			The path.
-		'''
-
-		return os.path.join(self._conf_folder_path, 'config')
-
-	@property
-	def skeletons_folder(self):
-		'''
-		Return the path to the `skeletons` folder.
-
-		Returns
-		-------
-		path : str
-			The path.
-		'''
-
-		return os.path.join(self._conf_folder_path, 'skeletons')
-
-	def confFilePath(self, filename):
-		'''
-		Return the path to a configuration file, with a given filename.
+		Get a configuration object.
 
 		Parameters
 		----------
-		filename : str
-			Name of the file.
+		configname : str
+			Name of the wanted configuration.
+
+		foldername : str
+			Name of the configuration folder.
+
+		Returns
+		-------
+		config : dict
+			Dictionary stored in the right configuration file.
+		'''
+
+		if foldername not in self._configs:
+			self._configs[foldername] = {}
+
+		if configname not in self._configs[foldername]:
+			try:
+				self._configs[foldername][configname] = jsonfiles.read(os.path.join(self._conf_folder_path, CONFIG_FOLDER, foldername, f'{configname}.json'))
+
+			except FileNotFoundError:
+				self._configs[foldername][configname] = None
+
+		return self._configs[foldername][configname]
+
+	def skeletons(self, foldername):
+		'''
+		Get the paths to the skeletons files in a given folder.
+
+		Parameters
+		----------
+		foldername : str
+			Name of the skeletons folder.
+
+		Returns
+		-------
+		paths : dict
+			The lists of paths: subgroups skeletons, wholegroup skeletons and script to launch "coordinates".
+		'''
+
+		if foldername not in self._skeletons:
+			folder = os.path.join(self._conf_folder_path, SKELETONS_FOLDER, foldername)
+			recipe = jsonfiles.read(os.path.join(folder, 'recipe.json'))
+
+			self._skeletons[foldername] = {
+				category: [
+					os.path.join(folder, skeleton)
+					for skeleton in recipe[category]
+				]
+				for category in ['subgroups', 'wholegroup']
+			}
+
+			option_split = os.path.join(folder, recipe['launch']).rsplit(':', maxsplit = 2)
+			option_split_num = [string.intOrNone(s) for s in option_split]
+
+			cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
+
+			script_name = ':'.join(option_split[:cut])
+			coords = option_split_num[cut:]
+			coords += [-1] * (2 - len(coords))
+
+			self._skeletons[foldername]['script_to_launch'] = {
+				'name': script_name,
+				'coords': coords
+			}
+
+		return self._skeletons[foldername]
+
+	@property
+	def simulations_list_filename(self):
+		'''
+		Return the path to the file where the list of simulations is stored.
 
 		Returns
 		-------
 		path : str
-			Path to the file.
+			Path to the simulations list file.
 		'''
 
-		return os.path.join(self._conf_folder_path, filename)
+		return os.path.join(self._conf_folder_path, SIMULATIONS_LIST_FILENAME)
+
+	@property
+	def running_manager_indicator_filename(self):
+		'''
+		Return the path to the file indicating the Manager is currently running.
+
+		Returns
+		-------
+		path : str
+			Path to the indicator file.
+		'''
+
+		return os.path.join(self._conf_folder_path, RUNNING_MANAGER_INDICATOR_FILENAME)
 
 	@property
 	def settings(self):
@@ -120,13 +174,13 @@ class Folder():
 			The folder's settings.
 		'''
 
-		if not(self._settings):
+		if self._settings is None:
 			self._settings = jsonfiles.read(self._settings_file)
 
-			if not('namers' in self._settings):
+			if 'namers' not in self._settings:
 				self._settings['namers'] = []
 
-			if not('fixers' in self._settings):
+			if 'fixers' not in self._settings:
 				self._settings['fixers'] = []
 
 		return self._settings
@@ -195,7 +249,7 @@ class Folder():
 		value = copy.deepcopy(value)
 
 		for fixer in before + self.settings['fixers'] + after:
-			if not(type(fixer) is list):
+			if type(fixer) is not list:
 				fixer = [fixer]
 
 			try:
@@ -248,7 +302,7 @@ class Folder():
 		'''
 
 		for namer in before + self.settings['namers'] + after:
-			if not(type(namer) is list):
+			if type(namer) is not list:
 				namer = [namer]
 
 			try:

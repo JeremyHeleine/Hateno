@@ -38,23 +38,21 @@ class Manager():
 	def __init__(self, folder, *, readonly = False):
 		self._folder = folder if type(folder) is Folder else Folder(folder)
 
-		self._simulations_list_file = self._folder.confFilePath('simulations.list')
 		self._simulations_list_dict = None
 
 		self._checkers = None
 
 		self._readonly = readonly
 
-		self._running_indicator_filename = self._folder.confFilePath('manager.running')
 		self._delete_running_indicator = False
 
 		if not(self._readonly):
-			if os.path.isfile(self._running_indicator_filename):
+			if os.path.isfile(self._folder.running_manager_indicator_filename):
 				self._delete_running_indicator = False
 				raise ManagerAlreadyRunningError()
 
 			# Add a file into the configuration folder to indicate a Manager instance is currently running
-			with open(self._running_indicator_filename, 'w') as f:
+			with open(self._folder.running_manager_indicator_filename, 'w') as f:
 				f.write(str(datetime.datetime.now()))
 
 			self._delete_running_indicator = True
@@ -80,7 +78,7 @@ class Manager():
 		'''
 
 		if self._delete_running_indicator:
-			os.unlink(self._running_indicator_filename)
+			os.unlink(self._folder.running_manager_indicator_filename)
 
 	@property
 	def folder(self):
@@ -108,7 +106,7 @@ class Manager():
 
 		if self._simulations_list_dict is None:
 			try:
-				self._simulations_list_dict = jsonfiles.read(self._simulations_list_file)
+				self._simulations_list_dict = jsonfiles.read(self._folder.simulations_list_filename)
 
 			except FileNotFoundError:
 				self._simulations_list_dict = {}
@@ -128,7 +126,7 @@ class Manager():
 		if self._readonly:
 			raise OperationNotAllowed()
 
-		jsonfiles.write(self._simulations_list, self._simulations_list_file)
+		jsonfiles.write(self._simulations_list, self._folder.simulations_list_filename)
 
 	@property
 	def checkers(self):

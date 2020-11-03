@@ -280,7 +280,7 @@ class Generator():
 			Name of the config folder where `generator.json` will be found.
 		'''
 
-		self._recipe = jsonfiles.read(os.path.join(self._folder.config_folder, config_name, 'generator.json'))
+		self._recipe = self._folder.config('generator', config_name)
 
 	def _splitSimulationsList(self):
 		'''
@@ -327,24 +327,6 @@ class Generator():
 
 		return (data_variables, data_lists)
 
-	def _skeletons(self):
-		'''
-		Use the recipe to get the list of skeletons.
-
-		Returns
-		-------
-		skeletons : tuple
-			A tuple with (in this order) the subgroups skeletons, and the wholegroup ones.
-		'''
-
-		skeletons_folder = os.path.join(self._folder.skeletons_folder, self._recipe['skeletons'])
-		skeletons_recipe = jsonfiles.read(os.path.join(skeletons_folder, 'recipe.json'))
-
-		subgroups_skeletons = [os.path.join(skeletons_folder, skeleton) for skeleton in skeletons_recipe['subgroups']]
-		wholegroup_skeletons = [os.path.join(skeletons_folder, skeleton) for skeleton in skeletons_recipe['wholegroup']]
-
-		return (subgroups_skeletons, wholegroup_skeletons)
-
 	def _scriptToLaunch(self, generated_scripts, skeletons):
 		'''
 		Use the recipe to determine which generated should be called to launch the whole thing.
@@ -363,25 +345,15 @@ class Generator():
 			The path to the script to launch.
 		'''
 
-		skeletons_folder = os.path.join(self._folder.skeletons_folder, self._recipe['skeletons'])
-		skeletons_recipe = jsonfiles.read(os.path.join(skeletons_folder, 'recipe.json'))
-
-		option_split = os.path.join(skeletons_folder, skeletons_recipe['launch']).rsplit(':', maxsplit = 2)
-		option_split_num = [string.intOrNone(s) for s in option_split]
-
-		cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
-
-		script_name = ':'.join(option_split[:cut])
-		coords = option_split_num[cut:]
-		coords += [-1] * (2 - len(coords))
+		script_to_launch = self._folder.skeletons(self._recipe['skeletons'])['script_to_launch']
 
 		possible_skeletons_to_launch = [
 			k
 			for k, s in enumerate(skeletons)
-			if s == script_name
+			if s == script_to_launch['name']
 		]
 
-		return generated_scripts[possible_skeletons_to_launch[coords[0]]][coords[1]]['finalpath']
+		return generated_scripts[possible_skeletons_to_launch[script_to_launch['coords'][0]]][script_to_launch['coords'][1]]['finalpath']
 
 	def generate(self, dest_folder, config_name, *, empty_dest = False, basedir = None):
 		'''
@@ -420,17 +392,17 @@ class Generator():
 		self._loadRecipe(config_name)
 		simulations_sets = self._splitSimulationsList()
 		data_variables, data_lists = self._dataVariables()
-		subgroups_skeletons, wholegroup_skeletons = self._skeletons()
+		skeletons = self._folder.skeletons(self._recipe['skeletons'])
 
 		skeletons_calls = []
-		generated_scripts = [[]] * (len(subgroups_skeletons) + len(wholegroup_skeletons))
+		generated_scripts = [[]] * (len(skeletons['subgroups']) + len(skeletons['wholegroup']))
 
 		jobs_ids = [f'job-{k}' for k in range(0, len(simulations_sets))]
 
 		skeletons_calls += [
 			{
 				'skeleton_name_joiner': f'-{k}.',
-				'skeletons': enumerate(subgroups_skeletons),
+				'skeletons': enumerate(skeletons['subgroups']),
 				'job_id': jobs_ids[k],
 				'jobs_ids': jobs_ids,
 				**self.parse(simulations_set)
@@ -440,7 +412,7 @@ class Generator():
 
 		skeletons_calls.append({
 			'skeleton_name_joiner': '.',
-			'skeletons': [(len(subgroups_skeletons) + j, s) for j, s in enumerate(wholegroup_skeletons)],
+			'skeletons': [(len(skeletons['subgroups']) + j, s) for j, s in enumerate(skeletons['wholegroup'])],
 			'job_id': '',
 			'jobs_ids': jobs_ids,
 			**self.parse()
@@ -478,4 +450,4 @@ class Generator():
 
 				generated_scripts[j].append({'name': script_name, 'localpath': script_localpath, 'finalpath': script_finalpath})
 
-		return (generated_scripts, self._scriptToLaunch(generated_scripts, subgroups_skeletons + wholegroup_skeletons))
+		return (generated_scripts, self._scriptToLaunch(generated_scripts, skeletons['subgroups'] + skeletons['wholegroup']))

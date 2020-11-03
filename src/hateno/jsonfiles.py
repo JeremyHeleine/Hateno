@@ -48,7 +48,7 @@ def read(filename, *, allow_generator = False):
 
 		return module.generate(*args)
 
-def write(obj, filename, *, sort_keys = True):
+def write(obj, filename, *, sort_keys = False):
 	'''
 	Save an object into a JSON file.
 
