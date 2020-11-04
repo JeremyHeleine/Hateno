@@ -8,14 +8,22 @@ This script uses the Manager class to update a simulations folder.
 import time
 import argparse
 
+from hateno import utils
+from hateno.folder import Folder
 from hateno.ui import UI
 from hateno.manager import Manager
 
 def addArguments(parser):
+	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
 	parser.add_argument('folder_path', type = str, help = 'path to the folder to update')
 
 def action(args):
-	with Manager(args.folder_path) as manager:
+	folder = Folder(args.folder_path)
+
+	if args.fixers is not None:
+		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
+
+	with Manager(folder) as manager:
 		n_simulations = manager.getSimulationsNumber()
 
 		if n_simulations == 0:

@@ -7,11 +7,13 @@ This script simply uses the Manager class to manage simulations of a folder.
 
 import argparse
 
-from hateno import jsonfiles, string
+from hateno import utils, jsonfiles, string
 from hateno.ui import UI
+from hateno.folder import Folder
 from hateno.manager import Manager
 
 def addArguments(parser):
+	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
 	parser.add_argument('--readonly', action = 'store_true', help = 'open the manager in read only mode')
 	parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
 	parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
@@ -21,7 +23,12 @@ def addArguments(parser):
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list to add/delete/extract can be found')
 
 def action(args):
-	with Manager(args.folder_path, readonly = args.readonly) as manager:
+	folder = Folder(args.folder_path)
+
+	if args.fixers is not None:
+		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
+
+	with Manager(folder, readonly = args.readonly) as manager:
 		ui = UI()
 
 		simulations = jsonfiles.read(args.simulations_list, allow_generator = True)

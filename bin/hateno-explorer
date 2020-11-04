@@ -11,10 +11,13 @@ import tabulate
 from math import floor, log10
 
 from hateno import utils, jsonfiles
+from hateno.folder import Folder
 from hateno.explorer import Explorer, ExplorerUI, EvaluationMode
 from hateno.errors import *
 
 def addArguments(parser):
+	parser.add_argument('--namers', type = argparse.FileType('r'), help = 'path to a file defining custom namers')
+	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--default', type = str, help = 'path to the file where the default settings are listed')
 	parser.add_argument('--map', type = str, help = 'path to the file where the map is described')
@@ -33,7 +36,15 @@ def addArguments(parser):
 	parser.add_argument('evaluation_script', type = argparse.FileType('r'), help = 'path to the script where the evaluation function is defined')
 
 def action(args):
-	with Explorer(args.folder_path, args.config, generate_only = not(args.add_to_manager)) as explorer:
+	folder = Folder(args.folder_path)
+
+	if args.namers is not None:
+		folder.namers.loadFromModule(utils.loadModuleFromFile(args.namers.name))
+
+	if args.fixers is not None:
+		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
+
+	with Explorer(folder, args.config, generate_only = not(args.add_to_manager)) as explorer:
 		ui = ExplorerUI(explorer)
 
 		if args.default is not None:
