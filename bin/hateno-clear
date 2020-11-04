@@ -7,6 +7,7 @@ This script uses the Manager class to clear a simulations folder.
 
 import argparse
 
+from hateno import string
 from hateno.ui import UI
 from hateno.manager import Manager
 
@@ -16,7 +17,9 @@ def addArguments(parser):
 
 def action(args):
 	with Manager(args.folder_path) as manager:
-		if manager.getSimulationsNumber() == 0:
+		n_simulations = manager.getSimulationsNumber()
+
+		if n_simulations == 0:
 			print('This folder is empty.')
 			return
 
@@ -24,6 +27,7 @@ def action(args):
 			clear_folder = False
 
 			while True:
+				print('This folder contains ' + string.plural(n_simulations, "simulation", "simulations"))
 				answer = input('Do you really want to clear this folder? [y/N] ').strip().lower()
 
 				if answer in ['', 'y', 'n']:
@@ -39,7 +43,7 @@ def action(args):
 			ui = UI()
 
 			infos_line = ui.addTextLine('Clearing folder…')
-			progress_bar = ui.addProgressBar(manager.getSimulationsNumber())
+			progress_bar = ui.addProgressBar(n_simulations)
 
 			manager.clear(callback = progress_bar.update)
 
