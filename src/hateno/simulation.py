@@ -593,6 +593,9 @@ class Simulation():
 
 		# We search for settings tags in the string, and recursively replace them
 
+		if self._raw_settings is None:
+			self.generateSettings()
+
 		fullmatch = self._setting_tag_regex.fullmatch(s)
 
 		if fullmatch:
