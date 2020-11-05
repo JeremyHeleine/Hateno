@@ -16,7 +16,6 @@ from hateno.manager import Manager
 
 def addArguments(parser):
 	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
-	parser.add_argument('--readonly', action = 'store_true', help = 'open the manager in read only mode')
 	parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
 	parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
 	parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
@@ -27,6 +26,7 @@ def addArguments(parser):
 def action(args):
 	modes_configs = {
 		'add': {
+			'readonly': False,
 			'action': 'Adding',
 			'done': 'added',
 			'function': 'batchAdd',
@@ -34,6 +34,7 @@ def action(args):
 		},
 
 		'delete': {
+			'readonly': False,
 			'action': 'Deleting',
 			'done': 'deleted',
 			'function': 'batchDelete',
@@ -41,6 +42,7 @@ def action(args):
 		},
 
 		'extract': {
+			'readonly': True,
 			'action': 'Extracting',
 			'done': 'extracted',
 			'function': 'batchExtract',
@@ -53,7 +55,7 @@ def action(args):
 	if args.fixers is not None:
 		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
 
-	with Manager(folder, readonly = args.readonly) as manager:
+	with Manager(folder, readonly = modes_configs[args.mode]['readonly']) as manager:
 		if os.path.isfile(args.simulations):
 			simulations = jsonfiles.read(args.simulations, allow_generator = True)
 
