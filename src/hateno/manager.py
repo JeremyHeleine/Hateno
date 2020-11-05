@@ -285,7 +285,7 @@ class Manager():
 		else:
 			return string.toObject(settings_str)
 
-	def add(self, simulation, save_list = True):
+	def add(self, simulation, *, save_list = True):
 		'''
 		Add a simulation to the list.
 
@@ -334,7 +334,55 @@ class Manager():
 		if save_list:
 			self.saveSimulationsList()
 
-	def delete(self, simulation, save_list = True):
+	def addFromFolder(self, folder, *, save_list = True, settings_file = 'settings.json'):
+		'''
+		Add a simulation from its folder.
+
+		Parameters
+		----------
+		folder : str
+			Path to the folder to add.
+
+		save_list : boolean
+			`True` to save the simulations list, `False` otherwise.
+
+		settings_file : str
+			Name of the file containing the settings.
+
+		Raises
+		------
+		OperationNotAllowed
+			Addition is not allowed in read only mode.
+
+		SimulationFolderNotFoundError
+			The indicated folder does not exist.
+
+		SimulationIntegrityCheckFailedError
+			At least one integrity check failed.
+		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
+
+		if not(os.path.isdir(folder)):
+			raise SimulationFolderNotFoundError(folder)
+
+		settings_filepath = os.path.join(folder, settings_file)
+		settings = jsonfiles.read(settings_filepath)
+
+		os.unlink(settings_filepath)
+
+		try:
+			self.add({
+				'folder': folder,
+				'settings': settings
+			}, save_list = save_list)
+
+		except SimulationIntegrityCheckFailedError:
+			jsonfiles.write(settings, settings_filepath)
+			raise
+
+	def delete(self, simulation, *, save_list = True):
 		'''
 		Delete a simulation.
 
@@ -372,7 +420,44 @@ class Manager():
 		if save_list:
 			self.saveSimulationsList()
 
-	def extract(self, simulation, settings_file = None):
+	def deleteFromFolder(self, folder, *, save_list = True, settings_file = 'settings.json'):
+		'''
+		Delete a simulation from its folder.
+
+		Parameters
+		----------
+		folder : str
+			Path to the folder to delete.
+
+		save_list : boolean
+			`True` to save the simulations list, `False` otherwise.
+
+		settings_file : str
+			Name of the file containing the settings.
+
+		Raises
+		------
+		OperationNotAllowed
+			Deletion is not allowed in read only mode.
+
+		SimulationFolderNotFoundError
+			The indicated folder does not exist.
+		'''
+
+		if self._readonly:
+			raise OperationNotAllowed()
+
+		if not(os.path.isdir(folder)):
+			raise SimulationFolderNotFoundError(folder)
+
+		settings = jsonfiles.read(os.path.join(folder, settings_file))
+
+		self.delete({
+			'folder': folder,
+			'settings': settings
+		}, save_list = save_list)
+
+	def extract(self, simulation, *, settings_file = None):
 		'''
 		Extract a simulation.
 
@@ -486,6 +571,26 @@ class Manager():
 
 		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError), callback = callback)
 
+	def batchAddFromFolder(self, folders, *, callback = None):
+		'''
+		Add multiple simulations from their folders.
+
+		Parameters
+		----------
+		folders : list
+			List of folders.
+
+		callback : function
+			Function to call at the end of each addition.
+
+		Returns
+		-------
+		errors : list
+			List of simulations that were not added because they raised an error.
+		'''
+
+		return self.batchAction(folders, self.addFromFolder, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError), callback = callback)
+
 	def batchDelete(self, simulations, *, callback = None):
 		'''
 		Delete multiple simulations.
@@ -505,6 +610,26 @@ class Manager():
 		'''
 
 		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
+
+	def batchDeleteFromFolder(self, folders, *, callback = None):
+		'''
+		Delete multiple simulations from their folders.
+
+		Parameters
+		----------
+		folders : list
+			List of folders.
+
+		callback : function
+			Function to call at the end of each deletion.
+
+		Returns
+		-------
+		errors : list
+			List of simulations that were not deleted because they raised an error.
+		'''
+
+		return self.batchAction(folders, self.deleteFromFolder, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
 
 	def batchExtract(self, simulations, *, settings_file = None, ignore_existing = True, callback = None):
 		'''
