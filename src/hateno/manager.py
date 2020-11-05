@@ -571,7 +571,7 @@ class Manager():
 
 		return self.batchAction(simulations, self.add, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError), callback = callback)
 
-	def batchAddFromFolder(self, folders, *, callback = None):
+	def batchAddFromFolder(self, folders, *, settings_file = 'settings.json', callback = None):
 		'''
 		Add multiple simulations from their folders.
 
@@ -589,7 +589,7 @@ class Manager():
 			List of simulations that were not added because they raised an error.
 		'''
 
-		return self.batchAction(folders, self.addFromFolder, {'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError), callback = callback)
+		return self.batchAction(folders, self.addFromFolder, {'settings_file': settings_file, 'save_list': False}, save_list = True, errors_store = (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError), callback = callback)
 
 	def batchDelete(self, simulations, *, callback = None):
 		'''
@@ -611,7 +611,7 @@ class Manager():
 
 		return self.batchAction(simulations, self.delete, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
 
-	def batchDeleteFromFolder(self, folders, *, callback = None):
+	def batchDeleteFromFolder(self, folders, *, settings_file = 'settings.json', callback = None):
 		'''
 		Delete multiple simulations from their folders.
 
@@ -629,7 +629,7 @@ class Manager():
 			List of simulations that were not deleted because they raised an error.
 		'''
 
-		return self.batchAction(folders, self.deleteFromFolder, {'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
+		return self.batchAction(folders, self.deleteFromFolder, {'settings_file': settings_file, 'save_list': False}, save_list = True, errors_store = (SimulationNotFoundError), callback = callback)
 
 	def batchExtract(self, simulations, *, settings_file = None, ignore_existing = True, callback = None):
 		'''

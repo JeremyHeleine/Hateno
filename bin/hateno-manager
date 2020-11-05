@@ -6,6 +6,7 @@ This script simply uses the Manager class to manage simulations of a folder.
 '''
 
 import os
+import glob
 import argparse
 
 from hateno import utils, jsonfiles, string
@@ -21,7 +22,7 @@ def addArguments(parser):
 	parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
 	parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
 	parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
-	parser.add_argument('simulations', type = str, help = 'path to the file describing the simulations to treat, or the path to a simulation folder')
+	parser.add_argument('simulations', type = str, help = 'path to the file describing the simulations to treat, or to a folder containing the simulations')
 
 def action(args):
 	modes_configs = {
@@ -53,8 +54,6 @@ def action(args):
 		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
 
 	with Manager(folder, readonly = args.readonly) as manager:
-		ui = UI()
-
 		if os.path.isfile(args.simulations):
 			simulations = jsonfiles.read(args.simulations, allow_generator = True)
 
@@ -67,8 +66,15 @@ def action(args):
 				simulations = [{'folder': '', 'settings': s} for s in simulations]
 
 		else:
-			simulations = [args.simulations]
+			simulations = [os.path.dirname(path) for path in glob.glob(os.path.join(args.simulations, '**', args.settings_file), recursive = True)]
 			modes_configs[args.mode]['function'] += 'FromFolder'
+			modes_configs[args.mode]['args']['settings_file'] = args.settings_file
+
+		if not(simulations):
+			print('The list of simulations is empty')
+			return
+
+		ui = UI()
 
 		infos_line = ui.addTextLine(f'{modes_configs[args.mode]["action"]} {string.plural(len(simulations), "simulation", "simulations")}…')
 		progress_bar = ui.addProgressBar(len(simulations))
