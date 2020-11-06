@@ -328,6 +328,7 @@ class Manager():
 
 		self._simulations_list[settings_hashed] = {
 			'name': simulation_name,
+			'added': datetime.datetime.now().isoformat(sep = ' ', timespec = 'seconds'),
 			'settings': settings_str
 		}
 
@@ -692,8 +693,8 @@ class Manager():
 			settings_hashed = string.hash(settings_str)
 
 			new_simulations_list[settings_hashed] = {
-				'name': infos['name'],
-				'settings': settings_str
+				**infos,
+				**{'settings': settings_str}
 			}
 
 			if not(callback is None):
@@ -744,12 +745,12 @@ class Manager():
 			}, self._folder)
 
 			settings_hashed = string.hash(string.fromObject(simulation.settings))
-			simulation_name = self._simulations_list[settings_hashed]['name']
+			simulation_infos = self._simulations_list[settings_hashed]
 
-			self.uncompress(simulation_name, simulation_dir)
+			self.uncompress(simulation_infos['name'], simulation_dir)
 			new_settings = transformation(simulation)
-			os.unlink(os.path.join(self._folder.simulations_folder, f'{simulation_name}.tar.bz2'))
-			self.compress(simulation_dir, simulation_name)
+			os.unlink(os.path.join(self._folder.simulations_folder, f'{simulation_infos["name"]}.tar.bz2'))
+			self.compress(simulation_dir, simulation_infos['name'])
 
 			if not(new_settings is None):
 				new_simulation = Simulation.ensureType({
@@ -763,8 +764,8 @@ class Manager():
 				del self._simulations_list[settings_hashed]
 
 				self._simulations_list[new_settings_hashed] = {
-					'name': simulation_name,
-					'settings': new_settings_str
+					**simulation_infos,
+					**{'settings': new_settings_str}
 				}
 
 				self.saveSimulationsList()
