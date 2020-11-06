@@ -11,16 +11,6 @@ Additional parameters are allowed, set in the configurations file.
 Convention: prefix the name of the function by `fixer_`.
 '''
 
-def fixer_protectStrings(value):
-	'''
-	Protect strings by encapsulating them into quotes if necessary.
-	'''
-
-	if type(value) is str and (not(value) or re.search(r'\s', value) is not None):
-		return repr(value)
-
-	return value
-
 def fixer_intFloats(value):
 	'''
 	Converts floats like `2.0` into integers.
