@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.12 - 2020-11-07
+
+* New `default_config` key in configuration to define the default config to use in the Maker
+* Custom namers and fixers can be imported in the scripts
+* Simulations can be added/deleted from their folders
+* Addition datetime stored in the simulations list
+* JSON generators can now admit parameters
+* Settings tags in Explorer maps
+* Depth passed to evaluation function in the Explorer
+* Configs and skeletons from Folder
+* New default namers to prepend indexes
+* Configuration file renamed to `hateno.conf`
+* Simulations archives stored in a subfolder
+* Fix: strings in `only_if` are not a problem anymore
+* Fix: Maker can be used safely in `generate_only` mode
+
 ## 0.11.1 - 2020-10-26
 
 * Maps' outputs stored in search iterations
