@@ -796,6 +796,9 @@ class SimulationSetting(SimulationBaseSetting):
 		if type(value) is str and (not(value) or re.search(r'\s', value) is not None):
 			value = repr(value)
 
+		elif type(value) is list:
+			value = ' '.join(map(str, value))
+
 		return self._pattern.format(name = self.display_name, value = value)
 
 	def setIndexes(self, global_index, local_index):
