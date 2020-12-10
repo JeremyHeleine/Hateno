@@ -59,6 +59,9 @@ class Explorer():
 		self._save_function = None
 		self._save_folder = None
 
+		self.search_tolerance = 1E-5
+		self.search_itermax = 100
+
 		self.events = Events(['stopped', 'map-start', 'map-end', 'map-component-start', 'map-component-progress', 'map-component-end', 'searches-start', 'searches-end', 'search-start', 'search-iteration', 'search-end'])
 
 	def __enter__(self):
@@ -841,7 +844,7 @@ class Explorer():
 		except AttributeError:
 			return None
 
-	def _searchIteration(self, depth, interval, evaluations, tolerance, itermax):
+	def _searchIteration(self, depth, interval, evaluations):
 		'''
 		Iteration of the search.
 
@@ -855,12 +858,6 @@ class Explorer():
 
 		evaluations : tuple
 			Values of the evaluations at the bounds of the interval.
-
-		tolerance : float
-			Length of the interval at which the precision is considered enough.
-
-		itermax : int
-			Maximal number of iterations if the tolerance is not reached.
 
 		Returns
 		--------
@@ -883,7 +880,7 @@ class Explorer():
 
 		self.events.trigger('search-iteration')
 
-		if abs(b - a) < tolerance or len(self._searches[-1]['iterations']) > itermax:
+		if abs(b - a) < self.search_tolerance or len(self._searches[-1]['iterations']) > self.search_itermax:
 			return interval
 
 		c = 0.5 * (a + b)
@@ -895,12 +892,12 @@ class Explorer():
 		eval_c = self._map_output['evaluations'][-1]['evaluation']
 
 		if self._checkStopCondition(level['stop'], [evaluations[0], eval_c]):
-			return self._searchIteration(depth, (a, c), (evaluations[0], eval_c), tolerance, itermax)
+			return self._searchIteration(depth, (a, c), (evaluations[0], eval_c))
 
 		else:
-			return self._searchIteration(depth, (c, b), (eval_c, evaluations[1]), tolerance, itermax)
+			return self._searchIteration(depth, (c, b), (eval_c, evaluations[1]))
 
-	def search(self, depth, tolerance = 1E-5, itermax = 100):
+	def search(self, depth):
 		'''
 		Search for the best value to verify a stop.
 		There must be only one setting at the given depth, as the search is performed using a dichotomy algorithm.
@@ -912,12 +909,6 @@ class Explorer():
 		----------
 		depth : int
 			The depth at which the stop should be verified.
-
-		tolerance : float
-			Length of the interval at which the precision is considered enough.
-
-		itermax : int
-			Maximal number of iterations if the tolerance is not reached.
 
 		Raises
 		------
@@ -981,7 +972,7 @@ class Explorer():
 				depths[d]['values'] = values if len(values) == 1 else [values]
 				i0 += len(depths[d]['settings'])
 
-			self._searchIteration(depth, (a, b), (initial_output['evaluations'][k-1]['evaluation'], initial_output['evaluations'][k]['evaluation']), tolerance, itermax)
+			self._searchIteration(depth, (a, b), (initial_output['evaluations'][k-1]['evaluation'], initial_output['evaluations'][k]['evaluation']))
 
 			self.events.trigger('search-end')
 

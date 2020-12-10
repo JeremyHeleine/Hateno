@@ -89,7 +89,9 @@ def action(args):
 
 			elif args.search is not None:
 				try:
-					explorer.search(args.search, args.search_tolerance, args.search_itermax)
+					explorer.search_tolerance = args.search_tolerance
+					explorer.search_itermax = args.search_itermax
+					explorer.search(args.search)
 
 				except ExplorerSearchNoSolutionError:
 					ui.clearState()
