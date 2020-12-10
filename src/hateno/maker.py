@@ -5,7 +5,6 @@ import os
 import shutil
 import stat
 import time
-import tempfile
 
 from . import string, jsonfiles
 
@@ -392,7 +391,7 @@ class Maker():
 
 		self.events.trigger('generate-start')
 
-		scripts_dir = tempfile.mkdtemp(prefix = 'simulations-scripts_')
+		scripts_dir = self._simulations_folder.tempdir()
 		self._remote_scripts_dir = self._remote_folder.sendDir(scripts_dir)
 
 		self.generator.add(self._unknown_simulations)
@@ -466,7 +465,7 @@ class Maker():
 		for simulation in self._unknown_simulations:
 			simulation = Simulation.ensureType(simulation, self._simulations_folder)
 
-			tmpdir = tempfile.mkdtemp(prefix = 'simulation_')
+			tmpdir = self._simulations_folder.tempdir()
 			try:
 				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
 

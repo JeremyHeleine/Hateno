@@ -5,7 +5,6 @@ import enum
 import os
 import shutil
 import copy
-import tempfile
 import re
 
 from . import string, jsonfiles
@@ -408,7 +407,7 @@ class Explorer():
 				* `value`: the value of the setting.
 		'''
 
-		self._simulations_dir = tempfile.mkdtemp(prefix = 'hateno-explorer_')
+		self._simulations_dir = self._simulations_folder.tempdir()
 
 		self._simulations = []
 		for k, settings in enumerate(simulations_settings):

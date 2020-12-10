@@ -6,7 +6,6 @@ import errno
 
 import shutil
 import tarfile
-import tempfile
 
 import datetime
 
@@ -737,7 +736,7 @@ class Manager():
 			simulations_settings = [string.toObject(infos['settings']) for infos in self._simulations_list.values()]
 
 		for settings in simulations_settings:
-			simulation_dir = tempfile.mkdtemp(prefix = 'simulation_')
+			simulation_dir = self._folder.tempdir()
 
 			simulation = Simulation.ensureType({
 				'folder': simulation_dir,

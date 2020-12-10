@@ -4,6 +4,7 @@
 import os
 import errno
 import copy
+import tempfile
 
 from . import string, jsonfiles
 from .errors import *
@@ -15,6 +16,7 @@ MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'
 SKELETONS_FOLDER = 'skeletons'
 SIMULATIONS_FOLDER = 'simulations'
+TMP_FOLDER = 'tmp'
 
 CONF_FILENAME = 'hateno.conf'
 SIMULATIONS_LIST_FILENAME = 'simulations.list'
@@ -40,9 +42,13 @@ class Folder():
 		self._folder = folder
 		self._conf_folder_path = os.path.join(self._folder, MAIN_FOLDER)
 		self._settings_file = os.path.join(self._conf_folder_path, CONF_FILENAME)
+		self._tmp_dir = os.path.join(self._conf_folder_path, TMP_FOLDER)
 
 		if not(os.path.isfile(self._settings_file)):
 			raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self._settings_file)
+
+		if not(os.path.isdir(self._tmp_dir)):
+			os.makedirs(self._tmp_dir)
 
 		self._settings = None
 
@@ -64,6 +70,18 @@ class Folder():
 		'''
 
 		return self._folder
+
+	def tempdir(self):
+		'''
+		Create a temporary directory.
+
+		Returns
+		-------
+		path : str
+			The path to the created folder.
+		'''
+
+		return tempfile.mkdtemp(dir = self._tmp_dir)
 
 	def config(self, configname, foldername = None):
 		'''
