@@ -104,19 +104,18 @@ def action(args):
 					n_previous_settings = len(headers)
 
 					setting = explorer.map_depths[args.search]['settings'][0]
-					setting_path = f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}'
-					headers+= [f'{setting_path} (lower)', f'{setting_path} (upper)']
+					headers+= [f'{setting["set"]}[{setting["set_index"]}]/{setting["name"]}']
 
 					lines = [
 						[
 							setting['value']
 							for setting in search['previous_settings']
-						] + [value for value in search['iterations'][-1]['interval']]
+						] + [search['iterations'][-1]['iterate']]
 						for search in explorer.searches
 					]
 
 					results_fmt = f'.{max(-floor(log10(args.search_tolerance)), 0)+2}f'
-					print(tabulate.tabulate(lines, headers = headers, tablefmt = 'github', floatfmt = ('g',)*n_previous_settings + (results_fmt,)*2))
+					print(tabulate.tabulate(lines, headers = headers, tablefmt = 'github', floatfmt = ('g',)*n_previous_settings + (results_fmt,)))
 
 					if args.iterations is not None:
 						jsonfiles.write(explorer.searches, args.iterations, sort_keys = False)

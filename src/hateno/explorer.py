@@ -844,58 +844,52 @@ class Explorer():
 		except AttributeError:
 			return None
 
-	def _searchIteration(self, depth, interval, evaluations):
+	def _searchIteration(self):
 		'''
 		Iteration of the search.
-
-		Parameters
-		----------
-		depth : int
-			The depth to optimize.
-
-		interval : tuple
-			Lower and upper bounds of the current search interval.
-
-		evaluations : tuple
-			Values of the evaluations at the bounds of the interval.
-
-		Returns
-		--------
-		interval : tuple
-			The latest search interval.
 		'''
-
-		a, b = interval
-
-		iterations = self._searches[-1]['iterations']
-		iter_infos = {
-			'interval': interval,
-			'evaluations': evaluations
-		}
-
-		if iterations:
-			iter_infos['map_output'] = self._map_output
-
-		iterations.append(iter_infos)
 
 		self.events.trigger('search-iteration')
 
-		if abs(b - a) < self.search_tolerance or len(self._searches[-1]['iterations']) > self.search_itermax:
-			return interval
+		iteration = {}
 
-		c = 0.5 * (a + b)
+		if self._current_search['iterations']:
+			latest = self._current_search['iterations'][-1]
 
-		level = self.map_depths[depth]
-		level['values'] = [c]
-		self.followMap()
+			if self._checkStopCondition(self.map_depths[self._search_depth]['stop'], [latest['interval']['evaluations'][0], latest['evaluation']]):
+				iteration['interval'] = {
+					'bounds': (latest['interval']['bounds'][0], latest['iterate']),
+					'evaluations': (latest['interval']['evaluations'][0], latest['evaluation'])
+				}
 
-		eval_c = self._map_output['evaluations'][-1]['evaluation']
-
-		if self._checkStopCondition(level['stop'], [evaluations[0], eval_c]):
-			return self._searchIteration(depth, (a, c), (evaluations[0], eval_c))
+			else:
+				iteration['interval'] = {
+					'bounds': (latest['iterate'], latest['interval']['bounds'][1]),
+					'evaluations': (latest['evaluation'], latest['interval']['evaluations'][1])
+				}
 
 		else:
-			return self._searchIteration(depth, (c, b), (eval_c, evaluations[1]))
+			iteration['interval'] = self._current_search['interval']
+
+		iteration['iterate'] = 0.5 * sum(iteration['interval']['bounds'])
+
+		self.map_depths[self._search_depth]['values'] = [iteration['iterate']]
+		self.followMap()
+
+		iteration['evaluation'] = self._map_output['evaluations'][-1]['evaluation']
+		iteration['map_output'] = self._map_output
+
+		if len(self._current_search['iterations']) > 0:
+			iteration['stopping_criterion'] = abs(iteration['iterate'] - self._current_search['iterations'][-1]['iterate'])
+
+		else:
+			a, b = self._current_search['interval']['bounds']
+			iteration['stopping_criterion'] = abs(b - a)
+
+		self._current_search['iterations'].append(iteration)
+
+		if iteration['stopping_criterion'] >= self.search_tolerance and len(self._current_search['iterations']) <= self.search_itermax:
+			self._searchIteration()
 
 	def search(self, depth):
 		'''
@@ -950,6 +944,7 @@ class Explorer():
 
 		self.events.trigger('searches-start', len(settings_with_stop))
 
+		self._search_depth = depth
 		self._searches = []
 		initial_output = self._map_output
 
@@ -958,13 +953,19 @@ class Explorer():
 		for stopped, k in settings_with_stop:
 			self.events.trigger('search-start')
 
-			self._searches.append({
-				'previous_settings': stopped[:-1],
-				'iterations': []
-			})
-
 			a = (initial_output['evaluations'][k-1]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k-1]['settings'][-1])[depth_setting_k0]['value']
 			b = (initial_output['evaluations'][k]['settings'] if self._evaluation_mode == EvaluationMode.EACH else initial_output['evaluations'][k]['settings'][-1])[depth_setting_k0]['value']
+
+			self._current_search = {
+				'previous_settings': stopped[:-1],
+				'interval': {
+					'bounds': (a, b),
+					'evaluations': (initial_output['evaluations'][k-1]['evaluation'], initial_output['evaluations'][k]['evaluation'])
+				},
+				'iterations': []
+			}
+
+			self._searches.append(self._current_search)
 
 			i0 = 0
 			for d in range(0, depth):
@@ -972,7 +973,7 @@ class Explorer():
 				depths[d]['values'] = values if len(values) == 1 else [values]
 				i0 += len(depths[d]['settings'])
 
-			self._searchIteration(depth, (a, b), (initial_output['evaluations'][k-1]['evaluation'], initial_output['evaluations'][k]['evaluation']))
+			self._searchIteration()
 
 			self.events.trigger('search-end')
 
@@ -1170,8 +1171,13 @@ class ExplorerUI(MakerUI):
 
 		current_search = self._explorer.searches[-1]
 		n_iterations = len(current_search['iterations'])
-		interval = current_search['iterations'][-1]['interval']
-		self._updateExplorerState(f'Iteration {n_iterations}, interval length: {abs(interval[1] - interval[0])}')
+
+		if n_iterations > 0:
+			criterion = current_search['iterations'][-1]['stopping_criterion']
+		else:
+			criterion = abs(current_search['interval']['bounds'][1] - current_search['interval']['bounds'][0])
+
+		self._updateExplorerState(f'Iteration {n_iterations+1}, stopping criterion: {criterion}')
 
 	def _searchEnd(self):
 		'''
