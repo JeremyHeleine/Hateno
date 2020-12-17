@@ -470,6 +470,8 @@ class Explorer():
 		By default, the condition is tested against the latest evaluation (e.g. "> 0" is then equivalent to "[-1] > 0").
 		If we try to access non-existing indices, or if we expect a certain number of evaluations that is not reached yet, always return `False`.
 
+		If the condition is just a number, check if we passed through this value.
+
 		Parameters
 		----------
 		stop_condition : str
@@ -486,6 +488,9 @@ class Explorer():
 
 		if stop_condition is None:
 			return False
+
+		if isinstance(stop_condition, (float, int)):
+			return self._checkStopCondition(f'([-2] - {stop_condition}) * ([-1] - {stop_condition}) <= 0', evaluations)
 
 		first_operator_match = re.search(r'([<>]=?|[!=]=|in)', stop_condition.strip())
 
@@ -844,6 +849,31 @@ class Explorer():
 		except AttributeError:
 			return None
 
+	def _dichotomy(self):
+		'''
+		Calculate the new iterate of a search by using a dichotomy.
+		'''
+
+		if self._current_search['iterations']:
+			latest = self._current_search['iterations'][-1]
+
+			if self._checkStopCondition(self.map_depths[self._search_depth]['stop'], [latest['interval']['evaluations'][0], latest['evaluation']]):
+				self._current_search_iteration['interval'] = {
+					'bounds': (latest['interval']['bounds'][0], latest['iterate']),
+					'evaluations': (latest['interval']['evaluations'][0], latest['evaluation'])
+				}
+
+			else:
+				self._current_search_iteration['interval'] = {
+					'bounds': (latest['iterate'], latest['interval']['bounds'][1]),
+					'evaluations': (latest['evaluation'], latest['interval']['evaluations'][1])
+				}
+
+		else:
+			self._current_search_iteration['interval'] = self._current_search['interval']
+
+		self._current_search_iteration['iterate'] = 0.5 * sum(self._current_search_iteration['interval']['bounds'])
+
 	def _searchIteration(self):
 		'''
 		Iteration of the search.
@@ -851,44 +881,30 @@ class Explorer():
 
 		self.events.trigger('search-iteration')
 
-		iteration = {}
+		self._current_search_iteration = {}
 
-		if self._current_search['iterations']:
-			latest = self._current_search['iterations'][-1]
+		self._dichotomy()
 
-			if self._checkStopCondition(self.map_depths[self._search_depth]['stop'], [latest['interval']['evaluations'][0], latest['evaluation']]):
-				iteration['interval'] = {
-					'bounds': (latest['interval']['bounds'][0], latest['iterate']),
-					'evaluations': (latest['interval']['evaluations'][0], latest['evaluation'])
-				}
-
-			else:
-				iteration['interval'] = {
-					'bounds': (latest['iterate'], latest['interval']['bounds'][1]),
-					'evaluations': (latest['evaluation'], latest['interval']['evaluations'][1])
-				}
-
-		else:
-			iteration['interval'] = self._current_search['interval']
-
-		iteration['iterate'] = 0.5 * sum(iteration['interval']['bounds'])
-
-		self.map_depths[self._search_depth]['values'] = [iteration['iterate']]
+		self.map_depths[self._search_depth]['values'] = [self._current_search_iteration['iterate']]
 		self.followMap()
 
-		iteration['evaluation'] = self._map_output['evaluations'][-1]['evaluation']
-		iteration['map_output'] = self._map_output
+		self._current_search_iteration['evaluation'] = self._map_output['evaluations'][-1]['evaluation']
+		self._current_search_iteration['map_output'] = self._map_output
 
-		if len(self._current_search['iterations']) > 0:
-			iteration['stopping_criterion'] = abs(iteration['iterate'] - self._current_search['iterations'][-1]['iterate'])
+		if isinstance(self.map_depths[self._search_depth]['stop'], (float, int)):
+			self._current_search_iteration['stopping_criterion'] = abs(self._current_search_iteration['evaluation'] - self.map_depths[self._search_depth]['stop'])
 
 		else:
-			a, b = self._current_search['interval']['bounds']
-			iteration['stopping_criterion'] = abs(b - a)
+			if len(self._current_search['iterations']) > 0:
+				self._current_search_iteration['stopping_criterion'] = abs(self._current_search_iteration['iterate'] - self._current_search['iterations'][-1]['iterate'])
 
-		self._current_search['iterations'].append(iteration)
+			else:
+				a, b = self._current_search['interval']['bounds']
+				self._current_search_iteration['stopping_criterion'] = abs(b - a)
 
-		if iteration['stopping_criterion'] >= self.search_tolerance and len(self._current_search['iterations']) <= self.search_itermax:
+		self._current_search['iterations'].append(self._current_search_iteration)
+
+		if self._current_search_iteration['stopping_criterion'] >= self.search_tolerance and len(self._current_search['iterations']) <= self.search_itermax:
 			self._searchIteration()
 
 	def search(self, depth):
