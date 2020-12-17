@@ -849,9 +849,9 @@ class Explorer():
 		except AttributeError:
 			return None
 
-	def _dichotomy(self):
+	def _searchInterval(self):
 		'''
-		Calculate the new iterate of a search by using a dichotomy.
+		Determine the new search interval.
 		'''
 
 		if self._current_search['iterations']:
@@ -872,7 +872,24 @@ class Explorer():
 		else:
 			self._current_search_iteration['interval'] = self._current_search['interval']
 
+	def _dichotomy(self):
+		'''
+		Calculate the new iterate of a search by using a dichotomy.
+		'''
+
 		self._current_search_iteration['iterate'] = 0.5 * sum(self._current_search_iteration['interval']['bounds'])
+
+	def _secant(self):
+		'''
+		Calculate the new iterate of a search by using a secant method.
+		'''
+
+		x0, x1 = self._current_search_iteration['interval']['bounds']
+		y0, y1 = self._current_search_iteration['interval']['evaluations']
+
+		target = self.map_depths[self._search_depth]['stop']
+
+		self._current_search_iteration['iterate'] = x0 + (target - y0) * (x0 - x1) / (y0 - y1)
 
 	def _searchIteration(self):
 		'''
@@ -883,7 +900,12 @@ class Explorer():
 
 		self._current_search_iteration = {}
 
-		self._dichotomy()
+		self._searchInterval()
+
+		if isinstance(self.map_depths[self._search_depth]['stop'], (float, int)):
+			self._secant()
+		else:
+			self._dichotomy()
 
 		self.map_depths[self._search_depth]['values'] = [self._current_search_iteration['iterate']]
 		self.followMap()
