@@ -14,7 +14,6 @@ from .errors import *
 from .fcollection import FCollection
 from .folder import Folder
 from .simulation import Simulation
-from . import checkers as default_checkers
 
 class Manager():
 	'''
@@ -126,79 +125,6 @@ class Manager():
 			raise OperationNotAllowed()
 
 		jsonfiles.write(self._simulations_list, self._folder.simulations_list_filename)
-
-	@property
-	def checkers(self):
-		'''
-		Get the list of available checkers.
-
-		Returns
-		-------
-		checkers : FCollection
-			The collection of checkers.
-		'''
-
-		if self._checkers is None:
-			self._checkers = FCollection(
-				categories = ['file', 'folder', 'global'],
-				filter_regex = r'^(?P<category>file|folder|global)_(?P<name>[A-Za-z0-9_]+)$'
-			)
-
-			self._checkers.loadFromModule(default_checkers)
-
-		return self._checkers
-
-	def checkIntegrity(self, simulation):
-		'''
-		Check the integrity of a simulation.
-
-		Parameters
-		----------
-		simulation : Simulation
-			The simulation to check.
-
-		Returns
-		-------
-		success : bool
-			`True` if the integrity check is successful, `False` otherwise.
-		'''
-
-		tree = {}
-
-		for output_entry in ['files', 'folders']:
-			tree[output_entry] = []
-			checkers_cat = output_entry[:-1]
-
-			if output_entry in self._folder.settings['output']:
-				for output in self._folder.settings['output'][output_entry]:
-					parsed_name = str(simulation.parseString(output['name']))
-					tree[output_entry].append(parsed_name)
-
-					if 'checks' in output:
-						for checker_name in output['checks']:
-							try:
-								checker = self.checkers.get(checker_name, category = checkers_cat)
-
-							except FCollectionFunctionNotFoundError:
-								raise CheckerNotFoundError(checker_name, checkers_cat)
-
-							else:
-								if not(checker(simulation, parsed_name)):
-									return False
-
-		if 'checks' in self._folder.settings['output']:
-			for checker_name in self._folder.settings['output']['checks']:
-				try:
-					checker = self.checkers.get(checker_name, category = 'global')
-
-				except FCollectionFunctionNotFoundError:
-					raise CheckerNotFoundError(checker_name, 'global')
-
-				else:
-					if not(checker(simulation, tree)):
-						return False
-
-		return True
 
 	def compress(self, folder, simulation_name):
 		'''
@@ -320,7 +246,7 @@ class Manager():
 		settings_hashed = string.hash(settings_str)
 		simulation_name = string.uniqueID()
 
-		if not(self.checkIntegrity(simulation)):
+		if not(self._folder.checkIntegrity(simulation)):
 			raise SimulationIntegrityCheckFailedError(simulation['folder'])
 
 		self.compress(simulation['folder'], simulation_name)

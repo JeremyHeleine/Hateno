@@ -11,6 +11,7 @@ from .errors import *
 from .fcollection import FCollection
 from . import namers as default_namers
 from . import fixers as default_fixers
+from . import checkers as default_checkers
 
 MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'
@@ -57,6 +58,7 @@ class Folder():
 
 		self._namers = None
 		self._fixers = None
+		self._checkers = None
 
 	@property
 	def folder(self):
@@ -274,6 +276,31 @@ class Folder():
 
 		return self._namers
 
+	@property
+	def checkers(self):
+		'''
+		Get the list of available checkers.
+
+		Returns
+		-------
+		checkers : FCollection
+			The collection of checkers.
+		'''
+
+		if self._checkers is None:
+			self._checkers = FCollection(
+				categories = ['file', 'folder', 'global'],
+				filter_regex = r'^(?P<category>file|folder|global)_(?P<name>[A-Za-z0-9_]+)$'
+			)
+
+			self._checkers.loadFromModule(default_checkers)
+
+			custom_checkers_file = os.path.join(self._conf_folder_path, 'checkers.py')
+			if os.path.isfile(custom_checkers_file):
+				self._checkers.loadFromModule(utils.loadModuleFromFile(custom_checkers_file))
+
+		return self._checkers
+
 	def applyFixers(self, value, *, before = [], after = []):
 		'''
 		Fix a value to prevent false duplicates (e.g. this prevents to consider `0.0` and `0` as different values).
@@ -360,3 +387,55 @@ class Folder():
 				name = namer_func(setting, *namer[1:])
 
 		return name
+
+	def checkIntegrity(self, simulation):
+		'''
+		Check the integrity of a simulation.
+
+		Parameters
+		----------
+		simulation : Simulation
+			The simulation to check.
+
+		Returns
+		-------
+		success : bool
+			`True` if the integrity check is successful, `False` otherwise.
+		'''
+
+		tree = {}
+
+		for output_entry in ['files', 'folders']:
+			tree[output_entry] = []
+			checkers_cat = output_entry[:-1]
+
+			if output_entry in self.settings['output']:
+				for output in self.settings['output'][output_entry]:
+					parsed_name = str(simulation.parseString(output['name']))
+					tree[output_entry].append(parsed_name)
+
+					if 'checks' in output:
+						for checker_name in output['checks']:
+							try:
+								checker = self.checkers.get(checker_name, category = checkers_cat)
+
+							except FCollectionFunctionNotFoundError:
+								raise CheckerNotFoundError(checker_name, checkers_cat)
+
+							else:
+								if not(checker(simulation, parsed_name)):
+									return False
+
+		if 'checks' in self.settings['output']:
+			for checker_name in self.settings['output']['checks']:
+				try:
+					checker = self.checkers.get(checker_name, category = 'global')
+
+				except FCollectionFunctionNotFoundError:
+					raise CheckerNotFoundError(checker_name, 'global')
+
+				else:
+					if not(checker(simulation, tree)):
+						return False
+
+		return True
