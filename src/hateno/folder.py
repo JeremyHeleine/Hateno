@@ -318,26 +318,14 @@ class Folder():
 
 		return value
 
-	def applyNamers(self, name, local_index, local_total, global_index, global_total, *, before = [], after = []):
+	def applyNamers(self, setting, *, before = [], after = []):
 		'''
 		Transform the name of a setting before being used in a simulation.
 
 		Parameters
 		----------
-		name : str
-			The name of the setting to alter.
-
-		local_index : int
-			The index of the setting, inside its set.
-
-		local_total : int
-			The total number the setting has been used inside its set.
-
-		global_index : int
-			The index of the setting, among all sets.
-
-		global_total : int
-			The total number the setting has been used among all sets.
+		setting : dict
+			Representation of the setting.
 
 		before : list
 			List of namers to apply before the global ones.
@@ -356,6 +344,8 @@ class Folder():
 			The namer's name has not been found.
 		'''
 
+		name = setting['name']
+
 		for namer in before + self.settings['namers'] + after:
 			if type(namer) is not list:
 				namer = [namer]
@@ -367,6 +357,6 @@ class Folder():
 				raise NamerNotFoundError(namer[0])
 
 			else:
-				name = namer_func(name, local_index, local_total, global_index, global_total, *namer[1:])
+				name = namer_func(setting, *namer[1:])
 
 		return name

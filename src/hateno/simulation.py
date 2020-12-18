@@ -801,6 +801,25 @@ class SimulationSetting(SimulationBaseSetting):
 
 		return self._pattern.format(name = self.display_name, value = value)
 
+	def as_dict(self):
+		'''
+		Dictionary representation of the setting.
+
+		Returns
+		-------
+		setting : dict
+			A dictionary listing some properties of the setting.
+		'''
+
+		return {
+			'name': self.name,
+			'value': self.value,
+			'local_index': self._local_index,
+			'local_total': self._simulation.getSettingCount(self.name, self._set_name),
+			'global_index': self._global_index,
+			'global_total': self._simulation.getSettingCount(self.name)
+		}
+
 	def setIndexes(self, global_index, local_index):
 		'''
 		Define the global and local indexes of this setting.
@@ -902,10 +921,7 @@ class SimulationSetting(SimulationBaseSetting):
 			Name to use.
 		'''
 
-		global_total = self._simulation.getSettingCount(self.name)
-		local_total = self._simulation.getSettingCount(self.name, self._set_name)
-
-		return self._simulation.folder.applyNamers(self.name, self._local_index, local_total, self._global_index, global_total, **self._namers)
+		return self._simulation.folder.applyNamers(self.as_dict(), **self._namers)
 
 	@property
 	def exclude(self):

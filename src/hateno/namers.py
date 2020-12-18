@@ -8,20 +8,8 @@ Convention: prefix the name of the function by `namer_`.
 
 Parameters
 ----------
-name : str
-	The name of the setting.
-
-local_index : int
-	The index of the setting, inside its set.
-
-local_total : int
-	The total number the setting has been used inside its set.
-
-global_index : int
-	The index of the setting, among all sets.
-
-global_total : int
-	The total number the setting has been used among all sets.
+setting : dict
+	Representation of the setting.
 
 Returns
 -------
@@ -29,7 +17,7 @@ display_name : str
 	The name to use when launching the simulation.
 '''
 
-def namer_appendLocalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
+def namer_appendLocalIndex(setting, separator = '-', only_if_multiple = False):
 	'''
 	Append the local index to the name.
 
@@ -42,12 +30,12 @@ def namer_appendLocalIndex(name, local_index, local_total, global_index, global_
 		Separator between the name and the index.
 	'''
 
-	if only_if_multiple and local_total <= 1:
-		return name
+	if only_if_multiple and setting['local_total'] <= 1:
+		return setting['name']
 
-	return name + separator + str(local_index)
+	return setting['name'] + separator + str(setting['local_index'])
 
-def namer_prependLocalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
+def namer_prependLocalIndex(setting, separator = '-', only_if_multiple = False):
 	'''
 	Prepend the local index to the name.
 
@@ -60,12 +48,12 @@ def namer_prependLocalIndex(name, local_index, local_total, global_index, global
 		Separator between the name and the index.
 	'''
 
-	if only_if_multiple and local_total <= 1:
-		return name
+	if only_if_multiple and setting['local_total'] <= 1:
+		return setting['name']
 
-	return str(local_index) + separator + name
+	return str(setting['local_index']) + separator + setting['name']
 
-def namer_appendGlobalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
+def namer_appendGlobalIndex(setting, separator = '-', only_if_multiple = False):
 	'''
 	Append the local index to the name.
 
@@ -78,12 +66,12 @@ def namer_appendGlobalIndex(name, local_index, local_total, global_index, global
 		Separator between the name and the index.
 	'''
 
-	if only_if_multiple and global_total <= 1:
-		return name
+	if only_if_multiple and setting['global_total'] <= 1:
+		return setting['name']
 
-	return name + separator + str(global_index)
+	return setting['name'] + separator + str(setting['global_index'])
 
-def namer_prependGlobalIndex(name, local_index, local_total, global_index, global_total, separator = '-', only_if_multiple = False):
+def namer_prependGlobalIndex(setting, separator = '-', only_if_multiple = False):
 	'''
 	Prepend the local index to the name.
 
@@ -96,12 +84,12 @@ def namer_prependGlobalIndex(name, local_index, local_total, global_index, globa
 		Separator between the name and the index.
 	'''
 
-	if only_if_multiple and global_total <= 1:
-		return name
+	if only_if_multiple and setting['global_total'] <= 1:
+		return setting['name']
 
-	return str(global_index) + separator + name
+	return str(setting['global_index']) + separator + setting['name']
 
-def namer_suffix(name, local_index, local_total, global_index, global_total, suffix = ''):
+def namer_suffix(setting, suffix = ''):
 	'''
 	Append a string to the name.
 
@@ -111,9 +99,9 @@ def namer_suffix(name, local_index, local_total, global_index, global_total, suf
 		The string to append.
 	'''
 
-	return name + suffix
+	return setting['name'] + suffix
 
-def namer_prefix(name, local_index, local_total, global_index, global_total, prefix = ''):
+def namer_prefix(setting, prefix = ''):
 	'''
 	Prepend a string to the name.
 
@@ -123,4 +111,4 @@ def namer_prefix(name, local_index, local_total, global_index, global_total, pre
 		The string to prepend.
 	'''
 
-	return prefix + name
+	return prefix + setting['name']
