@@ -6,7 +6,7 @@ import errno
 import copy
 import tempfile
 
-from . import string, jsonfiles
+from . import utils, string, jsonfiles
 from .errors import *
 from .fcollection import FCollection
 from . import namers as default_namers
@@ -247,6 +247,10 @@ class Folder():
 			self._fixers = FCollection(filter_regex = r'^fixer_(?P<name>[A-Za-z0-9_]+)$')
 			self._fixers.loadFromModule(default_fixers)
 
+			custom_fixers_file = os.path.join(self._conf_folder_path, 'fixers.py')
+			if os.path.isfile(custom_fixers_file):
+				self._fixers.loadFromModule(utils.loadModuleFromFile(custom_fixers_file))
+
 		return self._fixers
 
 	@property
@@ -263,6 +267,10 @@ class Folder():
 		if self._namers is None:
 			self._namers = FCollection(filter_regex = r'^namer_(?P<name>[A-Za-z0-9_]+)$')
 			self._namers.loadFromModule(default_namers)
+
+			custom_namers_file = os.path.join(self._conf_folder_path, 'namers.py')
+			if os.path.isfile(custom_namers_file):
+				self._namers.loadFromModule(utils.loadModuleFromFile(custom_namers_file))
 
 		return self._namers
 

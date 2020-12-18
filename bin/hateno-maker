@@ -8,13 +8,11 @@ This script uses the Maker class to extract/generate simulations.
 import os
 import argparse
 
-from hateno import utils, jsonfiles, string
+from hateno import jsonfiles, string
 from hateno.folder import Folder
 from hateno.maker import Maker, MakerUI
 
 def addArguments(parser):
-	parser.add_argument('--namers', type = argparse.FileType('r'), help = 'path to a file defining custom namers')
-	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--copy-list', type = str, help = 'path to use to save a copy of the list of the simulations to generate')
 	parser.add_argument('--merge-copy', action = 'store_true', help = 'if the copy file already exists, merge instead of replace')
@@ -24,14 +22,6 @@ def addArguments(parser):
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
 def action(args):
-	folder = Folder(args.folder_path)
-
-	if args.namers is not None:
-		folder.namers.loadFromModule(utils.loadModuleFromFile(args.namers.name))
-
-	if args.fixers is not None:
-		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
-
 	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 
 	if not(type(simulations) is list):
@@ -45,7 +35,7 @@ def action(args):
 
 		jsonfiles.write(list(simulations_to_write), args.copy_list)
 
-	with Maker(folder, args.config) as maker:
+	with Maker(args.folder_path, args.config) as maker:
 		ui = MakerUI(maker)
 
 		if os.path.isfile(args.pause_file):

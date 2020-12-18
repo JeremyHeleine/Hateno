@@ -7,14 +7,12 @@ This script uses the Generator class to generate the scripts corresponding to so
 
 import argparse
 
-from hateno import utils, jsonfiles
+from hateno import jsonfiles
 from hateno.folder import Folder
 from hateno.generator import Generator
 from hateno.errors import *
 
 def addArguments(parser):
-	parser.add_argument('--namers', type = argparse.FileType('r'), help = 'path to a file defining custom namers')
-	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--output-dir', type = str, help = 'folder to create')
 	parser.add_argument('--empty-output', action = 'store_true', help = 'ensure the output directory is empty')
@@ -22,15 +20,7 @@ def addArguments(parser):
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
 def action(args):
-	folder = Folder(args.folder_path)
-
-	if args.namers is not None:
-		folder.namers.loadFromModule(utils.loadModuleFromFile(args.namers.name))
-
-	if args.fixers is not None:
-		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
-
-	generator = Generator(folder)
+	generator = Generator(args.folder_path)
 
 	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 	generator.add(simulations)

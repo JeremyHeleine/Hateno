@@ -9,13 +9,12 @@ import os
 import glob
 import argparse
 
-from hateno import utils, jsonfiles, string
+from hateno import jsonfiles, string
 from hateno.ui import UI
 from hateno.folder import Folder
 from hateno.manager import Manager
 
 def addArguments(parser):
-	parser.add_argument('--fixers', type = argparse.FileType('r'), help = 'path to a file defining custom fixers')
 	parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
 	parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
 	parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
@@ -50,12 +49,7 @@ def action(args):
 		}
 	}
 
-	folder = Folder(args.folder_path)
-
-	if args.fixers is not None:
-		folder.fixers.loadFromModule(utils.loadModuleFromFile(args.fixers.name))
-
-	with Manager(folder, readonly = modes_configs[args.mode]['readonly']) as manager:
+	with Manager(args.folder_path, readonly = modes_configs[args.mode]['readonly']) as manager:
 		if os.path.isfile(args.simulations):
 			simulations = jsonfiles.read(args.simulations, allow_generator = True)
 
