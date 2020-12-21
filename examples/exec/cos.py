@@ -24,8 +24,14 @@ Y = [
 dir = sys.argv[sys.argv.index('-dir')+1]
 os.makedirs(dir)
 
-with open(os.path.join(dir, sys.argv[sys.argv.index('-x-file')+1]), 'w') as f:
-	f.write('\n'.join(map(str, X)))
+try:
+	with open(os.path.join(dir, sys.argv[sys.argv.index('-x-file')+1]), 'w') as f:
+		f.write('\n'.join(map(str, X)))
+except ValueError:
+	pass
 
-with open(os.path.join(dir, sys.argv[sys.argv.index('-y-file')+1]), 'w') as f:
-	f.write('\n'.join(map(str, Y)))
+try:
+	with open(os.path.join(dir, sys.argv[sys.argv.index('-y-file')+1]), 'w') as f:
+		f.write('\n'.join(map(str, Y)))
+except ValueError:
+	pass

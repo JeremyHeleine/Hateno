@@ -11,7 +11,6 @@ import datetime
 
 from . import jsonfiles, string
 from .errors import *
-from .fcollection import FCollection
 from .folder import Folder
 from .simulation import Simulation
 

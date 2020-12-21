@@ -150,6 +150,41 @@ class FCollection():
 
 		return list(self._getList(category).values())
 
+	def call(self, fdesc, *args, category = None):
+		'''
+		Call a function.
+
+		Parameters
+		----------
+		fdesc : str|list
+			Name of the function to call, or list with name of the function as first item and then arguments to pass.
+
+		args : mixed
+			Args to pass to the function, before the description's ones.
+
+		category : str
+			Name of the category, if any.
+
+		Returns
+		-------
+		output : mixed
+			Output of the called function.
+		'''
+
+		list_to_manage = self._getList(category)
+
+		if type(fdesc) is not list:
+			fdesc = [fdesc]
+
+		try:
+			f = list_to_manage[fdesc[0]]
+
+		except KeyError:
+			raise FCollectionFunctionNotFoundError(fdesc[0])
+
+		else:
+			return f(*args, *fdesc[1:])
+
 	def setFilterRegex(self, filter_regex):
 		'''
 		Define the filter regex.

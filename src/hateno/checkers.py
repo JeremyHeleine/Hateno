@@ -42,38 +42,70 @@ tree : dict
 import os
 import glob
 
-def file_exists(simulation, filename):
+def file_exists(simulation, filename, check_if = None):
 	'''
 	File checker.
 	Check if at least one file matching the pattern exists.
+
+	Parameters
+	----------
+	check_if : str
+		If provided, do the check only if this condition is true.
 	'''
+
+	if check_if is not None and not(simulation.parseString(f'(({check_if}))')):
+		return True
 
 	matching_files = [entry for entry in glob.glob(os.path.join(simulation['folder'], filename)) if os.path.isfile(entry)]
 	return len(matching_files) > 0
 
-def file_notEmpty(simulation, filename):
+def file_notEmpty(simulation, filename, check_if = None):
 	'''
 	File checker.
 	Check if all files matching the pattern are non empty.
+
+	Parameters
+	----------
+	check_if : str
+		If provided, do the check only if this condition is true.
 	'''
+
+	if check_if is not None and not(simulation.parseString(f'(({check_if}))')):
+		return True
 
 	nonempty_files = [entry for entry in glob.glob(os.path.join(simulation['folder'], filename)) if os.path.isfile(entry) and os.stat(entry).st_size != 0]
 	return len(nonempty_files) > 0
 
-def folder_exists(simulation, foldername):
+def folder_exists(simulation, foldername, check_if = None):
 	'''
 	Folder check.
 	Check if at least one folder matching the pattern exists.
+
+	Parameters
+	----------
+	check_if : str
+		If provided, do the check only if this condition is true.
 	'''
+
+	if check_if is not None and not(simulation.parseString(f'(({check_if}))')):
+		return True
 
 	matching_folders = [entry for entry in glob.glob(os.path.join(simulation['folder'], foldername)) if os.path.isdir(entry)]
 	return len(matching_folders) > 0
 
-def folder_notEmpty(simulation, foldername):
+def folder_notEmpty(simulation, foldername, check_if = None):
 	'''
 	Folder check.
 	Check if the folder is not empty.
+
+	Parameters
+	----------
+	check_if : str
+		If provided, do the check only if this condition is true.
 	'''
+
+	if check_if is not None and not(simulation.parseString(f'(({check_if}))')):
+		return True
 
 	return len(os.listdir(os.path.join(simulation['folder'], foldername))) > 0
 

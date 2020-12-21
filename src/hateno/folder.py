@@ -331,17 +331,7 @@ class Folder():
 		value = copy.deepcopy(value)
 
 		for fixer in before + self.settings['fixers'] + after:
-			if type(fixer) is not list:
-				fixer = [fixer]
-
-			try:
-				fixer_func = self.fixers.get(fixer[0])
-
-			except FCollectionFunctionNotFoundError:
-				raise FixerNotFoundError(fixer[0])
-
-			else:
-				value = fixer_func(value, *fixer[1:])
+			value = self.fixers.call(fixer, value)
 
 		return value
 
@@ -374,17 +364,7 @@ class Folder():
 		name = setting['name']
 
 		for namer in before + self.settings['namers'] + after:
-			if type(namer) is not list:
-				namer = [namer]
-
-			try:
-				namer_func = self.namers.get(namer[0])
-
-			except FCollectionFunctionNotFoundError:
-				raise NamerNotFoundError(namer[0])
-
-			else:
-				name = namer_func(setting, *namer[1:])
+			name = self.namers.call(namer, setting)
 
 		return name
 
@@ -415,27 +395,13 @@ class Folder():
 					tree[output_entry].append(parsed_name)
 
 					if 'checks' in output:
-						for checker_name in output['checks']:
-							try:
-								checker = self.checkers.get(checker_name, category = checkers_cat)
-
-							except FCollectionFunctionNotFoundError:
-								raise CheckerNotFoundError(checker_name, checkers_cat)
-
-							else:
-								if not(checker(simulation, parsed_name)):
-									return False
+						for checker in output['checks']:
+							if not(self.checkers.call(checker, simulation, parsed_name, category = checkers_cat)):
+								return False
 
 		if 'checks' in self.settings['output']:
-			for checker_name in self.settings['output']['checks']:
-				try:
-					checker = self.checkers.get(checker_name, category = 'global')
-
-				except FCollectionFunctionNotFoundError:
-					raise CheckerNotFoundError(checker_name, 'global')
-
-				else:
-					if not(checker(simulation, tree)):
-						return False
+			for checker in self.settings['output']['checks']:
+				if not(self.checkers.call(checker, simulation, tree, category = 'global')):
+					return False
 
 		return True
