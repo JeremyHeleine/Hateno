@@ -73,6 +73,19 @@ class Folder():
 
 		return self._folder
 
+	@property
+	def tmp_folder(self):
+		'''
+		Return the temporary folder's path.
+
+		Returns
+		-------
+		path : str
+			The path.
+		'''
+
+		return self._tmp_dir
+
 	def tempdir(self):
 		'''
 		Create a temporary directory.

@@ -157,12 +157,12 @@ class Manager():
 		'''
 
 		with tarfile.open(os.path.join(self._folder.simulations_folder, f'{simulation_name}.tar.bz2'), 'r:bz2') as tar:
-			tar.extractall(path = self._folder.folder)
+			tar.extractall(path = self._folder.tmp_folder)
 
 		if os.path.isdir(folder):
 			os.rmdir(folder)
 
-		shutil.move(os.path.join(self._folder.folder, simulation_name), folder)
+		shutil.move(os.path.join(self._folder.tmp_folder, simulation_name), folder)
 
 	def getSimulationsNumber(self):
 		'''

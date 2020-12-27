@@ -5,6 +5,7 @@ import os
 import shutil
 import stat
 import time
+import copy
 
 from . import string, jsonfiles
 
@@ -190,6 +191,21 @@ class Maker():
 
 		self._options.update(override)
 
+	def _setSimulations(self, simulations):
+		'''
+		Set the list of simulations to extract.
+
+		Parameters
+		----------
+		simulations : list
+			The list of simulations to extract.
+		'''
+
+		self._simulations_to_extract = [
+			Simulation.ensureType(simulation, self._simulations_folder).copy()
+			for simulation in simulations
+		]
+
 	@property
 	def paused(self):
 		'''
@@ -316,7 +332,7 @@ class Maker():
 
 		self.events.trigger('run-start')
 
-		self._simulations_to_extract = simulations
+		self._setSimulations(simulations)
 
 		self._corruptions_counter = corruptions_counter
 		self._failures_counter = failures_counter
@@ -394,7 +410,13 @@ class Maker():
 		scripts_dir = self._simulations_folder.tempdir()
 		self._remote_scripts_dir = self._remote_folder.sendDir(scripts_dir)
 
-		self.generator.add(self._unknown_simulations)
+		self._simulations_to_generate = [simulation.copy() for simulation in self._unknown_simulations]
+
+		self._simulations_remote_basedir = f'simulations_{hex(int(time.time() * 1E7))[2:]}'
+		for k, simulation in enumerate(self._simulations_to_generate):
+			simulation['folder'] = os.path.join(self._simulations_remote_basedir, str(k))
+
+		self.generator.add(self._simulations_to_generate)
 		generated_scripts, script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 		self.generator.clear()
 
@@ -462,9 +484,7 @@ class Maker():
 
 		success = True
 
-		for simulation in self._unknown_simulations:
-			simulation = Simulation.ensureType(simulation, self._simulations_folder)
-
+		for simulation, simulation_dest in zip(self._simulations_to_generate, self._unknown_simulations):
 			tmpdir = self._simulations_folder.tempdir()
 			try:
 				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
@@ -472,20 +492,18 @@ class Maker():
 			except RemotePathNotFoundError:
 				pass
 
-			simulation_dest = simulation['folder']
 			simulation['folder'] = tmpdir
 
 			if self._options['generate_only']:
-				if self.manager.checkIntegrity(simulation):
-					destination_path = os.path.dirname(os.path.normpath(simulation_dest))
+				if self._simulations_folder.checkIntegrity(simulation):
+					destination_path = os.path.dirname(os.path.normpath(simulation_dest['folder']))
 					if destination_path and not(os.path.isdir(destination_path)):
 						os.makedirs(destination_path)
 
-					os.rename(simulation['folder'], simulation_dest)
-					simulation['folder'] = simulation_dest
+					os.rename(simulation['folder'], simulation_dest['folder'])
 
 					if self._options['settings_file']:
-						simulation.writeSettingsFile(self._options['settings_file'])
+						simulation_dest.writeSettingsFile(self._options['settings_file'])
 
 				else:
 					shutil.rmtree(simulation['folder'])
@@ -494,12 +512,15 @@ class Maker():
 			else:
 				try:
 					self.manager.add(simulation)
-					simulation['folder'] = simulation_dest
 
 				except (SimulationFolderNotFoundError, SimulationIntegrityCheckFailedError):
 					success = False
 
 			self.events.trigger('download-progress')
+
+		self._remote_folder.deleteRemote([self._simulations_remote_basedir])
+		del self._simulations_remote_basedir
+		del self._simulations_to_generate
 
 		self.events.trigger('download-end')
 
