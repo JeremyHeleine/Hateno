@@ -363,6 +363,9 @@ class Maker():
 			if not(self._unknown_simulations):
 				return False
 
+			if (self._options['max_corrupted'] >= 0 and self._corruptions_counter > self._options['max_corrupted']) or (self._options['max_failures'] >= 0 and self._failures_counter > self._options['max_failures']):
+				return False
+
 			self.generateSimulations()
 
 		try:
@@ -379,7 +382,7 @@ class Maker():
 		self.events.trigger('delete-scripts')
 		self._remote_folder.deleteRemote([self._remote_scripts_dir])
 
-		return (self._options['max_corrupted'] < 0 or self._corruptions_counter <= self._options['max_corrupted']) and (self._options['max_failures'] < 0 or self._failures_counter <= self._options['max_failures'])
+		return True
 
 	def extractSimulations(self):
 		'''
@@ -518,7 +521,11 @@ class Maker():
 
 			self.events.trigger('download-progress')
 
-		self._remote_folder.deleteRemote([self._simulations_remote_basedir])
+		try:
+			self._remote_folder.deleteRemote([self._simulations_remote_basedir])
+		except FileNotFoundError:
+			pass
+
 		del self._simulations_remote_basedir
 		del self._simulations_to_generate
 
