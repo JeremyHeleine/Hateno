@@ -53,6 +53,7 @@ class Folder():
 
 		self._settings = None
 
+		self._config_folders_dict = None
 		self._configs = {}
 		self._skeletons = {}
 
@@ -98,6 +99,42 @@ class Folder():
 
 		return tempfile.mkdtemp(dir = self._tmp_dir)
 
+	@property
+	def _config_folders(self):
+		'''
+		The list of the available configuration folders.
+
+		Returns
+		-------
+		folders : dict
+			A dictionary associating the folders' names to their paths.
+		'''
+
+		if self._config_folders_dict is None:
+			self._config_folders_dict = {}
+
+			# First, the imported folders, then the local one.
+			# In this way, the local configs will always overwrite the imported ones.
+
+			if 'import_config' in self.settings:
+				if type(self.settings['import_config']) is not list:
+					self.settings['import_config'] = [self.settings['import_config']]
+
+				for import_desc in self.settings['import_config']:
+					foldername = import_desc.get('name') or import_desc['config']
+					self._config_folders_dict[foldername] = os.path.normpath(os.path.join(self._folder, import_desc['folder'], MAIN_FOLDER, CONFIG_FOLDER, foldername))
+
+			base_folder = os.path.join(self._conf_folder_path, CONFIG_FOLDER)
+
+			if os.path.isdir(base_folder):
+				for foldername in os.listdir(base_folder):
+					path = os.path.join(base_folder, foldername)
+
+					if os.path.isdir(path):
+						self._config_folders_dict[foldername] = path
+
+		return self._config_folders_dict
+
 	def config(self, configname, foldername = None):
 		'''
 		Get a configuration object.
@@ -126,12 +163,15 @@ class Folder():
 		if foldername is None:
 			raise NoConfigError()
 
+		if foldername not in self._config_folders:
+			raise ConfigNotFoundError(foldername)
+
 		if foldername not in self._configs:
 			self._configs[foldername] = {}
 
 		if configname not in self._configs[foldername]:
 			try:
-				self._configs[foldername][configname] = jsonfiles.read(os.path.join(self._conf_folder_path, CONFIG_FOLDER, foldername, f'{configname}.json'))
+				self._configs[foldername][configname] = jsonfiles.read(os.path.join(self._config_folders[foldername], f'{configname}.json'))
 
 			except FileNotFoundError:
 				self._configs[foldername][configname] = None

@@ -22,6 +22,19 @@ class NoConfigError(Error):
 
 	pass
 
+class ConfigNotFoundError(Error):
+	'''
+	Exception raised when we try to access a non-existing configuration folder.
+
+	Parameters
+	----------
+	foldername : str
+		Name of the folder.
+	'''
+
+	def __init__(self, foldername):
+		self.foldername = foldername
+
 class FCollectionCategoryNotFoundError(Error):
 	'''
 	Exception raised when we try to access a non-existing category of an FCollection.
