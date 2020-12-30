@@ -55,6 +55,7 @@ class Folder():
 
 		self._config_folders_dict = None
 		self._configs = {}
+		self._skeletons_folders_dict = None
 		self._skeletons = {}
 
 		self._namers = None
@@ -178,6 +179,39 @@ class Folder():
 
 		return self._configs[foldername][configname]
 
+	@property
+	def _skeletons_folders(self):
+		'''
+		The list of the available skeletons folders.
+
+		Returns
+		-------
+		folders : dict
+			A dictionary associating the folders' names to their paths.
+		'''
+
+		if self._skeletons_folders_dict is None:
+			self._skeletons_folders_dict = {}
+
+			if 'import_skeleton' in self.settings:
+				if type(self.settings['import_skeleton']) is not list:
+					self.settings['import_skeleton'] = [self.settings['import_skeleton']]
+
+				for import_desc in self.settings['import_skeleton']:
+					foldername = import_desc.get('name') or import_desc['skeleton']
+					self._skeletons_folders_dict[foldername] = os.path.normpath(os.path.join(self._folder, import_desc['folder'], MAIN_FOLDER, SKELETONS_FOLDER, foldername))
+
+			base_folder = os.path.join(self._conf_folder_path, SKELETONS_FOLDER)
+
+			if os.path.isdir(base_folder):
+				for foldername in os.listdir(base_folder):
+					path = os.path.join(base_folder, foldername)
+
+					if os.path.isdir(path):
+						self._skeletons_folders_dict[foldername] = path
+
+		return self._skeletons_folders_dict
+
 	def skeletons(self, foldername):
 		'''
 		Get the paths to the skeletons files in a given folder.
@@ -194,7 +228,7 @@ class Folder():
 		'''
 
 		if foldername not in self._skeletons:
-			folder = os.path.join(self._conf_folder_path, SKELETONS_FOLDER, foldername)
+			folder = self._skeletons_folders[foldername]
 			recipe = jsonfiles.read(os.path.join(folder, 'recipe.json'))
 
 			self._skeletons[foldername] = {
