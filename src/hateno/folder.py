@@ -162,7 +162,11 @@ class Folder():
 		foldername = foldername or self.settings.get('default_config')
 
 		if foldername is None:
-			raise NoConfigError()
+			if len(self._config_folders) != 1:
+				raise NoConfigError()
+
+			else:
+				foldername = list(self._config_folders.keys())[0]
 
 		if foldername not in self._config_folders:
 			raise ConfigNotFoundError(foldername)
