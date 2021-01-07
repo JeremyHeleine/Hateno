@@ -2,24 +2,39 @@
 # -*- coding: utf-8 -*-
 
 '''
-This script uses the RemoteFolder class to send files or directory.
+This script uses the RemoteFolder class to send the program files of a folder.
 '''
 
 import argparse
 
-from hateno import jsonfiles
+from hateno import string
+from hateno.folder import Folder
 from hateno.remote import RemoteFolder
+from hateno.ui import UI
 
 def addArguments(parser):
-	parser.add_argument('--delete', action = 'store_true', help = 'delete the original file/directory once sent')
-	parser.add_argument('remote_folder', type = argparse.FileType('r'), help = 'path to the file where the configuration of the remote folder can be found')
-	parser.add_argument('to_send', type = str, help = 'path of file/directory to send')
-	parser.add_argument('remote_path', type = str, nargs = '?', help = 'remote path where the file/directory should be sent')
+	parser.add_argument('--config', type = str, help = 'name of the config to use')
+	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 
 def action(args):
-	remote_folder_conf = jsonfiles.read(args.remote_folder.name)
-	with RemoteFolder(remote_folder_conf) as remote_folder:
-		remote_folder.send(args.to_send, args.remote_path, delete = args.delete)
+	folder = Folder(args.folder_path)
+	files = folder.program_files
+
+	if len(files) == 0:
+		print('There is no file to send')
+		return
+
+	with RemoteFolder(folder.config('folder', args.config)) as remote_folder:
+		ui = UI()
+		infos_line = ui.addTextLine(f'Sending {string.plural(len(files), "file", "files")}…')
+		bar = ui.addProgressBar(len(files))
+
+		for local_path, remote_path in folder.program_files:
+			remote_folder.send(local_path, remote_path)
+			bar.counter += 1
+
+		ui.removeItem(bar)
+		infos_line.text = string.plural(len(files), "file", "files") + ' sent'
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Send files or directory to a remote folder.')

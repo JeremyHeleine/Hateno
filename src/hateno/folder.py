@@ -5,6 +5,7 @@ import os
 import errno
 import copy
 import tempfile
+import glob
 
 from . import utils, string, jsonfiles
 from .errors import *
@@ -57,6 +58,8 @@ class Folder():
 		self._configs = {}
 		self._skeletons_folders_dict = None
 		self._skeletons = {}
+
+		self._program_files = None
 
 		self._namers = None
 		self._fixers = None
@@ -324,6 +327,36 @@ class Folder():
 				self._settings['fixers'] = []
 
 		return self._settings
+
+	@property
+	def program_files(self):
+		'''
+		Get the list of the files defined in the configuration file.
+
+		Returns
+		-------
+		files : list
+			A list of files. Each item is a tuple. First item is the local path, second item is the remote one.
+		'''
+
+		if self._program_files is None:
+			self._program_files = []
+
+			try:
+				paths = sum([glob.glob(os.path.normpath(os.path.join(self._conf_folder_path, path))) for path in self.settings['files']], [])
+
+			except KeyError:
+				pass
+
+			else:
+				for path in paths:
+					if os.path.isfile(path):
+						self._program_files.append((path, os.path.basename(path)))
+
+					else:
+						self._program_files += [(os.path.join(root, file),)*2 for root, folders, files in os.walk(path) for file in files]
+
+		return self._program_files
 
 	@property
 	def fixers(self):

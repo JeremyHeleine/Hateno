@@ -441,7 +441,12 @@ class RemoteFolder():
 			send = self.sendDir
 			kwargs['empty_dest'] = empty_dest
 
-		return send(local_path, remote_path, **kwargs)
+		try:
+			return send(local_path, remote_path, **kwargs)
+
+		except FileNotFoundError:
+			self.makedirs(os.path.dirname(os.path.normpath(remote_path)))
+			return send(local_path, remote_path, **kwargs)
 
 	def receive(self, remote_path, local_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
 		'''
