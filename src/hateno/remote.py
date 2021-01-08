@@ -142,7 +142,7 @@ class RemoteFolder():
 
 		os.chmod(filename, self._sftp.stat(remote_path).st_mode & 0o777)
 
-	def sendFile(self, filename, remote_path = None, *, copy_permissions = True, delete = False):
+	def sendFile(self, filename, remote_path = None, *, copy_permissions = True, delete = False, replace = False):
 		'''
 		Send a file.
 
@@ -157,8 +157,11 @@ class RemoteFolder():
 		copy_permissions : boolean
 			`True` to copy the chmod from the local file.
 
-		delete : boolean
+		delete : bool
 			`True` to delete the local file, once sent.
+
+		replace : bool
+			If `False`, send the file only if the source is more recent. Otherwise always send it.
 
 		Returns
 		-------
@@ -168,6 +171,14 @@ class RemoteFolder():
 
 		if not(remote_path):
 			remote_path = os.path.basename(filename)
+
+		if not(replace):
+			try:
+				if os.stat(filename).st_mtime <= self._sftp.stat(remote_path).st_mtime:
+					return None
+
+			except FileNotFoundError:
+				pass
 
 		self._sftp.put(filename, remote_path)
 
@@ -292,7 +303,7 @@ class RemoteFolder():
 			self.makedirs(os.path.split(os.path.normpath(directory))[0])
 			self._sftp.mkdir(directory)
 
-	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
+	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False, replace = False, empty_dest = False):
 		'''
 		Send a directory.
 
@@ -309,6 +320,9 @@ class RemoteFolder():
 
 		delete : boolean
 			`True` to delete the local directory, once sent.
+
+		replace : bool
+			If `False`, send a file only if the source is more recent. Otherwise always send it.
 
 		empty_dest : boolean
 			`True` to ensure the destination folder is empty.
@@ -335,7 +349,7 @@ class RemoteFolder():
 			self.copyChmodToRemote(directory, remote_path)
 
 		for entry in [(entry, os.path.join(directory, entry)) for entry in os.listdir(directory)]:
-			(self.sendDir if os.path.isdir(entry[1]) else self.sendFile)(entry[1], os.path.join(remote_path, entry[0]), copy_permissions = copy_permissions, delete = delete)
+			(self.sendDir if os.path.isdir(entry[1]) else self.sendFile)(entry[1], os.path.join(remote_path, entry[0]), copy_permissions = copy_permissions, delete = delete, replace = replace)
 
 		if delete:
 			os.rmdir(directory)
@@ -403,7 +417,7 @@ class RemoteFolder():
 
 		return directory
 
-	def send(self, local_path, remote_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
+	def send(self, local_path, remote_path = None, *, copy_permissions = True, delete = False, replace = False, empty_dest = False):
 		'''
 		Send a file or a directory.
 
@@ -421,6 +435,9 @@ class RemoteFolder():
 		delete : boolean
 			`True` to delete the local file/directory, once sent.
 
+		replace : bool
+			If `False`, send a file only if the source is more recent. Otherwise always send it.
+
 		empty_dest : boolean
 			`True` to ensure the destination folder is empty in the case of a directory.
 
@@ -432,7 +449,8 @@ class RemoteFolder():
 
 		kwargs = {
 			'copy_permissions': copy_permissions,
-			'delete': delete
+			'delete': delete,
+			'replace': replace
 		}
 
 		send = self.sendFile

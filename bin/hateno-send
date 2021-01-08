@@ -14,6 +14,7 @@ from hateno.ui import UI
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
+	parser.add_argument('--replace', action = 'store_true', help = 'force the replacement of the remote files')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 
 def action(args):
@@ -30,7 +31,7 @@ def action(args):
 		bar = ui.addProgressBar(len(files))
 
 		for local_path, remote_path in folder.program_files:
-			remote_folder.send(local_path, remote_path)
+			remote_folder.send(local_path, remote_path, replace = args.replace)
 			bar.counter += 1
 
 		ui.removeItem(bar)
