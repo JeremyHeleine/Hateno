@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.13 - 2021-01-11
+
+* New: configs and skeletons can be imported from another folder
+* New: search for a specific value in Explorer
+* New: secant method in Explorer
+* New: program files description
+* Settings of type list are handled
+* Use of a temporary directory right in Hateno folder
+* Custom namers, fixers and checkers can be defined in dedicated files
+* Checkers now admit arguments
+* Option to not send a file that has not been modified
+* Fix: successful simulations are now extracted even if there are failed ones
+
 ## 0.12 - 2020-11-07
 
 * New `default_config` key in configuration to define the default config to use in the Maker
