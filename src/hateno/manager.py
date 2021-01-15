@@ -590,6 +590,7 @@ class Manager():
 	def update(self, callback = None):
 		'''
 		Update the simulations list to take into account new settings.
+		If the archive no longer exists, remove it from the simulations list.
 
 		Parameters
 		----------
@@ -608,18 +609,19 @@ class Manager():
 		new_simulations_list = {}
 
 		for settings_hashed, infos in self._simulations_list.items():
-			simulation = Simulation.ensureType({
-				'folder': '',
-				'settings': string.toObject(infos['settings'])
-			}, self._folder)
+			if os.path.isfile(os.path.join(self._folder.simulations_folder, f'{infos["name"]}.tar.bz2')):
+				simulation = Simulation.ensureType({
+					'folder': '',
+					'settings': string.toObject(infos['settings'])
+				}, self._folder)
 
-			settings_str = string.fromObject(simulation.settings)
-			settings_hashed = string.hash(settings_str)
+				settings_str = string.fromObject(simulation.settings)
+				settings_hashed = string.hash(settings_str)
 
-			new_simulations_list[settings_hashed] = {
-				**infos,
-				**{'settings': settings_str}
-			}
+				new_simulations_list[settings_hashed] = {
+					**infos,
+					**{'settings': settings_str}
+				}
 
 			if not(callback is None):
 				callback()
