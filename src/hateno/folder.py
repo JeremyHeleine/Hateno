@@ -485,12 +485,10 @@ class Folder():
 			The namer's name has not been found.
 		'''
 
-		name = setting['name']
-
 		for namer in before + self.settings['namers'] + after:
-			name = self.namers.call(namer, setting)
+			setting['name'] = self.namers.call(namer, setting)
 
-		return name
+		return setting['name']
 
 	def checkIntegrity(self, simulation):
 		'''
