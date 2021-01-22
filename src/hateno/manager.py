@@ -209,6 +209,26 @@ class Manager():
 		else:
 			return string.toObject(settings_str)
 
+	def exists(self, simulation):
+		'''
+		Check whether a simulation does exist in the folder.
+
+		Parameters
+		----------
+		simulation : Simulation|dict
+			The simulation to check the existence of.
+
+		Returns
+		-------
+		exists : bool
+			`True` if the simulation exists, `False` otherwise.
+		'''
+
+		simulation = Simulation.ensureType(simulation, self._folder)
+		settings_hashed = string.hash(string.fromObject(simulation.settings))
+
+		return (settings_hashed in self._simulations_list)
+
 	def add(self, simulation, *, save_list = True):
 		'''
 		Add a simulation to the list.
