@@ -68,7 +68,7 @@ class RemoteFolder():
 
 			self._ssh.connect(self._configuration['host'], **connect_params)
 
-			self._sftp = self._ssh.open_sftp()
+			self._sftp = SFTP.from_transport(self._ssh.get_transport())
 
 		if 'working_directory' in self._configuration:
 			self._sftp.chdir(self._configuration['working_directory'])
@@ -111,130 +111,6 @@ class RemoteFolder():
 		else:
 			stdin, stdout, stderr = self._ssh.exec_command(cmd)
 			return stdout
-
-	def copyChmodToRemote(self, filename, remote_path):
-		'''
-		Change the chmod of a remote file to reflect a local one.
-
-		Parameters
-		----------
-		filename : str
-			Name of the file to use to copy the chmod.
-
-		remote_path : str
-			Remote path to alter.
-		'''
-
-		self._sftp.chmod(remote_path, os.stat(filename).st_mode & 0o777)
-
-	def copyChmodToLocal(self, remote_path, filename):
-		'''
-		Change the chmod of a local file to reflect a remote one.
-
-		Parameters
-		----------
-		remote_path : str
-			Name of the file to use to copy the chmod.
-
-		filename : str
-			Local path to alter.
-		'''
-
-		os.chmod(filename, self._sftp.stat(remote_path).st_mode & 0o777)
-
-	def sendFile(self, filename, remote_path = None, *, copy_permissions = True, delete = False, replace = False):
-		'''
-		Send a file.
-
-		Parameters
-		----------
-		filename : str
-			Name of the file to send.
-
-		remote_path : str
-			Path of the remote file to write.
-
-		copy_permissions : boolean
-			`True` to copy the chmod from the local file.
-
-		delete : bool
-			`True` to delete the local file, once sent.
-
-		replace : bool
-			If `False`, send the file only if the source is more recent. Otherwise always send it.
-
-		Returns
-		-------
-		remote_path : str
-			Remote path of the sent file.
-		'''
-
-		if not(remote_path):
-			remote_path = os.path.basename(filename)
-
-		if not(replace):
-			try:
-				if os.stat(filename).st_mtime <= self._sftp.stat(remote_path).st_mtime:
-					return None
-
-			except FileNotFoundError:
-				pass
-
-		self._sftp.put(filename, remote_path)
-
-		if copy_permissions:
-			self.copyChmodToRemote(filename, remote_path)
-
-		if delete:
-			os.unlink(filename)
-
-		return remote_path
-
-	def receiveFile(self, remote_path, filename = None, *, copy_permissions = True, delete = False):
-		'''
-		Receive (download) a file.
-
-		Parameters
-		----------
-		remote_path : str
-			Path of the remote file to receive.
-
-		filename : str
-			Name of the file to create.
-
-		copy_permissions : boolean
-			`True` to copy the chmod from the remote file.
-
-		delete : boolean
-			`True` to delete the remote file.
-
-		Raises
-		------
-		RemotePathNotFoundError
-			The remote file does not exist.
-
-		Returns
-		-------
-		filename : str
-			Path of the received file.
-		'''
-
-		if not(filename):
-			filename = os.path.basename(remote_path)
-
-		try:
-			self._sftp.get(remote_path, filename)
-
-		except FileNotFoundError:
-			raise RemotePathNotFoundError(remote_path)
-
-		if copy_permissions:
-			self.copyChmodToLocal(remote_path, filename)
-
-		if delete:
-			self._sftp.remove(remote_path)
-
-		return filename
 
 	def getFileContents(self, remote_path):
 		'''
@@ -286,7 +162,151 @@ class RemoteFolder():
 		with self._sftp.open(remote_path, 'a') as f:
 			f.write(content)
 
-	def makedirs(self, directory):
+	def send(self, local_path, remote_path = None, *, delete = False, replace = False):
+		'''
+		Send a file or a folder.
+
+		Parameters
+		----------
+		local_path : str
+			Path of the file/folder to send.
+
+		remote_path : str
+			Path of the remote file/folder to create.
+
+		delete : boolean
+			`True` to delete the local file/folder, once sent.
+
+		replace : bool
+			If `False`, send a file only if the source is more recent. Otherwise always send it.
+
+		Raises
+		------
+		FileNotFoundError
+			The local file/folder does not exist.
+
+		Returns
+		-------
+		remote_path : str
+			Remote path of the sent file/directory.
+		'''
+
+		stats = os.stat(local_path)
+
+		if not(remote_path):
+			remote_path = os.path.basename(os.path.normpath(local_path))
+
+		self._sftp.put(local_path, remote_path, replace, delete)
+
+		return remote_path
+
+	def receive(self, remote_path, local_path = None, *, delete = False):
+		'''
+		Receive (download) a file or a folder.
+
+		Parameters
+		----------
+		remote_path : str
+			Path of the remote file/folder to receive.
+
+		local_path : str
+			Name of the file/folder to create.
+
+		delete : boolean
+			`True` to delete the remote file/folder.
+
+		Raises
+		------
+		RemotePathNotFoundError
+			The remote file/folder does not exist.
+
+		Returns
+		-------
+		local_path : str
+			Local path of the received file/folder.
+		'''
+
+		try:
+			stats = self._sftp.stat(remote_path)
+
+		except FileNotFoundError:
+			raise RemotePathNotFoundError(remote_path)
+
+		if not(local_path):
+			local_path = os.path.basename(os.path.normpath(remote_path))
+
+		self._sftp.get(remote_path, local_path, delete)
+
+		return local_path
+
+	def deleteRemote(self, entries):
+		'''
+		Recursively delete some remote entries.
+
+		Parameters
+		----------
+		entries : str|list
+			Single path, or list of paths to delete.
+		'''
+
+		if type(entries) is not list:
+			entries = [entries]
+
+		for entry in entries:
+			self._sftp.remove(entry)
+
+	def deleteLocal(self, entries):
+		'''
+		Recursively delete some local entries.
+
+		Parameters
+		----------
+		entries : str|list
+			Single path, or list of paths to delete.
+		'''
+
+		if type(entries) is not list:
+			entries = [entries]
+
+		for entry in entries:
+			(shutil.rmtree if os.path.isdir(entry) else os.unlink)(entry)
+
+class SFTP(paramiko.SFTPClient):
+	'''
+	Overwrite some methods to add some options.
+	'''
+
+	def _copyLocalChmod(self, local_path, remote_path):
+		'''
+		Change the chmod of a remote file/folder to reflect a local one.
+
+		Parameters
+		----------
+		local_path : str
+			Name of the file/folder to use to copy the chmod.
+
+		remote_path : str
+			Remote path to alter.
+		'''
+
+		self.chmod(remote_path, os.stat(local_path).st_mode & 0o777)
+
+	def _copyRemoteChmod(self, remote_path, local_path):
+		'''
+		Change the chmod of a local file/folder to reflect a remote one.
+
+		Parameters
+		----------
+		remote_path : str
+			Name of the file/folder to use to copy the chmod.
+
+		local_path : str
+			Local path to alter.
+		'''
+
+		os.chmod(local_path, self.stat(remote_path).st_mode & 0o777)
+
+	def _makedirs(self, directory):
 		'''
 		Recursively create a directory.
 
@@ -297,245 +317,113 @@ class RemoteFolder():
 		'''
 
 		try:
-			self._sftp.mkdir(directory)
+			self.mkdir(directory)
 
 		except FileNotFoundError:
-			self.makedirs(os.path.split(os.path.normpath(directory))[0])
-			self._sftp.mkdir(directory)
+			self._makedirs(os.path.dirname(os.path.normpath(directory)))
+			self.mkdir(directory)
 
-	def sendDir(self, directory, remote_path = None, *, copy_permissions = True, delete = False, replace = False, empty_dest = False):
+	def put(self, local_path, remote_path, replace = False, delete = False):
 		'''
-		Send a directory.
+		Send a file or a folder.
 
 		Parameters
 		----------
-		directory : str
-			Name of the directory to send.
+		local_path : str
+			Path to the file/folder to send.
 
 		remote_path : str
-			Path of the remote directory to create.
-
-		copy_permissions : boolean
-			`True` to copy the chmod from the local directory.
-
-		delete : boolean
-			`True` to delete the local directory, once sent.
+			Path of the remote file/folder to create.
 
 		replace : bool
 			If `False`, send a file only if the source is more recent. Otherwise always send it.
 
-		empty_dest : boolean
-			`True` to ensure the destination folder is empty.
-
-		Returns
-		-------
-		remote_path : str
-			Remote path of the sent directory.
+		delete : bool
+			If `True`, delete the local file/folder once sent.
 		'''
 
-		if not(remote_path):
-			remote_path = os.path.basename(os.path.normpath(directory))
+		if os.path.isfile(local_path):
+			if not(replace):
+				try:
+					if os.stat(local_path).st_mtime <= self.stat(remote_path).st_mtime:
+						return None
 
-		try:
-			entries = self._sftp.listdir(remote_path)
+				except FileNotFoundError:
+					pass
 
-			if empty_dest and entries:
-				self.deleteRemote([os.path.join(remote_path, e) for e in entries])
+			try:
+				super().put(local_path, remote_path)
 
-		except FileNotFoundError:
-			self.makedirs(remote_path)
+			except FileNotFoundError:
+				self._makedirs(os.path.dirname(remote_path))
+				super().put(local_path, remote_path)
 
-		if copy_permissions:
-			self.copyChmodToRemote(directory, remote_path)
+			self._copyLocalChmod(local_path, remote_path)
 
-		for entry in [(entry, os.path.join(directory, entry)) for entry in os.listdir(directory)]:
-			(self.sendDir if os.path.isdir(entry[1]) else self.sendFile)(entry[1], os.path.join(remote_path, entry[0]), copy_permissions = copy_permissions, delete = delete, replace = replace)
+			if delete:
+				os.unlink(local_path)
 
-		if delete:
-			os.rmdir(directory)
+		else:
+			for entry in os.listdir(local_path):
+				self.put(os.path.join(local_path, entry), os.path.join(remote_path, entry), replace, delete)
 
-		return remote_path
+			if delete:
+				os.rmdir(local_path)
 
-	def receiveDir(self, remote_path, directory = None, *, copy_permissions = True, delete = False, empty_dest = False):
+	def get(self, remote_path, local_path, delete = False):
 		'''
-		Receive (download) a directory.
+		Download a file or a folder.
 
 		Parameters
 		----------
 		remote_path : str
-			Path of the remote directory to receive.
-
-		directory : str
-			Name of the directory to create.
-
-		copy_permissions : boolean
-			`True` to copy the chmod from the remote directory.
-
-		delete : boolean
-			`True` to delete the remote directory.
-
-		empty_dest : boolean
-			`True` to ensure the destination folder is empty.
-
-		Raises
-		------
-		RemotePathNotFoundError
-			The remote directory does not exist.
-
-		Returns
-		-------
-		directory : str
-			Local path of the received directory.
-		'''
-
-		try:
-			stats = self._sftp.stat(remote_path)
-
-		except FileNotFoundError:
-			raise RemotePathNotFoundError(remote_path)
-
-		if not(directory):
-			directory = os.path.basename(os.path.normpath(remote_path))
-
-		try:
-			entries = os.listdir(directory)
-
-			if empty_dest and entries:
-				self.deleteLocal([os.path.join(directory, e) for e in entries])
-
-		except FileNotFoundError:
-			os.makedirs(directory)
-
-		if copy_permissions:
-			self.copyChmodToLocal(remote_path, directory)
-
-		for entry in [(entry, os.path.join(remote_path, entry)) for entry in self._sftp.listdir(remote_path)]:
-			(self.receiveDir if stat.S_ISDIR(self._sftp.stat(entry[1]).st_mode) else self.receiveFile)(entry[1], os.path.join(directory, entry[0]), copy_permissions = copy_permissions, delete = delete)
-
-		if delete:
-			self._sftp.rmdir(remote_path)
-
-		return directory
-
-	def send(self, local_path, remote_path = None, *, copy_permissions = True, delete = False, replace = False, empty_dest = False):
-		'''
-		Send a file or a directory.
-
-		Parameters
-		----------
-		local_path : str
-			Path of the file/directory to send.
-
-		remote_path : str
-			Path of the remote file/directory to create.
-
-		copy_permissions : boolean
-			`True` to copy the chmod from the local file/directory.
-
-		delete : boolean
-			`True` to delete the local file/directory, once sent.
-
-		replace : bool
-			If `False`, send a file only if the source is more recent. Otherwise always send it.
-
-		empty_dest : boolean
-			`True` to ensure the destination folder is empty in the case of a directory.
-
-		Returns
-		-------
-		remote_path : str
-			Remote path of the sent file/directory.
-		'''
-
-		kwargs = {
-			'copy_permissions': copy_permissions,
-			'delete': delete,
-			'replace': replace
-		}
-
-		send = self.sendFile
-
-		if os.path.isdir(local_path):
-			send = self.sendDir
-			kwargs['empty_dest'] = empty_dest
-
-		try:
-			return send(local_path, remote_path, **kwargs)
-
-		except FileNotFoundError:
-			self.makedirs(os.path.dirname(os.path.normpath(remote_path)))
-			return send(local_path, remote_path, **kwargs)
-
-	def receive(self, remote_path, local_path = None, *, copy_permissions = True, delete = False, empty_dest = False):
-		'''
-		Receive (download) a file/directory.
-
-		Parameters
-		----------
-		remote_path : str
-			Path of the remote file/directory to receive.
+			Path to the file/folder to download.
 
 		local_path : str
-			Name of the file/directory to create.
+			Path of file/folder to create.
 
-		copy_permissions : boolean
-			`True` to copy the chmod from the remote file/directory.
-
-		delete : boolean
-			`True` to delete the remote file/directory.
-
-		empty_dest : boolean
-			`True` to ensure the destination folder is empty in the case of a directory.
-
-		Returns
-		-------
-		local_path : str
-			Local path of the received file/directory.
+		delete : bool
+			If `True`, delete the remote file/folder once downloaded.
 		'''
 
-		kwargs = {
-			'copy_permissions': copy_permissions,
-			'delete': delete
-		}
+		if stat.S_ISDIR(self.stat(remote_path).st_mode):
+			for entry in self.listdir(remote_path):
+				self.get(os.path.join(remote_path, entry), os.path.join(local_path, entry), delete)
 
-		receive = self.receiveFile
+			if delete:
+				self.rmdir(remote_path)
 
-		if stat.S_ISDIR(self._sftp.stat(remote_path).st_mode):
-			receive = self.receiveDir
-			kwargs['empty_dest'] = empty_dest
+		else:
+			try:
+				super().get(remote_path, local_path)
 
-		return receive(remote_path, local_path, **kwargs)
+			except FileNotFoundError:
+				os.makedirs(os.path.dirname(local_path))
+				super().get(remote_path, local_path)
 
-	def deleteRemote(self, entries):
+			self._copyRemoteChmod(remote_path, local_path)
+
+			if delete:
+				self.remove(remote_path)
+
+	def remove(self, path):
 		'''
-		Recursively delete some remote entries.
+		Remove a file or a folder.
 
 		Parameters
 		----------
-		entries : list
-			List of paths to delete.
+		path : str
+			Path of the file/folder to remove.
 		'''
 
-		for entry in entries:
-			if stat.S_ISDIR(self._sftp.stat(entry).st_mode):
-				self.deleteRemote([os.path.join(entry, e) for e in self._sftp.listdir(entry)])
-				self._sftp.rmdir(entry)
+		if stat.S_ISDIR(self.stat(path).st_mode):
+			for entry in self.listdir(path):
+				self.remove(os.path.join(path, entry))
 
-			else:
-				self._sftp.remove(entry)
+			self.rmdir(path)
 
-	def deleteLocal(self, entries):
-		'''
-		Recursively delete some local entries.
-
-		Parameters
-		----------
-		entries : list
-			List of paths to delete.
-		'''
-
-		for entry in entries:
-			(shutil.rmtree if os.path.isdir(entry) else os.unlink)(entry)
+		else:
+			super().remove(path)
 
 class LocalSFTP():
 	'''
@@ -579,71 +467,95 @@ class LocalSFTP():
 
 		return os.path.join(self._wd, path)
 
-	def put(self, local_path, remote_path):
+	def put(self, local_path, remote_path, replace = False, delete = False):
 		'''
-		Copy a file into the working directory.
+		Copy or move a file or folder into the working directory.
 
 		Parameters
 		----------
 		local_path : str
-			Path to the file to copy.
+			Path to the file/folder to copy.
 
 		remote_path : str
-			Path of the copied file.
+			Path of the copied file/folder.
+
+		replace : bool
+			If `False`, send a file only if the source is more recent. Otherwise always send it.
+
+		delete : bool
+			If `True`, move the local file/folder, if `False`, copy it.
 		'''
 
-		shutil.copy(local_path, self.path(remote_path))
+		send = shutil.move
 
-	def get(self, remote_path, local_path):
+		if os.path.isfile(local_path):
+			if not(replace):
+				try:
+					if os.stat(local_path).st_mtime <= os.stat(self.path(remote_path)).st_mtime:
+						return None
+
+				except FileNotFoundError:
+					pass
+
+			if not(delete):
+				send = shutil.copy
+
+		else:
+			if not(delete):
+				send = shutil.copytree
+
+		try:
+			send(local_path, self.path(remote_path))
+
+		except FileNotFoundError:
+			os.makedirs(os.path.dirname(self.path(remote_path)))
+			send(local_path, self.path(remote_path))
+
+	def get(self, remote_path, local_path, delete = False):
 		'''
-		Copy a file from the working directory.
+		Copy or move a file or folder from the working directory.
 
 		Parameters
 		----------
 		remote_path : str
-			Path to the file to copy.
+			Path to the file/folder to copy.
 
 		local_path : str
-			Path of the copied file.
+			Path of the copied file/folder.
+
+		delete : bool
+			If `True`, move the remote file/folder, if `False`, copy it.
 		'''
 
-		shutil.copy(self.path(remote_path), local_path)
+		receive = shutil.move
+
+		if not(delete):
+			receive = shutil.copy if os.path.isfile(self.path(remote_path)) else shutil.copytree
+
+		try:
+			receive(self.path(remote_path), local_path)
+
+		except FileNotFoundError:
+			os.makedirs(os.path.dirname(local_path))
+			receive(self.path(remote_path), local_path)
 
 	def remove(self, path):
 		'''
-		Remove a file.
+		Remove a file or a folder.
 
 		Parameters
 		----------
 		path : str
-			Path to the file to remove.
+			Path to the file/folder to remove.
 		'''
 
-		os.unlink(self.path(path))
+		path = self.path(path)
 
-	def mkdir(self, dir):
-		'''
-		Create a directory.
+		if os.path.isfile(path):
+			os.unlink(path)
 
-		Parameters
-		----------
-		dir : str
-			Path to the directory to create.
-		'''
-
-		os.mkdir(self.path(dir))
-
-	def rmdir(self, dir):
-		'''
-		Remove a directory.
-
-		Parameters
-		----------
-		dir : str
-			Path to the directory to remove.
-		'''
-
-		os.rmdir(self.path(dir))
+		else:
+			shutil.rmtree(path)
 
 	def stat(self, path):
 		'''
@@ -661,38 +573,6 @@ class LocalSFTP():
 		'''
 
 		return os.stat(self.path(path))
-
-	def chmod(self, path, mode):
-		'''
-		Change the mode of a file.
-
-		Parameters
-		----------
-		path : str
-			Path to the file to alter.
-
-		mode : int
-			New mode to apply.
-		'''
-
-		os.chmod(self.path(path), mode)
-
-	def listdir(self, dir):
-		'''
-		List a directory.
-
-		Parameters
-		----------
-		dir : str
-			Path of the directory to list.
-
-		Returns
-		-------
-		content : list
-			Entries contained in the directory.
-		'''
-
-		return os.listdir(self.path(dir))
 
 	def open(self, path, mode):
 		'''
