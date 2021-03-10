@@ -64,6 +64,7 @@ class Folder():
 		self._namers = None
 		self._fixers = None
 		self._checkers = None
+		self._evaluations = None
 
 	@property
 	def folder(self):
@@ -424,6 +425,26 @@ class Folder():
 				self._checkers.loadFromModule(utils.loadModuleFromFile(custom_checkers_file))
 
 		return self._checkers
+
+	@property
+	def evaluations(self):
+		'''
+		Get the list of available evaluation functions.
+
+		Returns
+		-------
+		evaluations : FCollection
+			The collection of evaluation functions.
+		'''
+
+		if self._evaluations is None:
+			self._evaluations = FCollection(filter_regex = r'^eval_(?P<name>[A-Za-z0-9_]+)$')
+
+			evaluations_file = os.path.join(self._conf_folder_path, 'evaluations.py')
+			if os.path.isfile(evaluations_file):
+				self._evaluations.loadFromModule(utils.loadModuleFromFile(evaluations_file))
+
+		return self._evaluations
 
 	def applyFixers(self, value, *, before = [], after = []):
 		'''

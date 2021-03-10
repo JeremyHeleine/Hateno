@@ -3,7 +3,7 @@
 
 import os
 
-def evaluate(simulation):
+def eval_sum(simulation):
 	with open(os.path.join(simulation['folder'], simulation.settings['output'][0]['y-file']), 'r') as f:
 		values_sum = sum(map(float, f.readlines()[:-1]))
 

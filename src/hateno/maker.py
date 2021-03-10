@@ -411,7 +411,7 @@ class Maker():
 		self.events.trigger('generate-start')
 
 		scripts_dir = self._simulations_folder.tempdir()
-		self._remote_scripts_dir = self._remote_folder.sendDir(scripts_dir)
+		self._remote_scripts_dir = self._remote_folder.send(scripts_dir)
 
 		self._simulations_to_generate = [simulation.copy() for simulation in self._unknown_simulations]
 
@@ -423,7 +423,7 @@ class Maker():
 		generated_scripts, script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 		self.generator.clear()
 
-		self._remote_folder.sendDir(scripts_dir, delete = True, empty_dest = True)
+		self._remote_folder.send(scripts_dir, delete = False, replace = True)
 
 		output = self._remote_folder.execute(script_to_launch)
 		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
@@ -490,7 +490,7 @@ class Maker():
 		for simulation, simulation_dest in zip(self._simulations_to_generate, self._unknown_simulations):
 			tmpdir = self._simulations_folder.tempdir()
 			try:
-				self._remote_folder.receiveDir(simulation['folder'], tmpdir, delete = True)
+				self._remote_folder.receive(simulation['folder'], tmpdir, delete = True)
 
 			except RemotePathNotFoundError:
 				pass

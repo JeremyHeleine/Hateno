@@ -504,6 +504,9 @@ class LocalSFTP():
 			if not(delete):
 				send = shutil.copytree
 
+			if replace and os.path.isdir(self.path(remote_path)):
+				shutil.rmtree(self.path(remote_path))
+
 		try:
 			send(local_path, self.path(remote_path))
 
@@ -526,6 +529,9 @@ class LocalSFTP():
 		delete : bool
 			If `True`, move the remote file/folder, if `False`, copy it.
 		'''
+
+		if os.path.isdir(local_path):
+			shutil.rmtree(local_path)
 
 		receive = shutil.move
 

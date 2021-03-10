@@ -1,0 +1,31 @@
+{
+	"default": {},
+	"tree": {
+		"settings": [
+			{
+				"set": "interval",
+				"name": "a"
+			},
+			{
+				"set": "interval",
+				"name": "b"
+			}
+		],
+		"values": {
+			"from": [-2, 2],
+			"to": [-1, 1],
+			"n": 2
+		},
+
+		"foreach": {
+			"setting": {
+				"set": "function",
+				"name": "coef"
+			},
+			"values": [1, 2],
+
+			"evaluation": "sum",
+			"test": 0
+		}
+	}
+}

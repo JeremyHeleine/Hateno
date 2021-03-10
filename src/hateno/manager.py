@@ -37,8 +37,6 @@ class Manager():
 
 		self._simulations_list_dict = None
 
-		self._checkers = None
-
 		self._readonly = readonly
 
 		self._delete_running_indicator = False
