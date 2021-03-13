@@ -423,7 +423,7 @@ class Maker():
 		generated_scripts, script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 		self.generator.clear()
 
-		self._remote_folder.send(scripts_dir, delete = False, replace = True)
+		self._remote_folder.send(scripts_dir, delete = True, replace = True)
 
 		output = self._remote_folder.execute(script_to_launch)
 		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))

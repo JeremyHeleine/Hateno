@@ -8,7 +8,7 @@ import re
 from . import string, jsonfiles
 from .folder import Folder
 from .simulation import Simulation
-from .maker import Maker
+from .maker import Maker, MakerUI
 from .events import Events
 
 class Mapper():
@@ -41,7 +41,7 @@ class Mapper():
 
 		self._index_regex_compiled = None
 
-		self.events = Events(['read-start', 'read-end', 'map-start', 'map-end', 'generate-start', 'generate-end', 'evaluation-start', 'evaluation-end'])
+		self.events = Events(['read-start', 'read-end', 'map-start', 'map-end', 'node-start', 'node-progress', 'node-end', 'generate-start', 'generate-end', 'evaluation-start', 'evaluation-end'])
 
 	def __enter__(self):
 		'''
@@ -234,7 +234,7 @@ class Mapper():
 
 		for k, values in enumerate(simulations_values):
 			simulation = self._default_simulation.copy()
-			simulation['folder'] = os.path.join(self._simulations_dir, str(k))
+			simulation['folder'] = os.path.join(simulations_dir, str(k))
 
 			for setting, value in zip(settings, values):
 				simulation.getSetting(setting).value = value
@@ -375,7 +375,7 @@ class Mapper():
 
 		output['test'] = test
 
-	def _mapNode(self, node, prev_settings = [], prev_settings_values = []):
+	def _mapNode(self, node, depth = 0, prev_settings = [], prev_settings_values = []):
 		'''
 		Prepare the values of the settings in a node, and then either map the children, or generate the simulations before evaluate.
 
@@ -383,6 +383,9 @@ class Mapper():
 		----------
 		node : dict
 			The node to map.
+
+		depth : int
+			Depth of the node.
 
 		prev_settings : list
 			The previous settings from the parent nodes.
@@ -396,6 +399,8 @@ class Mapper():
 			Output of the node mapping.
 		'''
 
+		self.events.trigger('node-start', depth, node)
+
 		map = []
 		output = {'settings': node['settings'], 'map': map}
 
@@ -403,7 +408,7 @@ class Mapper():
 
 		if 'foreach' in node:
 			for values in node['values']:
-				sub_output = self._mapNode(node['foreach'], prev_settings + node['settings'], prev_settings_values + values)
+				sub_output = self._mapNode(node['foreach'], depth+1, prev_settings + node['settings'], prev_settings_values + values)
 				simulation = self._simulations[0]
 
 				o = {
@@ -413,6 +418,8 @@ class Mapper():
 
 				self._endNode(node, self._simulations, evaluations, o)
 				map.append(o)
+
+				self.events.trigger('node-progress', depth)
 
 		else:
 			self._setSimulations(prev_settings + node['settings'], [prev_settings_values + v for v in node['values']])
@@ -426,6 +433,10 @@ class Mapper():
 
 				self._endNode(node, simulation, evaluations, o)
 				map.append(o)
+
+				self.events.trigger('node-progress', depth)
+
+		self.events.trigger('node-end', depth)
 
 		return output
 
@@ -455,3 +466,162 @@ class Mapper():
 		self.events.trigger('map-end')
 
 		return output
+
+class MapperUI(MakerUI):
+	'''
+	UI to show the different steps of the Mapper.
+
+	Parameters
+	----------
+	mapper : Mapper
+		Instance of the Mapper from which the events are triggered.
+	'''
+
+	def __init__(self, mapper):
+		super().__init__(mapper.maker)
+
+		self._mapper = mapper
+
+		self._mapper_state_line = None
+
+		self._nodes_lines = {}
+		self._nodes_bars = {}
+
+		self._mapper.events.addListener('read-start', self._readStart)
+		self._mapper.events.addListener('read-end', self._readEnd)
+		self._mapper.events.addListener('map-start', self._mapStart)
+		self._mapper.events.addListener('map-end', self._mapEnd)
+		self._mapper.events.addListener('node-start', self._nodeStart)
+		self._mapper.events.addListener('node-progress', self._nodeProgress)
+		self._mapper.events.addListener('node-end', self._nodeEnd)
+		self._mapper.events.addListener('generate-start', self._generateStart)
+		self._mapper.events.addListener('generate-end', self._generateEnd)
+		self._mapper.events.addListener('evaluation-start', self._evaluationStart)
+		self._mapper.events.addListener('evaluation-end', self._evaluationEnd)
+
+		self._mapper.maker.events.addListener('run-end', self._clearMakerState)
+
+	def _updateMapperState(self, state):
+		'''
+		Text line to display the current state of the Mapper.
+
+		Parameters
+		----------
+		state : str
+			State to display.
+		'''
+
+		if self._mapper_state_line is None:
+			self._mapper_state_line = self.addTextLine(state, position = 0)
+
+		else:
+			self._mapper_state_line.text = state
+
+	def _clearMakerState(self, *args, **kwargs):
+		'''
+		We don't need the Maker state anymore: we erase it.
+		'''
+
+		self._clearState()
+
+	def _readStart(self):
+		'''
+		The interpretation of a tree has started.
+		'''
+
+		self._updateMapperState('Reading a tree…')
+
+	def _readEnd(self):
+		'''
+		The tree is read.
+		'''
+
+		self._updateMapperState('Tree read')
+
+	def _mapStart(self):
+		'''
+		The mapping of a tree has been started.
+		'''
+
+		self._updateMapperState('Mapping a tree…')
+
+	def _mapEnd(self):
+		'''
+		The mapping of a tree has ended.
+		'''
+
+		self._updateMapperState('Tree mapped')
+
+	def _nodeStart(self, depth, node):
+		'''
+		The mapping of a node has been started.
+
+		Parameters
+		----------
+		depth : int
+			Depth of the node.
+
+		node : dict
+			Description of the node.
+		'''
+
+		self._nodes_lines[depth] = self.addTextLine(f'Depth {depth}…', position = 2*depth + 1)
+		self._nodes_bars[depth] = self.addProgressBar(len(node['values']), position = 2*depth + 2)
+
+	def _nodeProgress(self, depth):
+		'''
+		The mapping of a node just progressed.
+
+		Parameters
+		----------
+		depth : int
+			Depth of the node.
+		'''
+
+		if depth in self._nodes_bars:
+			self._nodes_bars[depth].counter += 1
+
+	def _nodeEnd(self, depth):
+		'''
+		The mapping of a node has ended.
+
+		Parameters
+		----------
+		depth : int
+			Depth of the node.
+		'''
+
+		if depth in self._nodes_lines:
+			self.removeItem(self._nodes_bars[depth])
+			del self._nodes_bars[depth]
+
+			self.removeItem(self._nodes_lines[depth])
+			del self._nodes_lines[depth]
+
+	def _generateStart(self):
+		'''
+		A set of simulations will be generated.
+		'''
+
+		pass
+
+	def _generateEnd(self):
+		'''
+		A set of simulations has been generated.
+		'''
+
+		pass
+
+	def _evaluationStart(self):
+		'''
+		The evaluation of a simulation has been started.
+		'''
+
+		pass
+
+	def _evaluationEnd(self):
+		'''
+		The evaluation of a simulation has ended.
+		'''
+
+		pass

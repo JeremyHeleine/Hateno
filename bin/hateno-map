@@ -8,7 +8,7 @@ This script uses the Mapper to map simulations with evaluation functions.
 import argparse
 
 from hateno import jsonfiles
-from hateno.mapper import Mapper
+from hateno.mapper import Mapper, MapperUI
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
@@ -19,6 +19,8 @@ def addArguments(parser):
 
 def action(args):
 	with Mapper(args.folder_path, args.config, generate_only = not(args.add_to_manager)) as mapper:
+		ui = MapperUI(mapper)
+
 		output = mapper.mapTree(jsonfiles.read(args.tree, allow_generator = True))
 		jsonfiles.write(output, args.output)
 

@@ -1,0 +1,28 @@
+{
+	"default": {},
+	"tree": {
+		"setting": {
+			"set": "range",
+			"name": "step"
+		},
+		"values": {
+			"from": 1,
+			"to": 6,
+			"n": 6
+		},
+
+		"foreach": {
+			"setting": {
+				"set": "range",
+				"name": "to"
+			},
+			"values": [10, 20],
+
+			"evaluation": "sum",
+			"test": "> 100"
+		},
+
+		"evaluation": "multipleSums",
+		"test": "[-1] < [-2]"
+	}
+}
