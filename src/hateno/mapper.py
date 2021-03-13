@@ -193,6 +193,12 @@ class Mapper():
 
 			normalized['test_requested_indices'] = set(map(int, self._index_regex.findall(normalized['test'])))
 
+		try:
+			normalized['stop'] = node['stop']
+
+		except KeyError:
+			normalized['stop'] = False
+
 		return normalized
 
 	def _readTree(self, tree):
@@ -358,12 +364,17 @@ class Mapper():
 
 		output : dict
 			Output of the node.
+
+		Returns
+		-------
+		stop : bool
+			`True` if the latest test is `True` and the node's `stop` is `True`.
 		'''
 
 		evaluation = self._evaluate(node, arg_to_evaluate)
 
 		if evaluation is None:
-			return
+			return False
 
 		evaluations.append(evaluation)
 		output['evaluation'] = evaluation
@@ -371,9 +382,11 @@ class Mapper():
 		test = self._test(node, evaluations)
 
 		if test is None:
-			return
+			return False
 
 		output['test'] = test
+
+		return node['stop'] and test
 
 	def _mapNode(self, node, depth = 0, prev_settings = [], prev_settings_values = []):
 		'''
@@ -416,10 +429,13 @@ class Mapper():
 					'output': sub_output
 				}
 
-				self._endNode(node, self._simulations, evaluations, o)
+				stop = self._endNode(node, self._simulations, evaluations, o)
 				map.append(o)
 
 				self.events.trigger('node-progress', depth)
+
+				if stop:
+					break
 
 		else:
 			self._setSimulations(prev_settings + node['settings'], [prev_settings_values + v for v in node['values']])
@@ -431,10 +447,13 @@ class Mapper():
 					'values': [simulation.getSetting(setting).value for setting in node['settings']]
 				}
 
-				self._endNode(node, simulation, evaluations, o)
+				stop = self._endNode(node, simulation, evaluations, o)
 				map.append(o)
 
 				self.events.trigger('node-progress', depth)
+
+				if stop:
+					break
 
 		self.events.trigger('node-end', depth)
 

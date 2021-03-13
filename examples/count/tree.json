@@ -23,6 +23,7 @@
 		},
 
 		"evaluation": "multipleSums",
-		"test": "[-1] < [-2]"
+		"test": "< 100",
+		"stop": true
 	}
 }
