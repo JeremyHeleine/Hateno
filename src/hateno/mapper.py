@@ -229,14 +229,20 @@ class Mapper():
 
 		simulations_values : list
 			The raw values of these settings.
+
+		Returns
+		-------
+		simulations : list
+			The newly defined simulations.
 		'''
 
 		if self._simulations_dir is None:
 			self._simulations_dir = self._simulations_folder.tempdir()
+			self._simulations = []
 
 		simulations_dir = os.path.join(self._simulations_dir, str(len(os.listdir(self._simulations_dir))))
 
-		self._simulations = []
+		simulations = []
 
 		for k, values in enumerate(simulations_values):
 			simulation = self._default_simulation.copy()
@@ -245,7 +251,11 @@ class Mapper():
 			for setting, value in zip(settings, values):
 				simulation.getSetting(setting).value = value
 
-			self._simulations.append(simulation)
+			simulations.append(simulation)
+
+		self._simulations += simulations
+
+		return simulations
 
 	def _generateSimulation(self, simulation):
 		'''
@@ -388,7 +398,7 @@ class Mapper():
 
 		return node['stop'] and test
 
-	def _mapNode(self, node, depth = 0, prev_settings = [], prev_settings_values = []):
+	def _mapNode(self, node, depth = 0, prev_settings = [], prev_settings_values = [], parent_simulations = []):
 		'''
 		Prepare the values of the settings in a node, and then either map the children, or generate the simulations before evaluate.
 
@@ -406,6 +416,9 @@ class Mapper():
 		prev_settings_values : list
 			The values of the previous settings.
 
+		parent_simulations : list
+			The set of simulations to fill for the parent node (will be evaluated).
+
 		Returns
 		-------
 		output : dict
@@ -421,15 +434,16 @@ class Mapper():
 
 		if 'foreach' in node:
 			for values in node['values']:
-				sub_output = self._mapNode(node['foreach'], depth+1, prev_settings + node['settings'], prev_settings_values + values)
-				simulation = self._simulations[0]
+				simulations = []
+				sub_output = self._mapNode(node['foreach'], depth+1, prev_settings + node['settings'], prev_settings_values + values, simulations)
+				parent_simulations += simulations
 
 				o = {
-					'values': [simulation.getSetting(setting).value for setting in node['settings']],
+					'values': [simulations[0].getSetting(setting).value for setting in node['settings']],
 					'output': sub_output
 				}
 
-				stop = self._endNode(node, self._simulations, evaluations, o)
+				stop = self._endNode(node, simulations, evaluations, o)
 				map.append(o)
 
 				self.events.trigger('node-progress', depth)
@@ -438,10 +452,12 @@ class Mapper():
 					break
 
 		else:
-			self._setSimulations(prev_settings + node['settings'], [prev_settings_values + v for v in node['values']])
+			simulations = self._setSimulations(prev_settings + node['settings'], [prev_settings_values + v for v in node['values']])
+			generated_simulations = []
 
-			for simulation in self._simulations:
+			for simulation in simulations:
 				self._generateSimulation(simulation)
+				generated_simulations.append(simulation)
 
 				o = {
 					'values': [simulation.getSetting(setting).value for setting in node['settings']]
@@ -454,6 +470,8 @@ class Mapper():
 
 				if stop:
 					break
+
+			parent_simulations += generated_simulations
 
 		self.events.trigger('node-end', depth)
 
