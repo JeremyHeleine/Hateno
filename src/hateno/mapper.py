@@ -36,6 +36,7 @@ class Mapper():
 
 		self._default_simulation = None
 		self._tree = None
+		self._output = None
 
 		self._simulations_dir = None
 
@@ -86,6 +87,57 @@ class Mapper():
 
 		else:
 			self._maker_instance = None
+
+	@property
+	def tree(self):
+		'''
+		Get the current tree.
+
+		Returns
+		-------
+		tree : dict
+			The current tree to read.
+		'''
+
+		return self._tree
+
+	@property
+	def output(self):
+		'''
+		Get the current output.
+
+		Returns
+		-------
+		output : dict
+			The output of the current tree.
+		'''
+
+		return self._output
+
+	@property
+	def tree_by_depths(self):
+		'''
+		Get the current tree, sorted by depths.
+
+		Returns
+		-------
+		tree : dict
+			The current tree to read.
+		'''
+
+		if self._tree is None:
+			return None
+
+		depth = 0
+		tree = {depth: self._tree}
+
+		current_depth = self._tree
+		while 'foreach' in current_depth:
+			depth += 1
+			current_depth = current_depth['foreach']
+			tree[depth] = current_depth
+
+		return tree
 
 	@property
 	def _index_regex(self):
@@ -496,13 +548,13 @@ class Mapper():
 
 		self.events.trigger('map-start')
 
-		output = self._mapNode(self._tree)
+		self._output = self._mapNode(self._tree)
 
 		self._deleteSimulations()
 
 		self.events.trigger('map-end')
 
-		return output
+		return self._output
 
 class MapperUI(MakerUI):
 	'''
@@ -560,6 +612,15 @@ class MapperUI(MakerUI):
 		'''
 
 		self._clearState()
+
+	def clearState(self):
+		'''
+		Clear the Mapper state.
+		'''
+
+		if self._mapper_state_line is not None:
+			self.removeItem(self._mapper_state_line)
+			self._mapper_state_line = None
 
 	def _readStart(self):
 		'''
