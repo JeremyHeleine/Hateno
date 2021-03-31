@@ -1,5 +1,9 @@
 {
-	"default": {},
+	"default": {
+		"interval": {
+			"points": 100
+		}
+	},
 	"tree": {
 		"settings": [
 			{
@@ -22,7 +26,7 @@
 				"set": "function",
 				"name": "coef"
 			},
-			"values": [1, 2],
+			"values": [1, 2, 3, 4],
 
 			"evaluation": "sum",
 			"test": 0

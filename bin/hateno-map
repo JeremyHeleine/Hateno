@@ -7,8 +7,9 @@ This script uses the Mapper to map simulations with evaluation functions.
 
 import argparse
 import tabulate
+from math import floor, log10
 
-from hateno import jsonfiles
+from hateno import string, jsonfiles
 from hateno.mapper import Mapper, MapperUI
 from hateno.explorer import Explorer
 
@@ -16,6 +17,9 @@ def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--add-to-manager', action = 'store_true', help = 'add the generated simulations to the manager')
 	parser.add_argument('--find', action = 'store_true', help = 'find the true tests after mapping')
+	parser.add_argument('--search', type = int, nargs = '?', default = argparse.SUPPRESS, help = 'search for optimal values')
+	parser.add_argument('--search-tolerance', type = float, default = 1E-5, help = 'search tolerance')
+	parser.add_argument('--search-itermax', type = int, default = 20, help = 'maximal number of iterations')
 	parser.add_argument('--map-output', type = str, help = 'path to the file where the map output should be written')
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('tree', type = str, help = 'path to the file describing the tree to map')
@@ -27,7 +31,31 @@ def action(args):
 
 		output = mapper.mapTree(jsonfiles.read(args.tree, allow_generator = True))
 
-		if args.find:
+		if 'search' in args:
+			if args.map_output:
+				jsonfiles.write(output, args.map_output)
+
+			explorer = Explorer(mapper)
+			found = explorer.search(None, args.search, tolerance = args.search_tolerance, itermax = args.search_itermax)
+
+			jsonfiles.write(found, args.output)
+
+			headers = [''] + [f'{setting["set"]}[{setting["set_index"]}].{setting["name"]}' for setting in found['previous_settings'] + [found['setting']]] + ['Evaluation']
+			values_fmt = f'.{max(-floor(log10(args.search_tolerance)), 0) + 3}g'
+			lines_fmt = ('s',) + ('g',)*len(found['previous_settings']) + (values_fmt, 'g')
+
+			for search in found['searches']:
+				latest = search['iterations'][-1]
+				print(f'Found between {search["interval"]["bounds"][0]} and {search["interval"]["bounds"][1]} in {string.plural(len(search["iterations"]), "iteration", "iterations")} (criterion: {latest["stopping_criterion"]})')
+
+				line_lower = ['Lower bound', *search['previous_values'], latest['interval']['bounds'][0], latest['interval']['evaluations'][0]]
+				line_upper = ['Upper bound', *search['previous_values'], latest['interval']['bounds'][1], latest['interval']['evaluations'][1]]
+				line_sol = ['Solution', *search['previous_values'], latest['iterate'], latest['evaluation']]
+				lines = [line_lower, line_upper, line_sol]
+
+				print(tabulate.tabulate(lines, headers = headers, tablefmt = 'grid', floatfmt = lines_fmt))
+
+		elif args.find:
 			if args.map_output:
 				jsonfiles.write(output, args.map_output)
 

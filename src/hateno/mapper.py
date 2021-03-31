@@ -42,7 +42,17 @@ class Mapper():
 
 		self._index_regex_compiled = None
 
-		self.events = Events(['read-start', 'read-end', 'map-start', 'map-end', 'node-start', 'node-progress', 'node-end', 'generate-start', 'generate-end', 'evaluation-start', 'evaluation-end'])
+		self.events = Events([
+			'read-start', 'read-end',
+			'map-start', 'map-end',
+			'node-start', 'node-progress', 'node-end',
+			'generate-start', 'generate-end',
+			'evaluation-start', 'evaluation-end',
+			'explorer-find-start', 'explorer-find-end',
+			'explorer-searches-start', 'explorer-searches-end',
+			'explorer-search-start', 'explorer-search-end',
+			'explorer-search-iteration-start', 'explorer-search-iteration-end'
+		])
 
 	def __enter__(self):
 		'''
@@ -100,6 +110,19 @@ class Mapper():
 		'''
 
 		return self._tree
+
+	@property
+	def default_simulation(self):
+		'''
+		Get the current default simulation's settings.
+
+		Returns
+		-------
+		default_simulation : dict
+			The settings of the current default simulation.
+		'''
+
+		return self._default_simulation.settings
 
 	@property
 	def output(self):
@@ -576,6 +599,10 @@ class MapperUI(MakerUI):
 		self._nodes_lines = {}
 		self._nodes_bars = {}
 
+		self._explorer_searches = None
+		self._explorer_searches_n_tests = None
+		self._explorer_search = None
+
 		self._mapper.events.addListener('read-start', self._readStart)
 		self._mapper.events.addListener('read-end', self._readEnd)
 		self._mapper.events.addListener('map-start', self._mapStart)
@@ -587,6 +614,14 @@ class MapperUI(MakerUI):
 		self._mapper.events.addListener('generate-end', self._generateEnd)
 		self._mapper.events.addListener('evaluation-start', self._evaluationStart)
 		self._mapper.events.addListener('evaluation-end', self._evaluationEnd)
+		self._mapper.events.addListener('explorer-find-end', self._explorerFindStart)
+		self._mapper.events.addListener('explorer-find-end', self._explorerFindEnd)
+		self._mapper.events.addListener('explorer-search-start', self._explorerSearchStart)
+		self._mapper.events.addListener('explorer-search-end', self._explorerSearchEnd)
+		self._mapper.events.addListener('explorer-searches-start', self._explorerSearchesStart)
+		self._mapper.events.addListener('explorer-searches-end', self._explorerSearchesEnd)
+		self._mapper.events.addListener('explorer-search-iteration-start', self._explorerSearchIterationStart)
+		self._mapper.events.addListener('explorer-search-iteration-end', self._explorerSearchIterationEnd)
 
 		self._mapper.maker.events.addListener('run-end', self._clearMakerState)
 
@@ -627,28 +662,32 @@ class MapperUI(MakerUI):
 		The interpretation of a tree has started.
 		'''
 
-		self._updateMapperState('Reading a tree…')
+		if self._explorer_searches is None:
+			self._updateMapperState('Reading a tree…')
 
 	def _readEnd(self):
 		'''
 		The tree is read.
 		'''
 
-		self._updateMapperState('Tree read')
+		if self._explorer_searches is None:
+			self._updateMapperState('Tree read')
 
 	def _mapStart(self):
 		'''
 		The mapping of a tree has been started.
 		'''
 
-		self._updateMapperState('Mapping a tree…')
+		if self._explorer_searches is None:
+			self._updateMapperState('Mapping a tree…')
 
 	def _mapEnd(self):
 		'''
 		The mapping of a tree has ended.
 		'''
 
-		self._updateMapperState('Tree mapped')
+		if self._explorer_searches is None:
+			self._updateMapperState('Tree mapped')
 
 	def _nodeStart(self, depth, node):
 		'''
@@ -720,6 +759,91 @@ class MapperUI(MakerUI):
 	def _evaluationEnd(self):
 		'''
 		The evaluation of a simulation has ended.
+		'''
+
+		pass
+
+	def _explorerFindStart(self):
+		'''
+		An Explorer starts to find the tests evaluated to `True`.
+		'''
+
+		self._updateMapperState('Finding the true tests…')
+
+	def _explorerFindEnd(self):
+		'''
+		The search for the tests has ended.
+		'''
+
+		self._updateMapperState('Exploration ended')
+
+	def _explorerSearchesStart(self, searches, n_tests):
+		'''
+		An Explorer starts to search optimal settings.
+
+		Parameters
+		----------
+		searches : dict
+			Description of all the searches.
+
+		n_tests : int
+			Number of planned searches.
+		'''
+
+		self._explorer_searches = searches
+		self._explorer_searches_n_tests = n_tests
+
+		self._updateMapperState(f'Searching for {string.plural(n_tests, "value", "values")}…')
+
+	def _explorerSearchesEnd(self):
+		'''
+		The search has ended.
+		'''
+
+		self._explorer_searches = None
+		self._explorer_searches_n_tests = None
+
+		self._updateMapperState('Searches ended')
+
+	def _explorerSearchStart(self, search):
+		'''
+		An Explorer starts to search optimal settings for a particular test.
+
+		Parameters
+		----------
+		search : dict
+			Description of the starting search.
+		'''
+
+		self._explorer_search = search
+
+		self._updateMapperState(f'Search {len(self._explorer_searches["searches"])+1}/{self._explorer_searches_n_tests}…')
+
+	def _explorerSearchEnd(self):
+		'''
+		The search for one test has ended.
+		'''
+
+		self._explorer_search = None
+
+		self._updateMapperState('Search ended')
+
+	def _explorerSearchIterationStart(self):
+		'''
+		An iteration in a search has started.
+		'''
+
+		state = f'Search {len(self._explorer_searches["searches"])+1}/{self._explorer_searches_n_tests}'
+		state += f', iteration {len(self._explorer_search["iterations"])+1}'
+
+		if self._explorer_search['iterations']:
+			state += f', current criterion: {self._explorer_search["iterations"][-1]["stopping_criterion"]}'
+
+		self._updateMapperState(state)
+
+	def _explorerSearchIterationEnd(self):
+		'''
+		An iteration in a search has ended.
 		'''
 
 		pass
