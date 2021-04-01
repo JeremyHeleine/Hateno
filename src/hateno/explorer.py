@@ -121,13 +121,29 @@ class Explorer():
 
 		self._current_search_iteration['iterate'] = 0.5 * sum(self._current_search_iteration['interval']['bounds'])
 
+	def _secant(self):
+		'''
+		Calculate the new iterate of a search by using a secant method.
+		'''
+
+		x0, x1 = self._current_search_iteration['interval']['bounds']
+		y0, y1 = self._current_search_iteration['interval']['evaluations']
+
+		target = self._tree[self._search['depth']]['test_target']
+
+		self._current_search_iteration['iterate'] = x0 + (target - y0) * (x1 - x0) / (y1 - y0)
+
 	def _searchStopCriterion(self):
 		'''
 		Calculate the stop criterion of the current iteration.
 		'''
 
-		a, b = self._current_search_iteration['interval']['bounds']
-		self._current_search_iteration['stopping_criterion'] = abs(b - a)
+		if 'test_target' in self._tree[self._search['depth']]:
+			self._current_search_iteration['stopping_criterion'] = abs(self._tree[self._search['depth']]['test_target'] - self._current_search_iteration['evaluation'])
+
+		else:
+			a, b = self._current_search_iteration['interval']['bounds']
+			self._current_search_iteration['stopping_criterion'] = abs(b - a)
 
 	def _buildSearchTree(self):
 		'''
@@ -156,7 +172,11 @@ class Explorer():
 
 		self._current_search_iteration = {}
 		self._searchInterval()
-		self._dichotomy()
+
+		if 'test_target' in self._tree[self._search['depth']]:
+			self._secant()
+		else:
+			self._dichotomy()
 
 		self._buildSearchTree()
 		self._mapper.mapTree(self._search_tree)

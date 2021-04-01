@@ -257,7 +257,14 @@ class Mapper():
 			pass
 
 		else:
+			try:
+				normalized['test'] = node['test_target']
+
+			except KeyError:
+				pass
+
 			if isinstance(normalized['test'], (float, int)):
+				normalized['test_target'] = normalized['test']
 				normalized['test'] = f'([-2] - {normalized["test"]}) * ([-1] - {normalized["test"]}) <= 0'
 
 			else:
