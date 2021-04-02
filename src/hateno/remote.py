@@ -45,6 +45,41 @@ class RemoteFolder():
 
 		self.close()
 
+	def _connectSSH(self, config):
+		'''
+		Open an SSH connection.
+
+		Parameters
+		----------
+		config : dict
+			Parameters of the connection to open.
+		'''
+
+		ssh = paramiko.SSHClient()
+		ssh.load_system_host_keys()
+		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+		connect_params = {'username': config['user']}
+
+		try:
+			connect_params['port'] = config['port']
+
+		except KeyError:
+			pass
+
+		try:
+			gate = self._connectSSH(config['gate'])
+
+		except KeyError:
+			pass
+
+		else:
+			connect_params['sock'] = gate.get_transport().open_channel('direct-tcpip', (config['host'], 22), ('', 0))
+
+		ssh.connect(config['host'], **connect_params)
+
+		return ssh
+
 	def open(self):
 		'''
 		Open the connection.
@@ -54,20 +89,7 @@ class RemoteFolder():
 			self._sftp = LocalSFTP()
 
 		else:
-			self._ssh = paramiko.SSHClient()
-			self._ssh.load_system_host_keys()
-			self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-			connect_params = {'username': self._configuration['user']}
-
-			try:
-				connect_params['port'] = self._configuration['port']
-
-			except KeyError:
-				pass
-
-			self._ssh.connect(self._configuration['host'], **connect_params)
-
+			self._ssh = self._connectSSH(self._configuration)
 			self._sftp = SFTP.from_transport(self._ssh.get_transport())
 
 		if 'working_directory' in self._configuration:
