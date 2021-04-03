@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14 - 2021-04-03
+
+* New: SSH gates support
+* New: `exists()` method in Manager
+* Explorer split into Mapper and Explorer
+* Evaluations functions are now defined in the config folder
+* Local mode is now faster
+* Simulations that do not exist anymore are automatically deleted during `update()`
+* Fix: multiple namers can be applied
+
 ## 0.13 - 2021-01-11
 
 * New: configs and skeletons can be imported from another folder

@@ -7,3 +7,4 @@ src/hateno.egg-info
 
 examples/*/.hateno/simulations.list
 examples/*/.hateno/simulations
+examples/exec
