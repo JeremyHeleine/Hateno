@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1 - 2021-04-07
+
+* Fix: settings tags are taken into account in a search
+
 ## 0.14 - 2021-04-03
 
 * New: SSH gates support
