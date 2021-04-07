@@ -122,7 +122,7 @@ class Mapper():
 			The settings of the current default simulation.
 		'''
 
-		return self._default_simulation.settings
+		return self._default_simulation.raw_values_settings
 
 	@property
 	def output(self):

@@ -260,6 +260,26 @@ class Simulation():
 		}
 
 	@property
+	def raw_values_settings(self):
+		'''
+		Return a dictionary with the complete list of sets of settings to use, as dictionaries.
+		The settings with `exclude` to `True` are ignored.
+
+		Returns
+		-------
+		settings : dict
+			List of sets of settings.
+		'''
+
+		return {
+			settings_set_name: [
+				{s.name: s._value for s in settings_set}
+				for settings_set in settings_sets
+			]
+			for settings_set_name, settings_sets in self._settings.items()
+		}
+
+	@property
 	def settings_as_strings(self):
 		'''
 		Return the complete list of sets of settings to use, as strings.
