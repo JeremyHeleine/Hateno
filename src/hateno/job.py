@@ -1,16 +1,256 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import socket
 import selectors
 import struct
 import io
+import subprocess
 import json
 
+from . import jsonfiles
 from .events import Events
+
+class JobServer():
+	'''
+	Represent the server part of a job, which distributes the command lines over the clients.
+
+	Parameters
+	----------
+	host : str
+		Host of the server.
+
+	port : int
+		Port of the server.
+
+	cmd_filename : str
+		Path to the file where the command lines are stored.
+	'''
+
+	def __init__(self, host, port, cmd_filename):
+		self._host = host
+		self._port = port
+
+		self._command_lines = jsonfiles.read(cmd_filename)
+		self._current_command_line = -1
+
+		self._open()
+
+	def __enter__(self):
+		'''
+		Context manager to call `close()` at the end.
+		'''
+
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
+	def _open(self):
+		'''
+		Open the server by creating the selector and socket.
+		'''
+
+		self._selector = selectors.DefaultSelector()
+
+		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self._sock.bind((self._host, self._port))
+		self._sock.listen()
+		self._sock.setblocking(False)
+
+		self._selector.register(self._sock, selectors.EVENT_READ, data = None)
+
+	def close(self):
+		'''
+		Close the server.
+		'''
+
+		self._selector.close()
+
+	def _acceptConnection(self, sock):
+		'''
+		Accept the connection of a socket to the server.
+
+		Parameters
+		----------
+		sock : socket.socket
+			The socket to accept.
+		'''
+
+		conn, addr = sock.accept()
+		conn.setblocking(False)
+
+		message = Message(self._selector, conn)
+		message.events.addListener('message-received', self._processRequest)
+
+		self._selector.register(conn, selectors.EVENT_READ, data = message)
+
+	def _processRequest(self, message, req):
+		'''
+		Process a request sent by a client.
+
+		Parameters
+		----------
+		message : Message
+			Message instance of the client.
+
+		req : dict
+			The received request.
+		'''
+
+		if req['query'] == 'next':
+			message.setMessage({'command_line': self._next_command_line()})
+
+	def _next_command_line(self):
+		'''
+		Get the next command line to execute.
+		'''
+
+		self._current_command_line += 1
+
+		try:
+			return self._command_lines[self._current_command_line]
+
+		except IndexError:
+			return None
+
+	def run(self):
+		'''
+		Run the event loop.
+		'''
+
+		while True:
+			try:
+				for key, mask in self._selector.select(timeout = None):
+					if key.data is None:
+						self._acceptConnection(key.fileobj)
+
+					else:
+						message = key.data
+						try:
+							message.processEvents(mask)
+
+						except Exception:
+							message.close()
+
+			except KeyboardInterrupt:
+				break
+
+class JobClient():
+	'''
+	Represent a client part of the job, which executes the command lines.
+
+	Parameters
+	----------
+	host : str
+		Host of the server.
+
+	port : int
+		Port of the server.
+	'''
+
+	def __init__(self, host, port):
+		self._host = host
+		self._port = port
+
+		self.events = Events(['exec-start', 'exec-end'])
+
+		self._open()
+
+	def __enter__(self):
+		'''
+		Context manager to call `close()` at the end.
+		'''
+
+		return self
+
+	def __exit__(self, type, value, traceback):
+		'''
+		Ensure `close()` is called when exiting the context manager.
+		'''
+
+		self.close()
+
+	def _open(self):
+		'''
+		Open the connection with the server.
+		'''
+
+		self._selector = selectors.DefaultSelector()
+
+		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._sock.setblocking(False)
+		self._sock.connect_ex((self._host, self._port))
+
+		message = Message(self._selector, self._sock)
+		message.events.addListener('message-received', self._processResponse)
+
+		self._selector.register(self._sock, selectors.EVENT_WRITE, data = message)
+
+		message.setMessage({'query': 'next'})
+
+	def close(self):
+		'''
+		Close the connection.
+		'''
+
+		self._selector.close()
+
+	def _processResponse(self, message, response):
+		'''
+		Process the response of a request to the server.
+
+		Parameters
+		----------
+		message : Message
+			Message instance of the connection.
+
+		response : dict
+			Response of the server.
+		'''
+
+		message.setMode('idle')
+
+		if response['command_line'] is not None:
+			self.events.trigger('exec-start', response['command_line'])
+			output = subprocess.check_output(response['command_line'], shell = True)
+			self.events.trigger('exec-end', output.decode())
+
+			message.setMessage({'query': 'next'})
+
+		else:
+			message.close()
+
+	def run(self):
+		'''
+		Run the event loop.
+		'''
+
+		while True:
+			try:
+				for key, mask in self._selector.select(timeout = 1):
+					message = key.data
+
+					try:
+						message.processEvents(mask)
+
+					except Exception:
+						message.close()
+
+				if not(self._selector.get_map()):
+					break
+
+			except KeyboardInterrupt:
+				break
 
 class Message():
 	'''
-	Base class to exchange messages between the server and a client.
+	Class to exchange messages between the server and a client.
 
 	Parameters
 	----------
@@ -124,7 +364,7 @@ class Message():
 			self._readContent()
 
 		if self._received_msg is not None:
-			self.events.trigger('message-received', self._received_msg)
+			self.events.trigger('message-received', self, self._received_msg)
 			self._received_msg = None
 			self._received_msg_len = None
 
@@ -181,7 +421,8 @@ class Message():
 		self._send()
 
 		if self._msg_sent:
-			self.events.trigger('message-sent', self._msg_to_queue)
+			self.setMode('r')
+			self.events.trigger('message-sent', self, self._msg_to_queue)
 
 	def _queueMessage(self):
 		'''
