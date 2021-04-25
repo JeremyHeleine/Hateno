@@ -17,22 +17,18 @@ class JobServer():
 
 	Parameters
 	----------
-	host : str
-		Host of the server.
-
-	port : int
-		Port of the server.
-
 	cmd_filename : str
 		Path to the file where the command lines are stored.
 	'''
 
-	def __init__(self, host, port, cmd_filename):
-		self._host = host
-		self._port = port
+	def __init__(self, cmd_filename):
+		self._host = '127.0.0.1'
+		self._port = 21621
 
 		self._command_lines = jsonfiles.read(cmd_filename)
 		self._current_command_line = -1
+
+		self._clients = []
 
 		self._open()
 
@@ -59,11 +55,23 @@ class JobServer():
 
 		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self._sock.bind((self._host, self._port))
+		self._bindSocket()
 		self._sock.listen()
 		self._sock.setblocking(False)
 
 		self._selector.register(self._sock, selectors.EVENT_READ, data = None)
+
+	def _bindSocket(self):
+		'''
+		Bind the socket and change the port if necessary.
+		'''
+
+		try:
+			self._sock.bind((self._host, self._port))
+
+		except OSError:
+			self._port += 1
+			self._bindSocket()
 
 	def close(self):
 		'''
@@ -71,6 +79,14 @@ class JobServer():
 		'''
 
 		self._selector.close()
+
+	@property
+	def port(self):
+		'''
+		Get the port in use.
+		'''
+
+		return self._port
 
 	def _acceptConnection(self, sock):
 		'''
@@ -87,6 +103,8 @@ class JobServer():
 
 		message = Message(self._selector, conn)
 		message.events.addListener('message-received', self._processRequest)
+
+		self._clients.append(message)
 
 		self._selector.register(conn, selectors.EVENT_READ, data = message)
 
@@ -138,8 +156,27 @@ class JobServer():
 						except Exception:
 							message.close()
 
+				if self._allClosed():
+					break
+
 			except KeyboardInterrupt:
 				break
+
+	def _allClosed(self):
+		'''
+		Check whether all the clients closed their connections.
+
+		Returns
+		-------
+		all_closed : bool
+			`True` if all clients are closed, `False` if at least one client is still connected.
+		'''
+
+		if not(self._clients):
+			return False
+
+		closed_clients = [client for client in self._clients if client.closed]
+		return self._clients == closed_clients
 
 class JobClient():
 	'''
@@ -275,6 +312,8 @@ class Message():
 		self._msg_queued = False
 		self._msg_sent = False
 
+		self._closed = False
+
 		self.events = Events(['message-received', 'message-sent'])
 
 	def close(self):
@@ -296,6 +335,20 @@ class Message():
 
 		finally:
 			self._sock = None
+			self._closed = True
+
+	@property
+	def closed(self):
+		'''
+		Know when a connection has been closed.
+
+		Returns
+		-------
+		closed : bool
+			`True` if `close()` has been called, `False` otherwise.
+		'''
+
+		return self._closed
 
 	def setMode(self, mode):
 		'''
