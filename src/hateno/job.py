@@ -8,7 +8,6 @@ import io
 import subprocess
 import json
 
-from . import jsonfiles
 from .events import Events
 
 class JobServer():
@@ -17,15 +16,15 @@ class JobServer():
 
 	Parameters
 	----------
-	cmd_filename : str
-		Path to the file where the command lines are stored.
+	command_lines : list
+		Command lines to execute.
 	'''
 
-	def __init__(self, cmd_filename):
+	def __init__(self, command_lines):
 		self._host = '127.0.0.1'
 		self._port = 21621
 
-		self._command_lines = jsonfiles.read(cmd_filename)
+		self._command_lines = command_lines
 		self._current_command_line = -1
 
 		self._clients = []

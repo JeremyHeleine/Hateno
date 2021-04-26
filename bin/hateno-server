@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This scripts runs the server part of a job.
+'''
+
+import argparse
+
+from hateno import jsonfiles
+from hateno.job import JobServer
+
+def addArguments(parser):
+	parser.add_argument('--print-port', action = 'store_true', help = 'print the port the server is using')
+	parser.add_argument('cmd_list', type = str, help = 'path to the file where the command lines are stored')
+
+def action(args):
+	with JobServer(jsonfiles.read(args.cmd_list)) as server:
+		if args.print_port:
+			print(server.port)
+
+		server.run()
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Run the server part of a job')
+	addArguments(parser)
+	action(parser.parse_args())
