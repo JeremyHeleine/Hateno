@@ -8,7 +8,6 @@ This script uses the Generator class to generate the scripts corresponding to so
 import argparse
 
 from hateno import jsonfiles
-from hateno.folder import Folder
 from hateno.generator import Generator
 from hateno.errors import *
 
@@ -26,7 +25,7 @@ def action(args):
 	generator.add(simulations)
 
 	if args.output_dir is None:
-		print('\n'.join(generator.parse()['data_lists']['COMMAND_LINES']))
+		print('\n'.join(generator.command_lines))
 		exit()
 
 	try:

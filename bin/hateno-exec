@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script connects to a server to execute some command lines of a job.
+'''
+
+import argparse
+
+from hateno import jsonfiles
+from hateno.job import JobClient
+
+def addArguments(parser):
+	parser.add_argument('--host', type = str, default = '127.0.0.1', help = 'host of the server')
+	parser.add_argument('--port', type = int, default = 21621, help = 'port of the server')
+	parser.add_argument('--log', type = str, help = 'log file to write')
+
+def action(args):
+	output = []
+
+	def execStart(cmd):
+		output.append({'exec': cmd})
+
+	def execEnd(cmd_output):
+		output[-1]['output'] = cmd_output
+
+	with JobClient(args.host, args.port) as client:
+		client.events.addListener('exec-start', execStart)
+		client.events.addListener('exec-end', execEnd)
+
+		client.run()
+
+	if args.log is not None:
+		jsonfiles.write(output, args.log)
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Run the client part of a job')
+	addArguments(parser)
+	action(parser.parse_args())

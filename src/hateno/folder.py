@@ -56,8 +56,6 @@ class Folder():
 
 		self._config_folders_dict = None
 		self._configs = {}
-		self._skeletons_folders_dict = None
-		self._skeletons = {}
 
 		self._program_files = None
 
@@ -140,15 +138,12 @@ class Folder():
 
 		return self._config_folders_dict
 
-	def config(self, configname, foldername = None):
+	def configname(self, foldername = None):
 		'''
-		Get a configuration object.
+		Get the name of a configuration.
 
 		Parameters
 		----------
-		configname : str
-			Name of the wanted configuration.
-
 		foldername : str
 			Name of the configuration folder. If `None`, use the default config indicated in the configuration file.
 
@@ -157,10 +152,13 @@ class Folder():
 		NoConfigError
 			No configuration folder name given.
 
+		ConfigNotFoundError
+			The asked config name is not defined.
+
 		Returns
 		-------
-		config : dict
-			Dictionary stored in the right configuration file.
+		foldername : str
+			Name of the configuration folder.
 		'''
 
 		foldername = foldername or self.settings.get('default_config')
@@ -175,93 +173,65 @@ class Folder():
 		if foldername not in self._config_folders:
 			raise ConfigNotFoundError(foldername)
 
+		return foldername
+
+	def configFilepath(self, filename, foldername = None):
+		'''
+		Get the path to a file in a config folder.
+
+		Parameters
+		----------
+		filename : str
+			Name of the file.
+
+		foldername : str
+			Name of the configuration folder. If `None`, use the default config indicated in the configuration file.
+
+		Raises
+		------
+		NoConfigError
+			No configuration folder name given.
+
+		Returns
+		-------
+		path : str
+			Path to the file.
+		'''
+
+		foldername = self.configname(foldername)
+		return os.path.join(self._config_folders[foldername], filename)
+
+	def config(self, configname, foldername = None):
+		'''
+		Get a configuration object.
+
+		Parameters
+		----------
+		configname : str
+			Name of the wanted configuration.
+
+		foldername : str
+			Name of the configuration folder. If `None`, use the default config indicated in the configuration file.
+
+		Returns
+		-------
+		config : dict
+			Dictionary stored in the right configuration file.
+		'''
+
+		foldername = self.configname(foldername)
+
 		if foldername not in self._configs:
 			self._configs[foldername] = {}
 
 		if configname not in self._configs[foldername]:
 			try:
-				self._configs[foldername][configname] = jsonfiles.read(os.path.join(self._config_folders[foldername], f'{configname}.json'))
+				self._configs[foldername][configname] = jsonfiles.read(self.configFilepath(f'{configname}.json', foldername))
 
 			except FileNotFoundError:
 				self._configs[foldername][configname] = None
 
 		return self._configs[foldername][configname]
-
-	@property
-	def _skeletons_folders(self):
-		'''
-		The list of the available skeletons folders.
-
-		Returns
-		-------
-		folders : dict
-			A dictionary associating the folders' names to their paths.
-		'''
-
-		if self._skeletons_folders_dict is None:
-			self._skeletons_folders_dict = {}
-
-			if 'import_skeleton' in self.settings:
-				if type(self.settings['import_skeleton']) is not list:
-					self.settings['import_skeleton'] = [self.settings['import_skeleton']]
-
-				for import_desc in self.settings['import_skeleton']:
-					foldername = import_desc.get('name') or import_desc['skeleton']
-					self._skeletons_folders_dict[foldername] = os.path.normpath(os.path.join(self._folder, import_desc['folder'], MAIN_FOLDER, SKELETONS_FOLDER, foldername))
-
-			base_folder = os.path.join(self._conf_folder_path, SKELETONS_FOLDER)
-
-			if os.path.isdir(base_folder):
-				for foldername in os.listdir(base_folder):
-					path = os.path.join(base_folder, foldername)
-
-					if os.path.isdir(path):
-						self._skeletons_folders_dict[foldername] = path
-
-		return self._skeletons_folders_dict
-
-	def skeletons(self, foldername):
-		'''
-		Get the paths to the skeletons files in a given folder.
-
-		Parameters
-		----------
-		foldername : str
-			Name of the skeletons folder.
-
-		Returns
-		-------
-		paths : dict
-			The lists of paths: subgroups skeletons, wholegroup skeletons and script to launch "coordinates".
-		'''
-
-		if foldername not in self._skeletons:
-			folder = self._skeletons_folders[foldername]
-			recipe = jsonfiles.read(os.path.join(folder, 'recipe.json'))
-
-			self._skeletons[foldername] = {
-				category: [
-					os.path.join(folder, skeleton)
-					for skeleton in recipe[category]
-				]
-				for category in ['subgroups', 'wholegroup']
-			}
-
-			option_split = os.path.join(folder, recipe['launch']).rsplit(':', maxsplit = 2)
-			option_split_num = [string.intOrNone(s) for s in option_split]
-
-			cut = max([k for k, n in enumerate(option_split_num) if n is None]) + 1
-
-			script_name = ':'.join(option_split[:cut])
-			coords = option_split_num[cut:]
-			coords += [-1] * (2 - len(coords))
-
-			self._skeletons[foldername]['script_to_launch'] = {
-				'name': script_name,
-				'coords': coords
-			}
-
-		return self._skeletons[foldername]
 
 	@property
 	def simulations_list_filename(self):

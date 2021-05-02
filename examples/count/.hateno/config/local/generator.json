@@ -1,12 +1,7 @@
 {
-	"max_simulations": 4,
-	"max_subgroups": 2,
-	"skeletons": "basic",
-	"data_lists": {},
-	"data_variables": {
-		"PATH_TO_HATENO_JOBS": "hateno-jobs",
-		"JOBS_OUTPUT_FILENAME": "job.out",
-		"JOBS_STATES_FILENAME": "jobs.txt"
-	},
-	"data_variables_cases": {}
+	"n_exec": 5,
+	"path_to_hateno": "hateno",
+	"log_filename": "log-%k.json",
+	"skeleton_filename": "launch.skeleton.sh",
+	"launch_filename": "launch.sh"
 }

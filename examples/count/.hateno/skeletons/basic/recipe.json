@@ -1,5 +1,0 @@
-{
-	"subgroups": ["simulations.skeleton.sh"],
-	"wholegroup": ["launch.skeleton.sh"],
-	"launch": "launch.skeleton.sh"
-}
