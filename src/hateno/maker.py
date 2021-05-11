@@ -6,6 +6,7 @@ import shutil
 import stat
 import time
 import copy
+import json
 
 from . import string, jsonfiles
 
@@ -15,7 +16,6 @@ from .simulation import Simulation
 from .manager import Manager
 from .generator import Generator
 from .remote import RemoteFolder
-from .jobs import JobsManager, JobState
 from .errors import *
 from .ui import UI
 
@@ -42,13 +42,12 @@ class Maker():
 		self._manager_instance = None
 		self._generator_instance = None
 		self._remote_folder_instance = None
-		self._jobs_manager = JobsManager()
 
 		self._loadOptions(override_options)
 
 		self._simulations_to_extract = []
 		self._unknown_simulations = []
-		self._jobs_ids = []
+		self._job_log_file = None
 
 		self._remote_scripts_dir = None
 
@@ -58,7 +57,18 @@ class Maker():
 		self._paused = False
 		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'remote_scripts_dir']
 
-		self.events = Events(['close-start', 'close-end', 'remote-open-start', 'remote-open-end', 'delete-scripts', 'paused', 'resume', 'run-start', 'run-end', 'extract-start', 'extract-end', 'extract-progress', 'generate-start', 'generate-end', 'wait-start', 'wait-progress', 'wait-end', 'download-start', 'download-progress', 'download-end', 'addition-start', 'addition-progress', 'addition-end'])
+		self.events = Events([
+			'close-start', 'close-end',
+			'remote-open-start', 'remote-open-end',
+			'delete-scripts',
+			'paused', 'resume',
+			'run-start', 'run-end',
+			'extract-start', 'extract-end', 'extract-progress',
+			'generate-start', 'generate-end',
+			'wait-start', 'wait-progress', 'wait-end',
+			'download-start', 'download-progress', 'download-end',
+			'addition-start', 'addition-progress', 'addition-end'
+		])
 
 	def __enter__(self):
 		'''
@@ -178,8 +188,6 @@ class Maker():
 			'settings_file': 'settings.json',
 			'max_corrupted': -1,
 			'max_failures': 0,
-			'jobs_states_filename': 'jobs.txt',
-			'jobs_output_filename': 'job.out',
 			'generate_only': False
 		}
 
@@ -357,7 +365,7 @@ class Maker():
 			`True` to continue the loop, `False` to break it.
 		'''
 
-		if not(self._jobs_ids):
+		if self._job_log_file is None:
 			self.extractSimulations()
 
 			if not(self._unknown_simulations):
@@ -369,7 +377,7 @@ class Maker():
 			self.generateSimulations()
 
 		try:
-			if not(self.waitForJobs()):
+			if not(self.waitForJob()):
 				self._failures_counter += 1
 
 		except KeyboardInterrupt:
@@ -420,58 +428,50 @@ class Maker():
 			simulation['folder'] = os.path.join(self._simulations_remote_basedir, str(k))
 
 		self.generator.add(self._simulations_to_generate)
-		generated_scripts, script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
+		script_to_launch, self._job_log_file = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 		self.generator.clear()
 
 		self._remote_folder.send(scripts_dir, delete = True, replace = True)
-
-		output = self._remote_folder.execute(script_to_launch)
-		self._jobs_ids = list(map(lambda l: l.strip(), output.readlines()))
+		self._remote_folder.execute(script_to_launch)
 
 		self.events.trigger('generate-end')
 
-	def waitForJobs(self):
+	def waitForJob(self):
 		'''
-		Wait for the jobs to finish.
+		Wait for the job to finish.
 
 		Returns
 		-------
 		success : bool
-			`True` is all jobs were finished normally, `False` if there was at least one failure.
+			`True` if the job has finished normally, `False` if there was at least one failure.
 		'''
 
-		self.events.trigger('wait-start', self._jobs_ids)
+		n_total = len(self._simulations_to_generate)
+		self.events.trigger('wait-start', n_total)
 
-		jobs_by_state = {}
-		previous_states = {}
-
-		self._jobs_manager.add(*self._jobs_ids, ignore_existing = True)
-		self._jobs_manager.linkToFile(self._options['jobs_states_filename'], remote_folder = self._remote_folder)
+		n_finished = 0
 
 		while True:
-			self._jobs_manager.updateFromFile()
-			jobs_by_state = {
-				state: self._jobs_manager.getJobsWithStates([JobState[state.upper()]])
-				for state in ['waiting', 'running', 'succeed', 'failed']
-			}
+			try:
+				log = json.loads(self._remote_folder.getFileContents(self._job_log_file))
 
-			if jobs_by_state != previous_states:
-				self.events.trigger('wait-progress', jobs_by_state)
+			except FileNotFoundError:
+				log = []
 
-				if set([job['name'] for job in jobs_by_state['succeed'] + jobs_by_state['failed']]) == set(self._jobs_ids):
+			if len(log) != n_finished:
+				n_finished = len(log)
+				self.events.trigger('wait-progress', n_finished)
+
+				if n_finished == n_total:
 					break
 
-			previous_states = jobs_by_state
 			time.sleep(0.5)
 
-		self._jobs_manager.clear()
-		self._jobs_ids = []
-
-		self._remote_folder.deleteRemote([self._options['jobs_states_filename']])
+		self._job_log_file = None
 
 		self.events.trigger('wait-end')
 
-		return not(jobs_by_state['failed'])
+		return True
 
 	def downloadSimulations(self):
 		'''
@@ -550,12 +550,6 @@ class MakerUI(UI):
 
 		self._state_line = None
 		self._main_progress_bar = None
-
-		self._statuses = 'Current statuses: {waiting} waiting, {running} running, {succeed} succeed, {failed} failed'
-		self._statuses_line = None
-
-		self._jobs_lines = {}
-		self._jobs_bars = {}
 
 		self._maker.events.addListener('close-start', self._closeStart)
 		self._maker.events.addListener('close-end', self._closeEnd)
@@ -736,63 +730,41 @@ class MakerUI(UI):
 
 		self._updateState('Scripts generated')
 
-	def _waitStart(self, jobs_ids):
+	def _waitStart(self, n_simulations):
 		'''
-		Start to wait for some jobs.
+		Start to wait for a job.
 
 		Parameters
 		----------
-		jobs_ids : list
-			IDs of the jobs to wait.
+		n_simulations : int
+			Number of simulations in the job.
 		'''
 
-		self._updateState('Waiting for jobs to finish…')
-		self._main_progress_bar = self.addProgressBar(len(jobs_ids))
-		self._statuses_line = self.addTextLine(self._statuses.format(waiting = 0, running = 0, succeed = 0, failed = 0))
+		simulations = string.plural(n_simulations, 'simulation', 'simulations')
+		self._updateState(f'Waiting for {simulations} to execute…')
+		self._main_progress_bar = self.addProgressBar(n_simulations)
 
-	def _waitProgress(self, jobs_by_state):
+	def _waitProgress(self, n_executed):
 		'''
-		The state of at least one job has changed.
-		Update the global statuses line and progress bar.
-		Display a progress bar for each running job.
+		Update the number of executed simulations.
 
 		Parameters
 		----------
-		jobs_by_state : dict
-			The jobs IDs, sorted by their state.
+		n_executed : int
+			Number of executed simulations.
 		'''
 
-		self._statuses_line.text = self._statuses.format(**{state: len(jobs) for state, jobs in jobs_by_state.items()})
-		self._main_progress_bar.counter = len(jobs_by_state['succeed'] + jobs_by_state['failed'])
-
-		for job in jobs_by_state['running']:
-			if job['total_steps'] > 0:
-				if not(job['name'] in self._jobs_lines):
-					self._jobs_lines[job['name']] = self.addTextLine(f'Job {job["name"]} running…')
-					self._jobs_bars[job['name']] = self.addProgressBar(job['total_steps'])
-
-				self._jobs_bars[job['name']].counter = job['finished_steps']
-
-		for job in jobs_by_state['succeed'] + jobs_by_state['failed']:
-			if job['name'] in self._jobs_lines:
-				self.removeItem(self._jobs_lines[job['name']])
-				del self._jobs_lines[job['name']]
-
-				self.removeItem(self._jobs_bars[job['name']])
-				del self._jobs_bars[job['name']]
+		self._main_progress_bar.counter = n_executed
 
 	def _waitEnd(self):
 		'''
-		All jobs are finished.
+		The job has finished.
 		'''
-
-		self.removeItem(self._statuses_line)
-		self._statuses_line = None
 
 		self.removeItem(self._main_progress_bar)
 		self._main_progress_bar = None
 
-		self._updateState('Jobs finished')
+		self._updateState('Simulations executed')
 
 	def _downloadStart(self, simulations):
 		'''

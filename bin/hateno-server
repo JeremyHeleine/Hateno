@@ -13,6 +13,7 @@ from hateno.job import JobServer
 def addArguments(parser):
 	parser.add_argument('--print-port', action = 'store_true', help = 'print the port the server is using')
 	parser.add_argument('--save-port', type = str, help = 'path to the file where the port should be written')
+	parser.add_argument('--log', type = str, help = 'log file to write')
 	parser.add_argument('cmd_list', type = str, help = 'path to the file where the command lines are stored')
 
 def action(args):
@@ -23,6 +24,9 @@ def action(args):
 		if args.save_port:
 			with open(args.save_port, 'w') as f:
 				f.write(str(server.port))
+
+		if args.log is not None:
+			server.events.addListener('log', lambda log: jsonfiles.write(log, args.log))
 
 		server.run()
 

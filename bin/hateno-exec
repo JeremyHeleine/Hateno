@@ -19,10 +19,10 @@ def action(args):
 	output = []
 
 	def execStart(cmd):
-		output.append({'exec': cmd})
+		output.append(cmd)
 
-	def execEnd(cmd_output):
-		output[-1]['output'] = cmd_output
+	def execEnd(cmd):
+		output[-1] = cmd
 
 	with JobClient(args.host, args.port) as client:
 		client.events.addListener('exec-start', execStart)

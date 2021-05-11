@@ -1,7 +1,7 @@
 {
 	"n_exec": 5,
 	"path_to_hateno": "hateno",
-	"log_filename": "log-%k.json",
+	"log_filename": "log.json",
 	"skeleton_filename": "launch.skeleton.sh",
 	"launch_filename": "launch.sh"
 }

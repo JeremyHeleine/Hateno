@@ -154,7 +154,7 @@ class Generator():
 
 		return ''.join([
 			Template(match.group('content')).safe_substitute(LOG_FILENAME = self._config['log_filename'].replace('%k', str(k)))
-			for k in range(0, self._config['n_exec'])
+			for k in range(0, min(self._config['n_exec'], len(self._simulations_to_generate)))
 		])
 
 	def generate(self, dest_folder, config_name = None, *, empty_dest = False, basedir = None):
@@ -179,6 +179,11 @@ class Generator():
 		------
 		EmptyListError
 			The list of simulations to generate is empty.
+
+		Returns
+		-------
+		script_path, log_path : tuple
+			Remote paths of the generated script and the log file.
 		'''
 
 		if not(self._simulations_to_generate):
@@ -203,6 +208,7 @@ class Generator():
 
 		basedir = basedir or dest_folder
 		variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
+		variables['LOG_FILENAME'] = os.path.join(basedir, variables['LOG_FILENAME'])
 
 		script_content = Template(script_content).safe_substitute(**variables)
 
@@ -211,3 +217,5 @@ class Generator():
 			f.write(script_content)
 
 		os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+		return (os.path.join(basedir, self._config['launch_filename']), variables['LOG_FILENAME'])

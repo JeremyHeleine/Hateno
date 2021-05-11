@@ -29,6 +29,9 @@ class JobServer():
 
 		self._clients = []
 
+		self._log = []
+		self.events = Events(['log'])
+
 		self._open()
 
 	def __enter__(self):
@@ -83,9 +86,27 @@ class JobServer():
 	def port(self):
 		'''
 		Get the port in use.
+
+		Returns
+		-------
+		port : int
+			The current port.
 		'''
 
 		return self._port
+
+	@property
+	def log(self):
+		'''
+		Get the log.
+
+		Returns
+		-------
+		log : list
+			The log, as a list of executed command lines.
+		'''
+
+		return self._log
 
 	def _acceptConnection(self, sock):
 		'''
@@ -121,20 +142,46 @@ class JobServer():
 		'''
 
 		if req['query'] == 'next':
-			message.setMessage({'command_line': self._next_command_line()})
+			self._sendNextCommandLine(message)
 
-	def _next_command_line(self):
+		elif req['query'] == 'log':
+			self._logCommandLine(req['content'])
+			self._sendNextCommandLine(message)
+
+	def _sendNextCommandLine(self, message):
 		'''
-		Get the next command line to execute.
+		Send the next command line to execute.
+
+		Parameters
+		----------
+		message : Message
+			Message instance of the client.
 		'''
 
 		self._current_command_line += 1
 
 		try:
-			return self._command_lines[self._current_command_line]
+			cmd = self._command_lines[self._current_command_line]
 
 		except IndexError:
-			return None
+			cmd = None
+
+		finally:
+			message.setMessage({'command_line': cmd})
+
+	def _logCommandLine(self, cmd):
+		'''
+		Log the result of a command line in the list.
+		If there is a log file, update it.
+
+		Parameters
+		----------
+		cmd : dict
+			Result of the command line to log.
+		'''
+
+		self._log.append(cmd)
+		self.events.trigger('log', self._log)
 
 	def run(self):
 		'''
@@ -253,11 +300,20 @@ class JobClient():
 		message.setMode('idle')
 
 		if response['command_line'] is not None:
-			self.events.trigger('exec-start', response['command_line'])
-			output = subprocess.check_output(response['command_line'], shell = True)
-			self.events.trigger('exec-end', output.decode())
+			cmd = {
+				'exec': response['command_line']
+			}
 
-			message.setMessage({'query': 'next'})
+			self.events.trigger('exec-start', cmd)
+
+			p = subprocess.run(response['command_line'], shell = True, capture_output = True, encoding = 'utf-8')
+			cmd['stdout'] = p.stdout
+			cmd['stderr'] = p.stderr
+			cmd['success'] = p.returncode == 0
+
+			self.events.trigger('exec-end', cmd)
+
+			message.setMessage({'query': 'log', 'content': cmd})
 
 		else:
 			message.close()
