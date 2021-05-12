@@ -55,7 +55,7 @@ class Maker():
 		self._failures_counter = 0
 
 		self._paused = False
-		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'jobs_ids', 'remote_scripts_dir']
+		self._state_attrs = ['simulations_to_extract', 'corruptions_counter', 'failures_counter', 'unknown_simulations', 'remote_scripts_dir']
 
 		self.events = Events([
 			'close-start', 'close-end',
@@ -639,21 +639,6 @@ class MakerUI(UI):
 
 		# Erase the "^C" due to the keyboard interruption
 		print('\r  ', end = '\r')
-
-		if self._main_progress_bar is not None:
-			self.removeItem(self._main_progress_bar)
-			self._main_progress_bar = None
-
-		if self._statuses_line is not None:
-			self.removeItem(self._statuses_line)
-			self._statuses_line = None
-
-		for line, bar in zip(self._jobs_lines.values(), self._jobs_bars.values()):
-			self.removeItem(line)
-			self.removeItem(bar)
-
-		self._jobs_lines.clear()
-		self._jobs_bars.clear()
 
 		self._updateState('Paused')
 
