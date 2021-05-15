@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
 import importlib.util
+import sys
 import uuid
 
 def loadModuleFromFile(filename):

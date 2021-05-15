@@ -5,12 +5,11 @@
 This script uses the Maker class to extract/generate simulations.
 '''
 
-import os
 import argparse
+import os
 
-from hateno import jsonfiles, string
-from hateno.folder import Folder
 from hateno.maker import Maker, MakerUI
+from hateno.utils import jsonfiles, string
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
@@ -21,7 +20,7 @@ def addArguments(parser):
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
-def action(args):
+def main(args):
 	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 
 	if not(type(simulations) is list):
@@ -57,4 +56,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Extract, and generate if needed, some simulations.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

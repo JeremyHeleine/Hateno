@@ -5,17 +5,16 @@
 This script uses the Manager class to update a simulations folder.
 '''
 
-import time
 import argparse
 
 from hateno.folder import Folder
-from hateno.ui import UI
 from hateno.manager import Manager
+from hateno.ui import UI
 
 def addArguments(parser):
 	parser.add_argument('folder_path', type = str, help = 'path to the folder to update')
 
-def action(args):
+def main(args):
 	with Manager(args.folder_path) as manager:
 		n_simulations = manager.getSimulationsNumber()
 
@@ -36,4 +35,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Update a simulations folder.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

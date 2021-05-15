@@ -39,8 +39,8 @@ tree : dict
 	The list of files and folders names listed in the `output` in the configuration file.
 '''
 
-import os
 import glob
+import os
 
 def file_exists(simulation, filename, check_if = None):
 	'''

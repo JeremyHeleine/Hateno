@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-import errno
 import copy
-import tempfile
+import errno
 import glob
+import os
+import tempfile
 
-from . import utils, string, jsonfiles
-from .errors import *
-from .fcollection import FCollection
-from . import namers as default_namers
-from . import fixers as default_fixers
 from . import checkers as default_checkers
+from . import fixers as default_fixers
+from . import namers as default_namers
+from ..errors import *
+from ..utils import utils, string, jsonfiles
+from ..utils.fcollection import FCollection
 
 MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'

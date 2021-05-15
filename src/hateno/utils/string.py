@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import re
-import codecs
-import base64
-import hashlib
-import uuid
-import json
 import ast
-
+import base64
+import codecs
+import hashlib
 from math import sqrt, cos, sin, tan, pi
+import json
+import re
+import uuid
 
 def intOrNone(s):
 	'''

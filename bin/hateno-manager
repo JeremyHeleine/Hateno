@@ -5,14 +5,13 @@
 This script simply uses the Manager class to manage simulations of a folder.
 '''
 
-import os
-import glob
 import argparse
+import glob
+import os
 
-from hateno import jsonfiles, string
-from hateno.ui import UI
-from hateno.folder import Folder
 from hateno.manager import Manager
+from hateno.ui import UI
+from hateno.utils import jsonfiles, string
 
 def addArguments(parser):
 	parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
@@ -22,7 +21,7 @@ def addArguments(parser):
 	parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
 	parser.add_argument('simulations', type = str, help = 'path to the file describing the simulations to treat, or to a folder containing the simulations')
 
-def action(args):
+def main(args):
 	modes_configs = {
 		'add': {
 			'readonly': False,
@@ -93,4 +92,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Manage the simulations stored in a given folder.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

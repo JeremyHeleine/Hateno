@@ -6,12 +6,11 @@ This script uses the Mapper to map simulations with evaluation functions.
 '''
 
 import argparse
-import tabulate
 from math import floor, log10
+import tabulate
 
-from hateno import string, jsonfiles
-from hateno.mapper import Mapper, MapperUI
-from hateno.explorer import Explorer
+from hateno.utils import string, jsonfiles
+from hateno.explorer import Explorer, Mapper, MapperUI
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
@@ -25,7 +24,7 @@ def addArguments(parser):
 	parser.add_argument('tree', type = str, help = 'path to the file describing the tree to map')
 	parser.add_argument('output', type = str, help = 'path to the file where the output should be written')
 
-def action(args):
+def main(args):
 	with Mapper(args.folder_path, args.config, generate_only = not(args.add_to_manager)) as mapper:
 		ui = MapperUI(mapper)
 
@@ -87,4 +86,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Map simulations.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

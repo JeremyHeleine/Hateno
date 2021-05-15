@@ -7,15 +7,15 @@ This script uses the Manager class to clear a simulations folder.
 
 import argparse
 
-from hateno import string
-from hateno.ui import UI
 from hateno.manager import Manager
+from hateno.ui import UI
+from hateno.utils import string
 
 def addArguments(parser):
 	parser.add_argument('--no-confirm', action = 'store_false', dest = 'confirm', help = 'do not ask confirmation before clearing')
 	parser.add_argument('folder_path', type = str, help = 'path to the folder to clear')
 
-def action(args):
+def main(args):
 	with Manager(args.folder_path) as manager:
 		n_simulations = manager.getSimulationsNumber()
 
@@ -53,4 +53,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Clear a simulations folder.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

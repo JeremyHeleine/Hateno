@@ -7,9 +7,9 @@ This script uses the Generator class to generate the scripts corresponding to so
 
 import argparse
 
-from hateno import jsonfiles
-from hateno.generator import Generator
 from hateno.errors import *
+from hateno.generator import Generator
+from hateno.utils import jsonfiles
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
@@ -18,7 +18,7 @@ def addArguments(parser):
 	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
-def action(args):
+def main(args):
 	generator = Generator(args.folder_path)
 
 	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
@@ -37,4 +37,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Generate command lines and scripts to create simulations.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

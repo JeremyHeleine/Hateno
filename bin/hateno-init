@@ -5,15 +5,16 @@
 This script initializes a folder by creating the configuration folder and file.
 '''
 
-import os
 import argparse
+import os
 
-from hateno import jsonfiles, folder
+import hateno.folder.folder as folder
+from hateno.utils import jsonfiles
 
 def addArguments(parser):
 	parser.add_argument('folder_path', type = str, nargs = '?', help = 'path to the folder to manage (default to the current directory)')
 
-def action(args):
+def main(args):
 	conf_folder = folder.MAIN_FOLDER
 
 	if not(args.folder_path is None):
@@ -75,4 +76,4 @@ def action(args):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Initialize a simulations folder.')
 	addArguments(parser)
-	action(parser.parse_args())
+	main(parser.parse_args())

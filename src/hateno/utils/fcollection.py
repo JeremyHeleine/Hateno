@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import re
 import inspect
+import re
 
-from .errors import *
+from ..errors import *
 
 class FCollection():
 	'''

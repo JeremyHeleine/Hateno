@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
+import datetime
 import errno
-
+import os
 import shutil
 import tarfile
 
-import datetime
-
-from . import jsonfiles, string
-from .errors import *
-from .folder import Folder
-from .simulation import Simulation
+from ..errors import *
+from ..folder.folder import Folder
+from ..simulation.simulation import Simulation
+from ..utils import jsonfiles, string
 
 class Manager():
 	'''
