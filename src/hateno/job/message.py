@@ -6,7 +6,7 @@ import json
 import selectors
 import struct
 
-from ..utils.events import Events
+from ..utils import Events
 
 class Message():
 	'''

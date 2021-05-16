@@ -5,7 +5,7 @@ import selectors
 import socket
 
 from .message import Message
-from ..utils.events import Events
+from ..utils import Events
 
 class JobServer():
 	'''

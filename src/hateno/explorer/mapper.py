@@ -8,8 +8,7 @@ import shutil
 from ..folder.folder import Folder
 from ..maker.maker import Maker
 from ..simulation.simulation import Simulation
-from ..utils import string, jsonfiles
-from ..utils.events import Events
+from ..utils import Events, string, jsonfiles
 
 class Mapper():
 	'''

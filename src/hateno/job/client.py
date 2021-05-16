@@ -6,7 +6,7 @@ import socket
 import subprocess
 
 from .message import Message
-from ..utils.events import Events
+from ..utils import Events
 
 class JobClient():
 	'''

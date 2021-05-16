@@ -14,8 +14,7 @@ from ..generator.generator import Generator
 from ..manager.manager import Manager
 from ..remote.folder import RemoteFolder
 from ..simulation.simulation import Simulation
-from ..utils import string, jsonfiles
-from ..utils.events import Events
+from ..utils import Events, string, jsonfiles
 
 class Maker():
 	'''
