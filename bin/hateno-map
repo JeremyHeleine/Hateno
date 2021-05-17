@@ -39,18 +39,24 @@ def main(args):
 
 			jsonfiles.write(found, args.output)
 
-			headers = [''] + [f'{setting["set"]}[{setting["set_index"]}].{setting["name"]}' for setting in found['previous_settings'] + [found['setting']]] + ['Evaluation']
+			headers = [''] + [f'{setting["set"]}[{setting["set_index"]}].{setting["name"]}' for setting in found['previous_settings'] + [found['setting']]] + ['Evaluation', 'Criterion']
 			values_fmt = f'.{max(-floor(log10(args.search_tolerance)), 0) + 3}g'
 			lines_fmt = ('s',) + ('g',)*len(found['previous_settings']) + (values_fmt, 'g')
 
 			for search in found['searches']:
 				latest = search['iterations'][-1]
+
+				stopping_criterions = [i['stopping_criterion'] for i in search['iterations']]
+				k_best = stopping_criterions.index(min(stopping_criterions))
+				best = search['iterations'][k_best]
+
 				print(f'Found between {search["interval"]["bounds"][0]} and {search["interval"]["bounds"][1]} in {string.plural(len(search["iterations"]), "iteration", "iterations")} (criterion: {latest["stopping_criterion"]})')
 
-				line_lower = ['Lower bound', *search['previous_values'], latest['interval']['bounds'][0], latest['interval']['evaluations'][0]]
-				line_upper = ['Upper bound', *search['previous_values'], latest['interval']['bounds'][1], latest['interval']['evaluations'][1]]
-				line_sol = ['Solution', *search['previous_values'], latest['iterate'], latest['evaluation']]
-				lines = [line_lower, line_upper, line_sol]
+				line_lower = ['Lower bound', *search['previous_values'], latest['interval']['bounds'][0], latest['interval']['evaluations'][0], '']
+				line_upper = ['Upper bound', *search['previous_values'], latest['interval']['bounds'][1], latest['interval']['evaluations'][1], '']
+				line_sol = ['Last iteration', *search['previous_values'], latest['iterate'], latest['evaluation'], latest['stopping_criterion']]
+				line_best = [f'Minimum (iteration {k_best+1})', *search['previous_values'], best['iterate'], best['evaluation'], best['stopping_criterion']]
+				lines = [line_lower, line_upper, line_sol, line_best]
 
 				print(tabulate.tabulate(lines, headers = headers, tablefmt = 'grid', floatfmt = lines_fmt))
 
