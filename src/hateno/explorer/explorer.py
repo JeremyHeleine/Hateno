@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from ..errors import *
-from ..folder.folder import Folder
+from ..folder import Folder
 from .mapper import Mapper
 
 class Explorer():

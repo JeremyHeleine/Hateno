@@ -7,9 +7,9 @@ import shutil
 import stat
 from string import Template
 
-from ..errors import *
-from ..folder.folder import Folder
-from ..simulation.simulation import Simulation
+from .errors import *
+from ..folder import Folder
+from ..simulation import Simulation
 from ..utils import jsonfiles
 
 class Generator():
@@ -177,7 +177,7 @@ class Generator():
 
 		Raises
 		------
-		EmptyListError
+		GeneratorEmptyListError
 			The list of simulations to generate is empty.
 
 		Returns
@@ -187,7 +187,7 @@ class Generator():
 		'''
 
 		if not(self._simulations_to_generate):
-			raise EmptyListError()
+			raise GeneratorEmptyListError()
 
 		self._createDestinationFolder(dest_folder, empty_dest = empty_dest)
 

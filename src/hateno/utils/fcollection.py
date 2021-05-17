@@ -4,7 +4,7 @@
 import inspect
 import re
 
-from ..errors import *
+from .errors import *
 
 class FCollection():
 	'''
@@ -198,14 +198,14 @@ class FCollection():
 
 		Raises
 		------
-		InvalidFilterRegexError
+		FCollectionInvalidFilterRegexError
 			The regex does not contain the required groups.
 		'''
 
 		regex = re.compile(filter_regex)
 
 		if not('name' in regex.groupindex) or (self._use_categories and not('category' in regex.groupindex)):
-			raise InvalidFilterRegexError(filter_regex)
+			raise FCollectionInvalidFilterRegexError(filter_regex)
 
 		else:
 			self._filter_regex = regex

@@ -7,7 +7,7 @@ import os
 
 from .globalsetting import SimulationGlobalSetting
 from .setting import SimulationSetting
-from ..errors import *
+from .errors import *
 from ..utils import string, jsonfiles
 
 class Simulation():

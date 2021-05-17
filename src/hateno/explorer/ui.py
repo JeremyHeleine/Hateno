@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from ..maker.ui import MakerUI
+from ..maker import MakerUI
 from ..utils import string
 
 class MapperUI(MakerUI):

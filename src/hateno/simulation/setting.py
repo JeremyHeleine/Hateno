@@ -3,7 +3,7 @@
 
 import re
 
-from ..errors import *
+from .errors import *
 from .basesetting import SimulationBaseSetting
 
 class SimulationSetting(SimulationBaseSetting):

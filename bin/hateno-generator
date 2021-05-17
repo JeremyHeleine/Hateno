@@ -7,8 +7,8 @@ This script uses the Generator class to generate the scripts corresponding to so
 
 import argparse
 
-from hateno.errors import *
 from hateno.generator import Generator
+from hateno.generator.errors import *
 from hateno.utils import jsonfiles
 
 def addArguments(parser):

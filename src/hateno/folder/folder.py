@@ -10,9 +10,8 @@ import tempfile
 from . import checkers as default_checkers
 from . import fixers as default_fixers
 from . import namers as default_namers
-from ..errors import *
-from ..utils import utils, string, jsonfiles
-from ..utils.fcollection import FCollection
+from .errors import *
+from ..utils import FCollection, utils, string, jsonfiles
 
 MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'
@@ -436,11 +435,6 @@ class Folder():
 		-------
 		fixed : mixed
 			The same value, fixed.
-
-		Raises
-		------
-		FixerNotFoundError
-			The fixer's name has not been found.
 		'''
 
 		value = copy.deepcopy(value)
@@ -469,11 +463,6 @@ class Folder():
 		-------
 		name : str
 			The name to use.
-
-		Raises
-		------
-		NamerNotFoundError
-			The namer's name has not been found.
 		'''
 
 		for namer in before + self.settings['namers'] + after:

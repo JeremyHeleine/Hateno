@@ -9,7 +9,7 @@ import subprocess
 
 from .localsftp import LocalSFTP
 from .sftp import SFTP
-from ..errors import *
+from .errors import *
 
 class RemoteFolder():
 	'''

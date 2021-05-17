@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from .fcollection import FCollection
-from ..errors import *
+from .errors import *
 
 class Events():
 	'''

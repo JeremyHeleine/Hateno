@@ -7,9 +7,9 @@ import os
 import shutil
 import tarfile
 
-from ..errors import *
-from ..folder.folder import Folder
-from ..simulation.simulation import Simulation
+from .errors import *
+from ..folder import Folder
+from ..simulation import Simulation
 from ..utils import jsonfiles, string
 
 class Manager():
@@ -112,12 +112,12 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			The list cannot be written in read only mode.
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		jsonfiles.write(self._simulations_list, self._folder.simulations_list_filename)
 
@@ -239,7 +239,7 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Addition is not allowed in read only mode.
 
 		SimulationFolderNotFoundError
@@ -250,7 +250,7 @@ class Manager():
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		simulation = Simulation.ensureType(simulation, self._folder)
 
@@ -292,7 +292,7 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Addition is not allowed in read only mode.
 
 		SimulationFolderNotFoundError
@@ -303,7 +303,7 @@ class Manager():
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		if not(os.path.isdir(folder)):
 			raise SimulationFolderNotFoundError(folder)
@@ -337,7 +337,7 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Deletion is not allowed in read only mode.
 
 		SimulationNotFoundError
@@ -345,7 +345,7 @@ class Manager():
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		simulation = Simulation.ensureType(simulation, self._folder)
 		settings_hashed = string.hash(string.fromObject(simulation.settings))
@@ -378,7 +378,7 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Deletion is not allowed in read only mode.
 
 		SimulationFolderNotFoundError
@@ -386,7 +386,7 @@ class Manager():
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		if not(os.path.isdir(folder)):
 			raise SimulationFolderNotFoundError(folder)
@@ -439,7 +439,7 @@ class Manager():
 		if settings_file:
 			simulation.writeSettingsFile(settings_file)
 
-	def batchAction(self, simulations, action, args = {}, *, save_list = True, errors_store = (), errors_pass = (Error), callback = None):
+	def batchAction(self, simulations, action, args = {}, *, save_list = True, errors_store = (), errors_pass = (Exception), callback = None):
 		'''
 		Apply a callback function to each simulation of a given list.
 
@@ -615,12 +615,12 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Updating is not allowed in read only mode.
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		new_simulations_list = {}
 
@@ -668,12 +668,12 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Transformation is not allowed in read only mode.
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		if not(simulations_settings):
 			simulations_settings = [string.toObject(infos['settings']) for infos in self._simulations_list.values()]
@@ -726,12 +726,12 @@ class Manager():
 
 		Raises
 		------
-		OperationNotAllowed
+		ManagerOperationNotAllowed
 			Clearing is not allowed in read only mode.
 		'''
 
 		if self._readonly:
-			raise OperationNotAllowed()
+			raise ManagerOperationNotAllowed()
 
 		for infos in self._simulations_list.values():
 			os.unlink(os.path.join(self._folder.simulations_folder, f'{infos["name"]}.tar.bz2'))

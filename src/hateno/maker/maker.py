@@ -8,12 +8,14 @@ import shutil
 import stat
 import time
 
-from ..errors import *
-from ..folder.folder import Folder
-from ..generator.generator import Generator
-from ..manager.manager import Manager
-from ..remote.folder import RemoteFolder
-from ..simulation.simulation import Simulation
+from .errors import *
+from ..folder import Folder
+from ..generator import Generator
+from ..manager import Manager
+from ..remote import RemoteFolder
+from ..remote.errors import *
+from ..simulation import Simulation
+from ..simulation.errors import *
 from ..utils import Events, string, jsonfiles
 
 class Maker():

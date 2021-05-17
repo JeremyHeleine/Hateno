@@ -3,7 +3,7 @@
 
 from .textline import UITextLine
 from .progressbar import UIProgressBar
-from ..errors import *
+from .errors import *
 
 class UI():
 	'''

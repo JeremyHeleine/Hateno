@@ -5,9 +5,9 @@ import os
 import re
 import shutil
 
-from ..folder.folder import Folder
-from ..maker.maker import Maker
-from ..simulation.simulation import Simulation
+from ..folder import Folder
+from ..maker import Maker
+from ..simulation import Simulation
 from ..utils import Events, string, jsonfiles
 
 class Mapper():
