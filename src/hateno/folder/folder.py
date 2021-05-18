@@ -15,7 +15,6 @@ from ..utils import FCollection, utils, string, jsonfiles
 
 MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'
-SKELETONS_FOLDER = 'skeletons'
 SIMULATIONS_FOLDER = 'simulations'
 TMP_FOLDER = 'tmp'
 
@@ -101,6 +100,23 @@ class Folder():
 
 		return tempfile.mkdtemp(dir = self._tmp_dir)
 
+	def _relpath(self, path):
+		'''
+		Transform a path relative to the configuration folder.
+
+		Parameters
+		----------
+		path : str
+			Path (relative to the configuration folder) to transform.
+
+		Returns
+		-------
+		relative_path : str
+			The path.
+		'''
+
+		return os.path.normpath(os.path.join(self._conf_folder_path, path))
+
 	@property
 	def _config_folders(self):
 		'''
@@ -118,13 +134,18 @@ class Folder():
 			# First, the imported folders, then the local one.
 			# In this way, the local configs will always overwrite the imported ones.
 
-			if 'import_config' in self.settings:
-				if type(self.settings['import_config']) is not list:
-					self.settings['import_config'] = [self.settings['import_config']]
+			for import_desc in self.settings['import']:
+				try:
+					to_import = import_desc['config']
 
-				for import_desc in self.settings['import_config']:
-					foldername = import_desc.get('name') or import_desc['config']
-					self._config_folders_dict[foldername] = os.path.normpath(os.path.join(self._folder, import_desc['folder'], MAIN_FOLDER, CONFIG_FOLDER, foldername))
+				except KeyError:
+					pass
+
+				else:
+					self._config_folders_dict.update({
+						foldername: self._relpath(os.path.join(import_desc['from'], MAIN_FOLDER, CONFIG_FOLDER, foldername))
+						for foldername in to_import
+					})
 
 			base_folder = os.path.join(self._conf_folder_path, CONFIG_FOLDER)
 
@@ -289,6 +310,12 @@ class Folder():
 
 		if self._settings is None:
 			self._settings = jsonfiles.read(self._settings_file)
+
+			if 'import' not in self._settings:
+				self._settings['import'] = []
+
+			elif type(self._settings['import']) is not list:
+				self._settings['import'] = [self._settings['import']]
 
 			if 'namers' not in self._settings:
 				self._settings['namers'] = []
