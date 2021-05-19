@@ -386,6 +386,20 @@ class Folder():
 		if default_module is not None:
 			collection.loadFromModule(default_module)
 
+		for import_desc in self.settings['import']:
+			try:
+				to_import = import_desc['functions']
+
+			except KeyError:
+				pass
+
+			else:
+				if custom_filename in to_import:
+					import_file = self._relpath(os.path.join(import_desc['from'], MAIN_FOLDER, f'{custom_filename}.py'))
+
+					if os.path.isfile(import_file):
+						collection.loadFromModule(utils.loadModuleFromFile(import_file))
+
 		custom_file = os.path.join(self._conf_folder_path, f'{custom_filename}.py')
 		if os.path.isfile(custom_file):
 			collection.loadFromModule(utils.loadModuleFromFile(custom_file))
