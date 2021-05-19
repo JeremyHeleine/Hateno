@@ -15,17 +15,21 @@ class LocalSFTP():
 	'''
 
 	def __init__(self, wd = '.'):
-		self._wd = wd
+		self.chdir(wd)
 
 	def chdir(self, wd):
 		'''
 		Change the working directory.
+		If the new working directory does not exist, create it.
 
 		Parameters
 		----------
 		wd : str
 			Working directory to use.
 		'''
+
+		if not(os.path.isdir(wd)):
+			os.makedirs(wd)
 
 		self._wd = wd
 

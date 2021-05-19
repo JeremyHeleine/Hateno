@@ -10,6 +10,26 @@ class SFTP(paramiko.SFTPClient):
 	Overwrite some methods to add some options.
 	'''
 
+	def chdir(self, wd):
+		'''
+		Change the current working directory.
+		If it does not exist yet, create it.
+
+		Parameters
+		----------
+		wd : str
+			Working directory to use.
+		'''
+
+		try:
+			s = self.stat(wd)
+
+		except FileNotFoundError:
+			self._makedirs(wd)
+
+		finally:
+			super().chdir(wd)
+
 	def _copyLocalChmod(self, local_path, remote_path):
 		'''
 		Change the chmod of a remote file/folder to reflect a local one.
