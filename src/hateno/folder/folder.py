@@ -355,6 +355,43 @@ class Folder():
 
 		return self._program_files
 
+	def _loadFCollection(self, filter_regex, default_module, custom_filename, categories = []):
+		'''
+		Load a collection of functions used in the folder (fixers, namers, etc.).
+		First load the default functions, then the imported ones, and finally the custom ones.
+		In that way, the custom functions, defined in the current folder, will always overwrite the default and imported ones.
+
+		Parameters
+		----------
+		filter_regex : str
+			Regex to use to filter the functions in a module.
+
+		default_module : module
+			Module where the default functions are defined.
+
+		custom_filename : str
+			Name of the file (without extension) where the custom functions should be defined.
+
+		categories : list
+			List of categories to use in the FCollection.
+
+		Returns
+		-------
+		collection : FCollection
+			The loaded collection.
+		'''
+
+		collection = FCollection(categories = categories, filter_regex = filter_regex)
+
+		if default_module is not None:
+			collection.loadFromModule(default_module)
+
+		custom_file = os.path.join(self._conf_folder_path, f'{custom_filename}.py')
+		if os.path.isfile(custom_file):
+			collection.loadFromModule(utils.loadModuleFromFile(custom_file))
+
+		return collection
+
 	@property
 	def fixers(self):
 		'''
@@ -367,12 +404,7 @@ class Folder():
 		'''
 
 		if self._fixers is None:
-			self._fixers = FCollection(filter_regex = r'^fixer_(?P<name>[A-Za-z0-9_]+)$')
-			self._fixers.loadFromModule(default_fixers)
-
-			custom_fixers_file = os.path.join(self._conf_folder_path, 'fixers.py')
-			if os.path.isfile(custom_fixers_file):
-				self._fixers.loadFromModule(utils.loadModuleFromFile(custom_fixers_file))
+			self._fixers = self._loadFCollection(r'^fixer_(?P<name>[A-Za-z0-9_]+)$', default_fixers, 'fixers')
 
 		return self._fixers
 
@@ -388,12 +420,7 @@ class Folder():
 		'''
 
 		if self._namers is None:
-			self._namers = FCollection(filter_regex = r'^namer_(?P<name>[A-Za-z0-9_]+)$')
-			self._namers.loadFromModule(default_namers)
-
-			custom_namers_file = os.path.join(self._conf_folder_path, 'namers.py')
-			if os.path.isfile(custom_namers_file):
-				self._namers.loadFromModule(utils.loadModuleFromFile(custom_namers_file))
+			self._namers = self._loadFCollection(r'^namer_(?P<name>[A-Za-z0-9_]+)$', default_namers, 'namers')
 
 		return self._namers
 
@@ -409,16 +436,7 @@ class Folder():
 		'''
 
 		if self._checkers is None:
-			self._checkers = FCollection(
-				categories = ['file', 'folder', 'global'],
-				filter_regex = r'^(?P<category>file|folder|global)_(?P<name>[A-Za-z0-9_]+)$'
-			)
-
-			self._checkers.loadFromModule(default_checkers)
-
-			custom_checkers_file = os.path.join(self._conf_folder_path, 'checkers.py')
-			if os.path.isfile(custom_checkers_file):
-				self._checkers.loadFromModule(utils.loadModuleFromFile(custom_checkers_file))
+			self._checkers = self._loadFCollection(r'^(?P<category>file|folder|global)_(?P<name>[A-Za-z0-9_]+)$', default_checkers, 'checkers', ['file', 'folder', 'global'])
 
 		return self._checkers
 
@@ -434,11 +452,7 @@ class Folder():
 		'''
 
 		if self._evaluations is None:
-			self._evaluations = FCollection(filter_regex = r'^eval_(?P<name>[A-Za-z0-9_]+)$')
-
-			evaluations_file = os.path.join(self._conf_folder_path, 'evaluations.py')
-			if os.path.isfile(evaluations_file):
-				self._evaluations.loadFromModule(utils.loadModuleFromFile(evaluations_file))
+			self._evaluations = self._loadFCollection(r'^eval_(?P<name>[A-Za-z0-9_]+)$', None, 'evaluations')
 
 		return self._evaluations
 
