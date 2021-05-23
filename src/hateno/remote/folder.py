@@ -6,6 +6,7 @@ import os
 import paramiko
 import shutil
 import subprocess
+import time
 
 from .localsftp import LocalSFTP
 from .sftp import SFTP
@@ -133,6 +134,41 @@ class RemoteFolder():
 		else:
 			stdin, stdout, stderr = self._ssh.exec_command(cmd)
 			return stdout
+
+	def startServer(self, port_filename, log_filename, cmd_filename):
+		'''
+		Start an instance of the server.
+
+		Parameters
+		----------
+		port_filename : str
+			Path to the (remote) file where to store the port of the server.
+
+		log_filename : str
+			Path to the file where the log will be stored.
+
+		cmd_filename : str
+			Path to the file where the command lines are stored.
+
+		Returns
+		-------
+		port : int
+			Port of the server.
+		'''
+
+		self.execute(f'{self._configuration["hateno"]} server --save-port {port_filename} --log {log_filename} {cmd_filename} > /dev/null 2>&1 &')
+
+		while True:
+			try:
+				port = int(self.getFileContents(port_filename))
+
+			except FileNotFoundError:
+				time.sleep(0.1)
+
+			else:
+				break
+
+		return port
 
 	def getFileContents(self, remote_path):
 		'''

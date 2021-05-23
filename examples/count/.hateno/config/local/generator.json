@@ -1,6 +1,6 @@
 {
 	"n_exec": 5,
-	"path_to_hateno": "hateno",
+	"port_filename": "port",
 	"log_filename": "log.json",
 	"skeleton_filename": "launch.skeleton.sh",
 	"launch_filename": "launch.sh"

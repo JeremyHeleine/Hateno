@@ -29,6 +29,8 @@ class Generator():
 
 		self._exec_regex_compiled = None
 
+		self._variables = None
+
 	@property
 	def folder(self):
 		'''
@@ -58,6 +60,19 @@ class Generator():
 
 		return self._exec_regex_compiled
 
+	@property
+	def variables(self):
+		'''
+		Get the latest generated variables.
+
+		Returns
+		-------
+		variables : dict
+			The variables generated for the latest script.
+		'''
+
+		return self._variables
+
 	def add(self, simulation):
 		'''
 		Add a simulation to generate.
@@ -81,6 +96,7 @@ class Generator():
 		'''
 
 		self._simulations_to_generate.clear()
+		self._variables = None
 
 	@property
 	def command_lines(self):
@@ -157,7 +173,7 @@ class Generator():
 			for k in range(0, min(self._config['n_exec'], len(self._simulations_to_generate)))
 		])
 
-	def generate(self, dest_folder, config_name = None, *, empty_dest = False, basedir = None):
+	def generate(self, dest_folder, config_name = None, *, empty_dest = False, basedir = None, variables = {}):
 		'''
 		Generate the scripts to launch the simulations.
 
@@ -175,6 +191,9 @@ class Generator():
 		basedir : str
 			Path to the "final" directory from which the scripts will be executed.
 
+		variables : dict
+			Variables to add to the config ones.
+
 		Raises
 		------
 		GeneratorEmptyListError
@@ -182,8 +201,8 @@ class Generator():
 
 		Returns
 		-------
-		script_path, log_path : tuple
-			Remote paths of the generated script and the log file.
+		script_path : str
+			Remote path of the generated script.
 		'''
 
 		if not(self._simulations_to_generate):
@@ -201,16 +220,17 @@ class Generator():
 
 		script_content = self._exec_regex.sub(self._replaceExecBlock, skeleton)
 
-		variables = {
+		self._variables = {
 			key.upper(): value
-			for key, value in self._config.items()
+			for key, value in {**self._config, **variables}.items()
 		}
 
 		basedir = basedir or dest_folder
-		variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
-		variables['LOG_FILENAME'] = os.path.join(basedir, variables['LOG_FILENAME'])
+		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
+		self._variables['PORT_FILENAME'] = os.path.join(basedir, self._variables['PORT_FILENAME'])
+		self._variables['LOG_FILENAME'] = os.path.join(basedir, self._variables['LOG_FILENAME'])
 
-		script_content = Template(script_content).safe_substitute(**variables)
+		script_content = Template(script_content).safe_substitute(**self._variables)
 
 		script_path = os.path.join(dest_folder, self._config['launch_filename'])
 		with open(script_path, 'w') as f:
@@ -218,4 +238,4 @@ class Generator():
 
 		os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-		return (os.path.join(basedir, self._config['launch_filename']), variables['LOG_FILENAME'])
+		return os.path.join(basedir, self._config['launch_filename'])

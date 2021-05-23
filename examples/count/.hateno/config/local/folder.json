@@ -1,4 +1,5 @@
 {
 	"host": "local",
-	"working_directory": "examples/exec"
+	"working_directory": "examples/exec",
+	"hateno": "hateno"
 }
