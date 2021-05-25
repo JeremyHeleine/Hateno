@@ -427,7 +427,7 @@ class Maker():
 			simulation['folder'] = os.path.join(self._simulations_remote_basedir, str(k))
 
 		self.generator.add(self._simulations_to_generate)
-		script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir, variables = {'HATENO': self.folder.config('folder', self._config_name)['hateno']})
+		script_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 
 		self._job_log_file = self.generator.variables['LOG_FILENAME']
 

@@ -27,7 +27,7 @@ class Generator():
 
 		self._simulations_to_generate = []
 
-		self._exec_regex_compiled = None
+		self._forloop_regex_compiled = None
 
 		self._variables = None
 
@@ -45,20 +45,20 @@ class Generator():
 		return self._folder
 
 	@property
-	def _exec_regex(self):
+	def _forloop_regex(self):
 		'''
-		Regex to position of exec commands.
+		Regex for detecting a `for` loop.
 
 		Returns
 		-------
 		regex : re.Pattern
-			The exec regex.
+			The `for` loop regex.
 		'''
 
-		if self._exec_regex_compiled is None:
-			self._exec_regex_compiled = re.compile('^[ \t]*#{3} BEGIN_EXEC #{3}$.+?^(?P<content>.+?)^[ \t]*#{3} END_EXEC #{3}$.+?^', flags = re.MULTILINE | re.DOTALL)
+		if self._forloop_regex_compiled is None:
+			self._forloop_regex_compiled = re.compile('^[ \t]*#{3} FOR (?P<varname>[A-Z0-9_]+) FROM (?P<from>\$?[A-Z0-9_]+) TO (?P<to>\$?[A-Z0-9_]+)$.+?^(?P<content>.+?)^[ \t]*#{3}$.+?^', flags = re.MULTILINE | re.DOTALL)
 
-		return self._exec_regex_compiled
+		return self._forloop_regex_compiled
 
 	@property
 	def variables(self):
@@ -152,28 +152,100 @@ class Generator():
 
 		jsonfiles.write(self.command_lines, filename)
 
-	def _replaceExecBlock(self, match):
+	def _loadConfig(self, config_name, basedir):
 		'''
-		Replace the exec block of a skeleton with the exec commands.
+		Load the config and set the variables.
+
+		Parameters
+		----------
+		config_name : str
+			Name of the config to load.
+
+		basedir : str
+			Base directory to use in the paths.
+		'''
+
+		self._config = self._folder.config('generator', config_name)
+
+		self._variables = {
+			key.upper(): value
+			for key, value in self._config.items()
+		}
+
+		self._variables['HATENO'] = self._folder.config('folder', config_name)['hateno']
+
+		self._variables['BASEDIR'] = basedir
+
+		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
+		self._variables['PORT_FILENAME'] = os.path.join(basedir, self._variables['PORT_FILENAME'])
+		self._variables['LOG_FILENAME'] = os.path.join(basedir, self._variables['LOG_FILENAME'])
+
+	def _replaceVariables(self, s):
+		'''
+		Parse a string to replace the possible variables.
+
+		Parameters
+		----------
+		s : str
+			The string to parse.
+
+		Returns
+		-------
+		parsed : str
+			The parsed string.
+		'''
+
+		return Template(s).safe_substitute(**self._variables)
+
+	def _replaceForLoop(self, match):
+		'''
+		Replace the a `for` loop of a skeleton.
 		To be called by `re.sub()`.
 
 		Parameters
 		----------
 		match : re.Match
-			Match object from the exec regex.
+			Match object from the `for` loop regex.
 
 		Returns
 		-------
-		exec_commands : str
-			The exec commands.
+		loop_content : str
+			The loop replaced.
 		'''
 
+		loop_from = int(self._replaceVariables(match.group('from')))
+		loop_to = int(self._replaceVariables(match.group('to')))
+
 		return ''.join([
-			Template(match.group('content')).safe_substitute(LOG_FILENAME = self._config['log_filename'].replace('%k', str(k)))
-			for k in range(0, min(self._config['n_exec'], len(self._simulations_to_generate)))
+			self._replaceVariables(match.group('content'))
+			for k in range(loop_from, loop_to + 1)
 		])
 
-	def generate(self, dest_folder, config_name = None, *, empty_dest = False, basedir = None, variables = {}):
+	def _generateScript(self, skeleton_filename, script_filename):
+		'''
+		Generate a script from a skeleton.
+
+		Parameters
+		----------
+		skeleton_filename : str
+			Path to the skeleton.
+
+		script_filename : str
+			Path to the script to write.
+		'''
+
+		with open(skeleton_filename, 'r') as f:
+			skeleton = f.read()
+
+		script_content = self._forloop_regex.sub(self._replaceForLoop, skeleton)
+		script_content = self._replaceVariables(script_content)
+
+		with open(script_filename, 'w') as f:
+			f.write(script_content)
+
+		os.chmod(script_filename, os.stat(script_filename).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+	def generate(self, dest_folder, config_name = None, *, empty_dest = False, basedir = None):
 		'''
 		Generate the scripts to launch the simulations.
 
@@ -191,9 +263,6 @@ class Generator():
 		basedir : str
 			Path to the "final" directory from which the scripts will be executed.
 
-		variables : dict
-			Variables to add to the config ones.
-
 		Raises
 		------
 		GeneratorEmptyListError
@@ -209,33 +278,11 @@ class Generator():
 			raise GeneratorEmptyListError()
 
 		self._createDestinationFolder(dest_folder, empty_dest = empty_dest)
-
 		self._exportCommandLines(os.path.join(dest_folder, 'command_lines.json'))
 
-		self._config = self._folder.config('generator', config_name)
+		self._loadConfig(config_name, basedir or dest_folder)
+
 		skeleton_filename = self._folder.configFilepath(self._config['skeleton_filename'], config_name)
+		self._generateScript(skeleton_filename, os.path.join(dest_folder, self._config['launch_filename']))
 
-		with open(skeleton_filename, 'r') as f:
-			skeleton = f.read()
-
-		script_content = self._exec_regex.sub(self._replaceExecBlock, skeleton)
-
-		self._variables = {
-			key.upper(): value
-			for key, value in {**self._config, **variables}.items()
-		}
-
-		basedir = basedir or dest_folder
-		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
-		self._variables['PORT_FILENAME'] = os.path.join(basedir, self._variables['PORT_FILENAME'])
-		self._variables['LOG_FILENAME'] = os.path.join(basedir, self._variables['LOG_FILENAME'])
-
-		script_content = Template(script_content).safe_substitute(**self._variables)
-
-		script_path = os.path.join(dest_folder, self._config['launch_filename'])
-		with open(script_path, 'w') as f:
-			f.write(script_content)
-
-		os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-		return os.path.join(basedir, self._config['launch_filename'])
+		return os.path.join(self._variables['BASEDIR'], self._config['launch_filename'])
