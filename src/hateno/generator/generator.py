@@ -282,7 +282,7 @@ class Generator():
 
 		self._loadConfig(config_name, basedir or dest_folder)
 
-		skeleton_filename = self._folder.configFilepath(self._config['skeleton_filename'], config_name)
-		self._generateScript(skeleton_filename, os.path.join(dest_folder, self._config['launch_filename']))
+		for skeleton_filename in self._folder.skeletons(self._config['skeletons']):
+			self._generateScript(skeleton_filename, os.path.join(dest_folder, os.path.basename(skeleton_filename)))
 
-		return os.path.join(self._variables['BASEDIR'], self._config['launch_filename'])
+		return os.path.join(self._variables['BASEDIR'], 'exec.sh')

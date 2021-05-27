@@ -15,6 +15,7 @@ from ..utils import FCollection, utils, string, jsonfiles
 
 MAIN_FOLDER = '.hateno'
 CONFIG_FOLDER = 'config'
+SKELETONS_FOLDER = 'skeletons'
 SIMULATIONS_FOLDER = 'simulations'
 TMP_FOLDER = 'tmp'
 
@@ -54,6 +55,9 @@ class Folder():
 
 		self._config_folders_dict = None
 		self._configs = {}
+
+		self._skeletons_folders_dict = None
+		self._skeletons = {}
 
 		self._program_files = None
 
@@ -252,6 +256,73 @@ class Folder():
 				self._configs[foldername][configname] = None
 
 		return self._configs[foldername][configname]
+
+	@property
+	def _skeletons_folders(self):
+		'''
+		The list of the available skeletons.
+
+		Returns
+		-------
+		folders : dict
+			A dictionary associating the folders' names to their paths.
+		'''
+
+		if self._skeletons_folders_dict is None:
+			self._skeletons_folders_dict = {}
+
+			for import_desc in self.settings['import']:
+				try:
+					to_import = import_desc['skeletons']
+
+				except KeyError:
+					pass
+
+				else:
+					self._skeletons_folders_dict.update({
+						foldername: self._relpath(os.path.join(import_desc['from'], MAIN_FOLDER, SKELETONS_FOLDER, foldername))
+						for foldername in to_import
+					})
+
+			base_folder = os.path.join(self._conf_folder_path, SKELETONS_FOLDER)
+
+			if os.path.isdir(base_folder):
+				for foldername in os.listdir(base_folder):
+					path = os.path.join(base_folder, foldername)
+
+					if os.path.isdir(path):
+						self._skeletons_folders_dict[foldername] = path
+
+		return self._skeletons_folders_dict
+
+	def skeletons(self, skeletons_name):
+		'''
+		Get the skeletons filepaths.
+
+		Parameters
+		----------
+		skeletons_name : str
+			Name of the skeletons folder.
+
+		Raises
+		------
+		SkeletonsNotFoundError
+			The skeletons folder does not exist.
+
+		Returns
+		-------
+		filepaths : list
+			The paths of the skeletons.
+		'''
+
+		if skeletons_name not in self._skeletons_folders:
+			raise SkeletonsNotFoundError(skeletons_name)
+
+		if skeletons_name not in self._skeletons:
+			path = self._skeletons_folders[skeletons_name]
+			self._skeletons[skeletons_name] = [os.path.join(path, filename) for filename in os.listdir(path)]
+
+		return self._skeletons[skeletons_name]
 
 	@property
 	def simulations_list_filename(self):

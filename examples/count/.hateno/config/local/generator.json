@@ -2,6 +2,5 @@
 	"n_exec": 5,
 	"port_filename": "port",
 	"log_filename": "log.json",
-	"skeleton_filename": "launch.skeleton.sh",
-	"launch_filename": "launch.sh"
+	"skeletons": "basic"
 }

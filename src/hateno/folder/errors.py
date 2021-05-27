@@ -27,3 +27,16 @@ class NoConfigError(FolderError):
 	'''
 
 	pass
+
+class SkeletonsNotFoundError(FolderError):
+	'''
+	Exception raised when we try to access a non-existing skeletons folder.
+
+	Parameters
+	----------
+	skeletons_name : str
+		Name of the folder.
+	'''
+
+	def __init__(self, skeletons_name):
+		self.skeletons_name = skeletons_name
