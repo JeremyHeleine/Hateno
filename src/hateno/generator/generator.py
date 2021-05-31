@@ -172,6 +172,8 @@ class Generator():
 			for key, value in self._config.items()
 		}
 
+		self._variables['N_EXEC'] = min(self._variables['N_EXEC'], len(self._simulations_to_generate))
+
 		self._variables['HATENO'] = self._folder.config('folder', config_name)['hateno']
 
 		self._variables['BASEDIR'] = basedir
@@ -179,6 +181,11 @@ class Generator():
 		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
 		self._variables['PORT_FILENAME'] = os.path.join(basedir, self._variables['PORT_FILENAME'])
 		self._variables['LOG_FILENAME'] = os.path.join(basedir, self._variables['LOG_FILENAME'])
+
+		for skeleton_filename in self._folder.skeletons(self._config['skeletons']):
+			skeleton = os.path.basename(skeleton_filename)
+			varname = skeleton.upper().replace('.', '_')
+			self._variables[f'FILE_{varname}'] = os.path.join(basedir, skeleton)
 
 	def _replaceVariables(self, s):
 		'''
