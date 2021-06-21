@@ -7,3 +7,16 @@ class JobError(Exception):
 	'''
 
 	pass
+
+class JobDirAlreadyExistsError(JobError):
+	'''
+	Exception raised when we try to use a directory that already exists.
+
+	Parameters
+	----------
+	job_dir : str
+		The path to the directory.
+	'''
+
+	def __init__(self, job_dir):
+		self.job_dir = job_dir

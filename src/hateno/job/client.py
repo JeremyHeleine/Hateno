@@ -1,125 +1,122 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import selectors
-import socket
+import json
+import os
 import subprocess
+import time
 
-from .message import Message
-from ..utils import Events
+import watchdog.events
+
+from .filewatcher import FileWatcher
+from ..utils import jsonfiles, string
 
 class JobClient():
 	'''
-	Represent a client part of the job, which executes the command lines.
-
-	Parameters
-	----------
-	host : str
-		Host of the server.
-
-	port : int
-		Port of the server.
 	'''
 
-	def __init__(self, host, port):
-		self._host = host
-		self._port = port
-
-		self.events = Events(['exec-start', 'exec-end'])
-
-		self._open()
+	def __init__(self, job_dir):
+		self._job_dir = job_dir
 
 	def __enter__(self):
 		'''
-		Context manager to call `close()` at the end.
 		'''
 
+		self.start()
 		return self
 
-	def __exit__(self, type, value, traceback):
+	def __exit__(self, *args, **kwargs):
 		'''
-		Ensure `close()` is called when exiting the context manager.
-		'''
-
-		self.close()
-
-	def _open(self):
-		'''
-		Open the connection with the server.
 		'''
 
-		self._selector = selectors.DefaultSelector()
+		self.stop()
 
-		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self._sock.setblocking(False)
-		self._sock.connect_ex((self._host, self._port))
-
-		message = Message(self._selector, self._sock)
-		message.events.addListener('message-received', self._processResponse)
-
-		self._selector.register(self._sock, selectors.EVENT_WRITE, data = message)
-
-		message.setMessage({'query': 'next'})
-
-	def close(self):
+	def start(self):
 		'''
-		Close the connection.
 		'''
 
-		self._selector.close()
+		self._client_id = string.uniqueID()
+		self._client_filename = os.path.join(self._job_dir, f'{self._client_id}.json')
 
-	def _processResponse(self, message, response):
+		self._event_handler = FileEventHandler(self._processResponse)
+
+		with open(self._client_filename, 'w') as f:
+			f.write('')
+
+	def stop(self):
 		'''
-		Process the response of a request to the server.
-
-		Parameters
-		----------
-		message : Message
-			Message instance of the connection.
-
-		response : dict
-			Response of the server.
 		'''
 
-		message.setMode('idle')
+		try:
+			os.unlink(self._client_filename)
+
+		except FileNotFoundError:
+			pass
+
+	def _processResponse(self, response):
+		'''
+		'''
+
+		self._wait = False
 
 		if response['command_line'] is not None:
-			cmd = {
-				'exec': response['command_line']
-			}
-
-			self.events.trigger('exec-start', cmd)
-
 			p = subprocess.run(response['command_line'], shell = True, capture_output = True, encoding = 'utf-8')
-			cmd['stdout'] = p.stdout
-			cmd['stderr'] = p.stderr
-			cmd['success'] = p.returncode == 0
 
-			self.events.trigger('exec-end', cmd)
+			self._sendAndWait({
+				'log': {
+					'exec': response['command_line'],
+					'stdout': p.stdout,
+					'stderr': p.stderr,
+					'success': p.returncode == 0
+				},
+				'state': 'ready'
+			})
 
-			message.setMessage({'query': 'log', 'content': cmd})
+	def _sendAndWait(self, req):
+		'''
+		'''
 
-		else:
-			message.close()
+		try:
+			with FileWatcher(self._event_handler, self._client_filename):
+				jsonfiles.write(req, self._client_filename)
+
+				self._wait = True
+				while self._wait:
+					time.sleep(0.1)
+
+		except FileNotFoundError:
+			pass
 
 	def run(self):
 		'''
-		Run the event loop.
 		'''
 
-		while True:
-			try:
-				for key, mask in self._selector.select(timeout = 1):
-					message = key.data
+		self._sendAndWait({'state': 'ready'})
 
-					try:
-						message.processEvents(mask)
+class FileEventHandler(watchdog.events.FileSystemEventHandler):
+	'''
+	'''
 
-					except Exception:
-						message.close()
+	def __init__(self, response):
+		self._response = response
 
-				if not(self._selector.get_map()):
-					break
+		self._prev_message = None
 
-			except KeyboardInterrupt:
-				break
+	def on_modified(self, evt):
+		'''
+		'''
+
+		try:
+			content = jsonfiles.read(evt.src_path)
+
+		except json.decoder.JSONDecodeError:
+			pass
+
+		else:
+			if content == self._prev_message:
+				return
+
+			self._prev_message = content
+
+			if 'command_line' in content:
+				self._response(content)

@@ -8,30 +8,13 @@ This script connects to a server to execute some command lines of a job.
 import argparse
 
 from hateno.job import JobClient
-from hateno.utils import jsonfiles
 
 def addArguments(parser):
-	parser.add_argument('--host', type = str, default = '127.0.0.1', help = 'host of the server')
-	parser.add_argument('--port', type = int, default = 21621, help = 'port of the server')
-	parser.add_argument('--log', type = str, help = 'log file to write')
+	parser.add_argument('job_dir', type = str, help = 'path to the job directory to store the messaging files')
 
 def main(args):
-	output = []
-
-	def execStart(cmd):
-		output.append(cmd)
-
-	def execEnd(cmd):
-		output[-1] = cmd
-
-	with JobClient(args.host, args.port) as client:
-		client.events.addListener('exec-start', execStart)
-		client.events.addListener('exec-end', execEnd)
-
+	with JobClient(args.job_dir) as client:
 		client.run()
-
-	if args.log is not None:
-		jsonfiles.write(output, args.log)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Run the client part of a job')

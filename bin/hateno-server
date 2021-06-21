@@ -11,24 +11,16 @@ from hateno.job import JobServer
 from hateno.utils import jsonfiles
 
 def addArguments(parser):
-	parser.add_argument('--print-port', action = 'store_true', help = 'print the port the server is using')
-	parser.add_argument('--save-port', type = str, help = 'path to the file where the port should be written')
 	parser.add_argument('--log', type = str, help = 'log file to write')
 	parser.add_argument('cmd_list', type = str, help = 'path to the file where the command lines are stored')
+	parser.add_argument('job_dir', type = str, help = 'path to the job directory that will be created to store the messaging files')
 
 def main(args):
-	with JobServer(jsonfiles.read(args.cmd_list)) as server:
-		if args.print_port:
-			print(server.port)
-
-		if args.save_port:
-			with open(args.save_port, 'w') as f:
-				f.write(str(server.port))
+	with JobServer(args.cmd_list, args.job_dir) as server:
+		server.run()
 
 		if args.log is not None:
-			server.events.addListener('log', lambda log: jsonfiles.write(log, args.log))
-
-		server.run()
+			jsonfiles.write(server.log, args.log)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = 'Run the server part of a job')

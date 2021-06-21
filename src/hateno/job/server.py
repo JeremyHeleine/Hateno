@@ -1,222 +1,177 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import selectors
-import socket
+import json
+import os
+import shutil
+import time
 
-from .message import Message
-from ..utils import Events
+import watchdog.events
+
+from .errors import *
+from .filewatcher import FileWatcher
+from ..utils import jsonfiles
 
 class JobServer():
 	'''
-	Represent the server part of a job, which distributes the command lines over the clients.
-
-	Parameters
-	----------
-	command_lines : list
-		Command lines to execute.
 	'''
 
-	def __init__(self, command_lines):
-		self._host = '127.0.0.1'
-		self._port = 21621
+	def __init__(self, command_lines_filename, job_dir):
+		self._command_lines_filename = command_lines_filename
+		self._job_dir = job_dir
 
-		self._command_lines = command_lines
-		self._current_command_line = -1
+		self._event_handler = FileEventHandler(self._job_dir, self._newClient, self._clientGone, self._processRequest)
+		self._watcher = FileWatcher(self._event_handler, self._job_dir)
 
 		self._clients = []
 
 		self._log = []
-		self.events = Events(['log'])
-
-		self._open()
 
 	def __enter__(self):
 		'''
-		Context manager to call `close()` at the end.
 		'''
 
+		self.start()
 		return self
 
-	def __exit__(self, type, value, traceback):
+	def __exit__(self, *args, **kwargs):
 		'''
-		Ensure `close()` is called when exiting the context manager.
-		'''
-
-		self.close()
-
-	def _open(self):
-		'''
-		Open the server by creating the selector and socket.
 		'''
 
-		self._selector = selectors.DefaultSelector()
+		self.stop()
 
-		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self._bindSocket()
-		self._sock.listen()
-		self._sock.setblocking(False)
-
-		self._selector.register(self._sock, selectors.EVENT_READ, data = None)
-
-	def _bindSocket(self):
+	def start(self):
 		'''
-		Bind the socket and change the port if necessary.
 		'''
 
 		try:
-			self._sock.bind((self._host, self._port))
+			os.makedirs(self._job_dir)
 
-		except OSError:
-			self._port += 1
-			self._bindSocket()
+		except FileExistsError:
+			raise JobDirAlreadyExistsError(self._job_dir)
 
-	def close(self):
+		self._command_lines_file = open(self._command_lines_filename, 'r')
+		self._command_lines = (row.strip() for row in self._command_lines_file)
+
+		self._watcher.start()
+
+	def stop(self):
 		'''
-		Close the server.
-		'''
-
-		self._selector.close()
-
-	@property
-	def port(self):
-		'''
-		Get the port in use.
-
-		Returns
-		-------
-		port : int
-			The current port.
 		'''
 
-		return self._port
+		self._watcher.stop()
+		self._command_lines_file.close()
+		shutil.rmtree(self._job_dir)
 
 	@property
 	def log(self):
 		'''
-		Get the log.
-
-		Returns
-		-------
-		log : list
-			The log, as a list of executed command lines.
 		'''
 
 		return self._log
 
-	def _acceptConnection(self, sock):
+	def _newClient(self, id):
 		'''
-		Accept the connection of a socket to the server.
-
-		Parameters
-		----------
-		sock : socket.socket
-			The socket to accept.
 		'''
 
-		conn, addr = sock.accept()
-		conn.setblocking(False)
+		self._clients.append(id)
 
-		message = Message(self._selector, conn)
-		message.events.addListener('message-received', self._processRequest)
-
-		self._clients.append(message)
-
-		self._selector.register(conn, selectors.EVENT_READ, data = message)
-
-	def _processRequest(self, message, req):
+	def _sendNextCommandLine(self, client_id):
 		'''
-		Process a request sent by a client.
-
-		Parameters
-		----------
-		message : Message
-			Message instance of the client.
-
-		req : dict
-			The received request.
 		'''
-
-		if req['query'] == 'next':
-			self._sendNextCommandLine(message)
-
-		elif req['query'] == 'log':
-			self._logCommandLine(req['content'])
-			self._sendNextCommandLine(message)
-
-	def _sendNextCommandLine(self, message):
-		'''
-		Send the next command line to execute.
-
-		Parameters
-		----------
-		message : Message
-			Message instance of the client.
-		'''
-
-		self._current_command_line += 1
 
 		try:
-			cmd = self._command_lines[self._current_command_line]
+			cmd = next(self._command_lines)
 
-		except IndexError:
+		except StopIteration:
 			cmd = None
 
 		finally:
-			message.setMessage({'command_line': cmd})
+			jsonfiles.write({
+				'command_line': cmd
+			}, os.path.join(self._job_dir, f'{client_id}.json'))
 
-	def _logCommandLine(self, cmd):
+	def _clientGone(self, id):
 		'''
-		Log the result of a command line in the list.
-		If there is a log file, update it.
-
-		Parameters
-		----------
-		cmd : dict
-			Result of the command line to log.
 		'''
 
-		self._log.append(cmd)
-		self.events.trigger('log', self._log)
+		self._clients.remove(id)
+
+	def _processRequest(self, client_id, req):
+		'''
+		'''
+
+		if 'log' in req:
+			self._log.append(req['log'])
+
+		if req['state'] == 'ready':
+			self._sendNextCommandLine(client_id)
 
 	def run(self):
 		'''
-		Run the event loop.
 		'''
 
-		while True:
+		while not(self._log) or self._clients:
 			try:
-				for key, mask in self._selector.select(timeout = None):
-					if key.data is None:
-						self._acceptConnection(key.fileobj)
-
-					else:
-						message = key.data
-						try:
-							message.processEvents(mask)
-
-						except Exception:
-							message.close()
-
-				if self._allClosed():
-					break
+				time.sleep(0.1)
 
 			except KeyboardInterrupt:
 				break
 
-	def _allClosed(self):
+class FileEventHandler(watchdog.events.RegexMatchingEventHandler):
+	'''
+	'''
+
+	def __init__(self, job_dir, new_client, client_gone, request):
+		super().__init__(regexes = [os.path.join(job_dir, r'[0-9a-f]+\.json')])
+
+		self._new_client = new_client
+		self._client_gone = client_gone
+		self._request = request
+
+		self._prev_message = {}
+
+	def on_created(self, evt):
 		'''
-		Check whether all the clients closed their connections.
-
-		Returns
-		-------
-		all_closed : bool
-			`True` if all clients are closed, `False` if at least one client is still connected.
 		'''
 
-		if not(self._clients):
-			return False
+		client_id = self._filename2id(evt.src_path)
+		self._prev_message[client_id] = None
 
-		closed_clients = [client for client in self._clients if client.closed]
-		return self._clients == closed_clients
+		self._new_client(client_id)
+
+	def on_deleted(self, evt):
+		'''
+		'''
+
+		client_id = self._filename2id(evt.src_path)
+		del self._prev_message[client_id]
+
+		self._client_gone(client_id)
+
+	def on_modified(self, evt):
+		'''
+		'''
+
+		try:
+			content = jsonfiles.read(evt.src_path)
+
+		except json.decoder.JSONDecodeError:
+			pass
+
+		else:
+			client_id = self._filename2id(evt.src_path)
+
+			if content == self._prev_message[client_id]:
+				return
+
+			self._prev_message[client_id] = content
+
+			if 'state' in content:
+				self._request(client_id, content)
+
+	def _filename2id(self, filename):
+		'''
+		'''
+
+		return os.path.splitext(os.path.basename(filename))[0]
