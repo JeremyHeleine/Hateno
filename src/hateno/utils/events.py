@@ -36,7 +36,12 @@ class Events():
 		'''
 
 		try:
-			self._callbacks.set(f.__name__, f, category = event)
+			fname = f.__name__
+			if fname == '<lambda>':
+				n = len(self._callbacks.getAll(category = event))
+				fname = f'lambda{n}'
+
+			self._callbacks.set(fname, f, category = event)
 
 		except FCollectionCategoryNotFoundError:
 			raise EventUnknownError(event)
