@@ -9,7 +9,7 @@ import time
 import watchdog.events
 
 from .filewatcher import FileWatcher
-from ..utils import jsonfiles, string
+from ..utils import Events, jsonfiles, string
 
 class JobClient():
 	'''
@@ -17,6 +17,10 @@ class JobClient():
 
 	def __init__(self, job_dir):
 		self._job_dir = job_dir
+
+		self.events = Events([
+			'received', 'sent'
+		])
 
 	def __enter__(self):
 		'''
@@ -59,10 +63,12 @@ class JobClient():
 
 		self._wait = False
 
+		self.events.trigger('received', response['command_line'])
+
 		if response['command_line'] is not None:
 			p = subprocess.run(response['command_line'], shell = True, capture_output = True, encoding = 'utf-8')
 
-			self._sendAndWait({
+			log = {
 				'log': {
 					'exec': response['command_line'],
 					'stdout': p.stdout,
@@ -70,7 +76,9 @@ class JobClient():
 					'success': p.returncode == 0
 				},
 				'state': 'ready'
-			})
+			}
+
+			self._sendAndWait(log)
 
 	def _sendAndWait(self, req):
 		'''
@@ -79,6 +87,7 @@ class JobClient():
 		try:
 			with FileWatcher(self._event_handler, self._client_filename):
 				jsonfiles.write(req, self._client_filename)
+				self.events.trigger('sent', req)
 
 				self._wait = True
 				while self._wait:

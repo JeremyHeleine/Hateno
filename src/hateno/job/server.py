@@ -10,7 +10,7 @@ import watchdog.events
 
 from .errors import *
 from .filewatcher import FileWatcher
-from ..utils import jsonfiles
+from ..utils import Events, jsonfiles
 
 class JobServer():
 	'''
@@ -26,6 +26,11 @@ class JobServer():
 		self._clients = []
 
 		self._log = []
+
+		self.events = Events([
+			'client-new', 'client-gone',
+			'sent', 'log'
+		])
 
 	def __enter__(self):
 		'''
@@ -75,6 +80,24 @@ class JobServer():
 		'''
 
 		self._clients.append(id)
+		self.events.trigger('client-new', id)
+
+	def _clientGone(self, id):
+		'''
+		'''
+
+		self._clients.remove(id)
+		self.events.trigger('client-gone', id)
+
+	def _processRequest(self, client_id, req):
+		'''
+		'''
+
+		if 'log' in req:
+			self._logCmd(req['log'])
+
+		if req['state'] == 'ready':
+			self._sendNextCommandLine(client_id)
 
 	def _sendNextCommandLine(self, client_id):
 		'''
@@ -91,21 +114,14 @@ class JobServer():
 				'command_line': cmd
 			}, os.path.join(self._job_dir, f'{client_id}.json'))
 
-	def _clientGone(self, id):
+			self.events.trigger('sent', cmd, client_id)
+
+	def _logCmd(self, res):
 		'''
 		'''
 
-		self._clients.remove(id)
-
-	def _processRequest(self, client_id, req):
-		'''
-		'''
-
-		if 'log' in req:
-			self._log.append(req['log'])
-
-		if req['state'] == 'ready':
-			self._sendNextCommandLine(client_id)
+		self._log.append(res)
+		self.events.trigger('log', res)
 
 	def run(self):
 		'''
