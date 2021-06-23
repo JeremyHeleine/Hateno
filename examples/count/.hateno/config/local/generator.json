@@ -1,6 +1,6 @@
 {
 	"n_exec": 5,
-	"port_filename": "port",
+	"job_directory": "job",
 	"log_filename": "log.json",
 	"skeletons": "basic"
 }

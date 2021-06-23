@@ -12,6 +12,7 @@ from .errors import *
 from ..folder import Folder
 from ..generator import Generator
 from ..manager import Manager
+from ..manager.errors import *
 from ..remote import RemoteFolder
 from ..remote.errors import *
 from ..simulation import Simulation
@@ -432,7 +433,7 @@ class Maker():
 		self._job_log_file = self.generator.variables['LOG_FILENAME']
 
 		self._remote_folder.send(scripts_dir, delete = True, replace = True)
-		self._remote_folder.startServer(self.generator.variables['PORT_FILENAME'], self._job_log_file, self.generator.variables['COMMAND_LINES_FILENAME'])
+		self._remote_folder.startServer(self.generator.variables['COMMAND_LINES_FILENAME'], self.generator.variables['JOB_DIRECTORY'], self._job_log_file)
 		self._remote_folder.execute(script_to_launch)
 
 		self.generator.clear()

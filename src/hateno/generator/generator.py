@@ -150,7 +150,8 @@ class Generator():
 			Name of the file to create.
 		'''
 
-		jsonfiles.write(self.command_lines, filename)
+		with open(filename, 'w') as f:
+			f.write('\n'.join(self.command_lines) + '\n')
 
 	def _loadConfig(self, config_name, basedir):
 		'''
@@ -178,9 +179,8 @@ class Generator():
 
 		self._variables['BASEDIR'] = basedir
 
-		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.json')
-		self._variables['PORT_FILENAME'] = os.path.join(basedir, self._variables['PORT_FILENAME'])
-		self._variables['LOG_FILENAME'] = os.path.join(basedir, self._variables['LOG_FILENAME'])
+		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.txt')
+		self._variables['JOB_DIRECTORY'] = os.path.join(basedir, self._variables['JOB_DIRECTORY'])
 
 		for skeleton_filename in self._folder.skeletons(self._config['skeletons']):
 			skeleton = os.path.basename(skeleton_filename)
@@ -285,9 +285,9 @@ class Generator():
 			raise GeneratorEmptyListError()
 
 		self._createDestinationFolder(dest_folder, empty_dest = empty_dest)
-		self._exportCommandLines(os.path.join(dest_folder, 'command_lines.json'))
-
 		self._loadConfig(config_name, basedir or dest_folder)
+
+		self._exportCommandLines(os.path.join(dest_folder, 'command_lines.txt'))
 
 		for skeleton_filename in self._folder.skeletons(self._config['skeletons']):
 			self._generateScript(skeleton_filename, os.path.join(dest_folder, os.path.basename(skeleton_filename)))

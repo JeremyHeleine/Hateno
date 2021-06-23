@@ -1,7 +1,5 @@
 #!/bin/sh
 
-port=`cat "$PORT_FILENAME"`
-
 ### FOR K FROM 1 TO $N_EXEC
-$HATENO exec --port $port > /dev/null 2>&1 &
+$HATENO exec $JOB_DIRECTORY > /dev/null 2>&1 &
 ###

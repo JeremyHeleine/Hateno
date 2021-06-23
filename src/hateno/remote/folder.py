@@ -135,40 +135,35 @@ class RemoteFolder():
 			stdin, stdout, stderr = self._ssh.exec_command(cmd)
 			return stdout
 
-	def startServer(self, port_filename, log_filename, cmd_filename):
+	def startServer(self, cmd_filename, job_dir, log_filename):
 		'''
 		Start an instance of the server.
 
 		Parameters
 		----------
-		port_filename : str
-			Path to the (remote) file where to store the port of the server.
-
-		log_filename : str
-			Path to the file where the log will be stored.
-
 		cmd_filename : str
 			Path to the file where the command lines are stored.
 
-		Returns
-		-------
-		port : int
-			Port of the server.
+		job_dir : str
+			Path to the job directory.
+
+		log_filename : str
+			Path to the file where the log will be stored.
 		'''
 
-		self.execute(f'{self._configuration["hateno"]} server --save-port {port_filename} --log {log_filename} {cmd_filename} > /dev/null 2>&1 &')
+		self.execute(f'{self._configuration["hateno"]} server --log {log_filename} {cmd_filename} {job_dir} > /dev/null 2>&1 &')
+
+		# Wait until the job directory is created
 
 		while True:
 			try:
-				port = int(self.getFileContents(port_filename))
+				self._sftp.stat(job_dir)
 
 			except FileNotFoundError:
 				time.sleep(0.1)
 
 			else:
 				break
-
-		return port
 
 	def getFileContents(self, remote_path):
 		'''
