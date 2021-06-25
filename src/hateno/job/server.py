@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import json
 import os
 import shutil
 import time
@@ -14,6 +13,15 @@ from ..utils import Events, jsonfiles
 
 class JobServer():
 	'''
+	Server part of a job, distributing the command lines over the clients.
+
+	Parameters
+	----------
+	command_lines_filename : str
+		Path to the file listing the command lines to execute (one command line per line).
+
+	job_dir : str
+		Path to the job directory to create to store the messaging files.
 	'''
 
 	def __init__(self, command_lines_filename, job_dir):
@@ -34,6 +42,7 @@ class JobServer():
 
 	def __enter__(self):
 		'''
+		Context manager to automatically call `stop()`.
 		'''
 
 		self.start()
@@ -41,12 +50,21 @@ class JobServer():
 
 	def __exit__(self, *args, **kwargs):
 		'''
+		Call `stop()` after exiting a context manager.
 		'''
 
 		self.stop()
 
 	def start(self):
 		'''
+		Start the server.
+		Create the job directory.
+		Create the generator providing the command lines.
+
+		Raises
+		------
+		JobDirAlreadyExistsError
+			The folder indicated as job directory already exists.
 		'''
 
 		try:
@@ -62,6 +80,7 @@ class JobServer():
 
 	def stop(self):
 		'''
+		Stop the server: close the command lines file and remove the job directory.
 		'''
 
 		self._watcher.stop()
@@ -71,12 +90,24 @@ class JobServer():
 	@property
 	def log(self):
 		'''
+		Get the current log.
+
+		Returns
+		-------
+		log : list
+			List of the logs sent by the clients.
 		'''
 
 		return self._log
 
 	def _newClient(self, id):
 		'''
+		A new client has been created: add it to the clients list.
+
+		Parameters
+		----------
+		id : str
+			ID of the client.
 		'''
 
 		self._clients.append(id)
@@ -84,6 +115,12 @@ class JobServer():
 
 	def _clientGone(self, id):
 		'''
+		A client has been deleted: remote it from the clients list.
+
+		Parameters
+		----------
+		id : str
+			ID of the client.
 		'''
 
 		self._clients.remove(id)
@@ -91,6 +128,15 @@ class JobServer():
 
 	def _processRequest(self, client_id, req):
 		'''
+		Process the request from a client.
+
+		Parameters
+		----------
+		client_id : str
+			ID of the client.
+
+		req : dict
+			Request sent by the client.
 		'''
 
 		if 'log' in req:
@@ -101,6 +147,13 @@ class JobServer():
 
 	def _sendNextCommandLine(self, client_id):
 		'''
+		Send the next command line to a client.
+		If there is no command line anymore, send `None`.
+
+		Parameters
+		----------
+		client_id : str
+			ID of the client to send to command line to.
 		'''
 
 		try:
@@ -118,6 +171,12 @@ class JobServer():
 
 	def _logCmd(self, res):
 		'''
+		Log the result of a command line.
+
+		Parameters
+		----------
+		res : dict
+			Result to log.
 		'''
 
 		self._log.append(res)
@@ -125,6 +184,7 @@ class JobServer():
 
 	def run(self):
 		'''
+		Run loop, stopped when there is no client anymore.
 		'''
 
 		while not(self._log) or self._clients:
@@ -136,6 +196,21 @@ class JobServer():
 
 class FileEventHandler(watchdog.events.RegexMatchingEventHandler):
 	'''
+	Handle the events from the files.
+
+	Parameters
+	----------
+	job_dir : str
+		Path to the job directory.
+
+	new_client : function
+		Function to call when a new client is created.
+
+	client_gone : function
+		Function to call when a client is deleted.
+
+	request : function
+		Function to call to handle the request from a client.
 	'''
 
 	def __init__(self, job_dir, new_client, client_gone, request):
@@ -149,6 +224,13 @@ class FileEventHandler(watchdog.events.RegexMatchingEventHandler):
 
 	def on_created(self, evt):
 		'''
+		A file has been created in the job directory: a new client is here.
+		Call the right callback. We then call `on_modified()` to be sure the first content of the file is processed.
+
+		Parameters
+		----------
+		evt : watchdog.events.FileCreatedEvent
+			Event object from Watchdog containing infos about the client file.
 		'''
 
 		client_id = self._filename2id(evt.src_path)
@@ -156,8 +238,16 @@ class FileEventHandler(watchdog.events.RegexMatchingEventHandler):
 
 		self._new_client(client_id)
 
+		self.on_modified(evt)
+
 	def on_deleted(self, evt):
 		'''
+		A file has been deleted: say goodbye to a client.
+
+		Parameters
+		----------
+		evt : watchdog.events.FileDeletedEvent
+			Event object from Watchdog containing infos about the client file.
 		'''
 
 		client_id = self._filename2id(evt.src_path)
@@ -167,12 +257,19 @@ class FileEventHandler(watchdog.events.RegexMatchingEventHandler):
 
 	def on_modified(self, evt):
 		'''
+		A file has been modified: maybe a message from a client.
+		If it is the case, call the right callback.
+
+		Parameters
+		----------
+		evt : watchdog.events.FileModifiedEvent
+			Event object from Watchdog containing infos about the client file.
 		'''
 
 		try:
 			content = jsonfiles.read(evt.src_path)
 
-		except json.decoder.JSONDecodeError:
+		except:
 			pass
 
 		else:
@@ -188,6 +285,13 @@ class FileEventHandler(watchdog.events.RegexMatchingEventHandler):
 
 	def _filename2id(self, filename):
 		'''
+		Convert a client filename into an ID.
+		It is simply the base name of the file, without extension.
+
+		Parameters
+		----------
+		filename : str
+			Path to the client file.
 		'''
 
 		return os.path.splitext(os.path.basename(filename))[0]

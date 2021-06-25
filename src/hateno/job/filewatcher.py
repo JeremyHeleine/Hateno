@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import watchdog.observers
+import watchdog.observers.polling
 
 class FileWatcher():
 	'''
@@ -17,7 +17,7 @@ class FileWatcher():
 	'''
 
 	def __init__(self, event_handler, path):
-		self._observer = watchdog.observers.Observer()
+		self._observer = watchdog.observers.polling.PollingObserver()
 		self._observer.schedule(event_handler, path)
 
 	def __enter__(self):

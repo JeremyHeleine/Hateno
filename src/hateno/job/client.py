@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import json
 import os
 import subprocess
 import time
@@ -13,6 +12,12 @@ from ..utils import Events, jsonfiles, string
 
 class JobClient():
 	'''
+	Client part of a job, executing the command lines sent by the server.
+
+	Parameters
+	----------
+	job_dir : str
+		Path to the job directory where the messaging files are stored.
 	'''
 
 	def __init__(self, job_dir):
@@ -24,6 +29,7 @@ class JobClient():
 
 	def __enter__(self):
 		'''
+		Context manager to automatically call `stop()`.
 		'''
 
 		self.start()
@@ -31,12 +37,14 @@ class JobClient():
 
 	def __exit__(self, *args, **kwargs):
 		'''
+		Call `stop()` when exiting a context manager.
 		'''
 
 		self.stop()
 
 	def start(self):
 		'''
+		Create the messaging file for this client.
 		'''
 
 		self._client_id = string.uniqueID()
@@ -49,6 +57,7 @@ class JobClient():
 
 	def stop(self):
 		'''
+		Delete the messaging file of the client.
 		'''
 
 		try:
@@ -59,6 +68,14 @@ class JobClient():
 
 	def _processResponse(self, response):
 		'''
+		Handle the response from the server.
+		If the server sent a command line, execute it and send the log.
+		If the "command line" is `None`, stop everything.
+
+		Parameters
+		----------
+		response : dict
+			Message sent by the server.
 		'''
 
 		self._wait = False
@@ -82,6 +99,12 @@ class JobClient():
 
 	def _sendAndWait(self, req):
 		'''
+		Send a message to the server and wait for the response.
+
+		Parameters
+		----------
+		req : dict
+			Request to send.
 		'''
 
 		try:
@@ -98,12 +121,19 @@ class JobClient():
 
 	def run(self):
 		'''
+		Run "loop". Tell the server the client is ready and wait for the first command line.
 		'''
 
 		self._sendAndWait({'state': 'ready'})
 
 class FileEventHandler(watchdog.events.FileSystemEventHandler):
 	'''
+	Handle the events from the files modifications.
+
+	Parameters
+	----------
+	response : function
+		Function to call to handle a response from the server.
 	'''
 
 	def __init__(self, response):
@@ -113,12 +143,19 @@ class FileEventHandler(watchdog.events.FileSystemEventHandler):
 
 	def on_modified(self, evt):
 		'''
+		The client file has been modified.
+		Read the content of the file and test whether it is a message from the server.
+
+		Parameters
+		----------
+		evt : watchdog.events.FileModifiedEvent
+			Object given by Watchdog containing infos about the modified file.
 		'''
 
 		try:
 			content = jsonfiles.read(evt.src_path)
 
-		except json.decoder.JSONDecodeError:
+		except:
 			pass
 
 		else:
