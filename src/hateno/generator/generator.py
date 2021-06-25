@@ -181,6 +181,7 @@ class Generator():
 
 		self._variables['COMMAND_LINES_FILENAME'] = os.path.join(basedir, 'command_lines.txt')
 		self._variables['JOB_DIRECTORY'] = os.path.join(basedir, self._variables['JOB_DIRECTORY'])
+		self._variables['LOG_FILENAME'] = os.path.join(basedir, self._variables['LOG_FILENAME'])
 
 		for skeleton_filename in self._folder.skeletons(self._config['skeletons']):
 			skeleton = os.path.basename(skeleton_filename)
