@@ -151,7 +151,11 @@ class RemoteFolder():
 			Path to the file where the log will be stored.
 		'''
 
-		self.execute(f'{self._configuration["hateno"]} server --log {log_filename} {cmd_filename} {job_dir} > /dev/null 2>&1 &')
+		cmd = f'{self._configuration["hateno"]} server --log {log_filename} {cmd_filename} {job_dir} > /dev/null 2>&1 &'
+		if 'pre_start_server' in self._configuration:
+			cmd = f'{self._configuration["pre_start_server"]}; {cmd}'
+
+		self.execute(cmd)
 
 		# Wait until the job directory is created
 
