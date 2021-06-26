@@ -11,13 +11,12 @@ import os
 
 from hateno.manager import Manager
 from hateno.ui import UI
-from hateno.utils import jsonfiles, string
+from hateno.utils import jsonfiles, string, utils
 
 def addArguments(parser):
 	parser.add_argument('--errors', type = str, help = 'path to the file which will contain the simulations that led to an error')
 	parser.add_argument('--settings-file', type = str, default = 'settings.json', help = 'name of the file to create to store the settings of each simulation (extract only)')
 	parser.add_argument('--no-settings-file', action = 'store_false', dest = 'store_settings', help = 'do not store the settings of the extracted simulations')
-	parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
 	parser.add_argument('mode', choices = ['add', 'delete', 'extract'], help = 'mode to use (addition, deletion or extraction)')
 	parser.add_argument('simulations', type = str, help = 'path to the file describing the simulations to treat, or to a folder containing the simulations')
 
@@ -48,7 +47,7 @@ def main(args):
 		}
 	}
 
-	with Manager(args.folder_path, readonly = modes_configs[args.mode]['readonly']) as manager:
+	with Manager(utils.findFolder(), readonly = modes_configs[args.mode]['readonly']) as manager:
 		if os.path.isfile(args.simulations):
 			simulations = jsonfiles.read(args.simulations, allow_generator = True)
 

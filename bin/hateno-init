@@ -12,14 +12,10 @@ import hateno.folder.folder as folder
 from hateno.utils import jsonfiles
 
 def addArguments(parser):
-	parser.add_argument('folder_path', type = str, nargs = '?', help = 'path to the folder to manage (default to the current directory)')
+	pass
 
 def main(args):
 	conf_folder = folder.MAIN_FOLDER
-
-	if not(args.folder_path is None):
-		conf_folder = os.path.join(args.folder_path, conf_folder)
-
 	config_file = os.path.join(conf_folder, folder.CONF_FILENAME)
 
 	try:

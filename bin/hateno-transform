@@ -12,12 +12,11 @@ from hateno.ui import UI
 from hateno.utils import utils, jsonfiles, string
 
 def addArguments(parser):
-	parser.add_argument('folder_path', type = str, help = 'path to the folder to manage')
 	parser.add_argument('transform_script', type = argparse.FileType('r'), help = 'path to the script where the transformation function is defined')
 	parser.add_argument('simulations_list', type = str, nargs = '?', help = 'path to the file where the simulations list to transform can be found')
 
 def main(args):
-	with Manager(args.folder_path) as manager:
+	with Manager(utils.findFolder()) as manager:
 		ui = UI()
 
 		simulations = None

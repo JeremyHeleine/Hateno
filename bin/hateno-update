@@ -10,12 +10,13 @@ import argparse
 from hateno.folder import Folder
 from hateno.manager import Manager
 from hateno.ui import UI
+from hateno.utils import utils
 
 def addArguments(parser):
-	parser.add_argument('folder_path', type = str, help = 'path to the folder to update')
+	pass
 
 def main(args):
-	with Manager(args.folder_path) as manager:
+	with Manager(utils.findFolder()) as manager:
 		n_simulations = manager.getSimulationsNumber()
 
 		if n_simulations == 0:

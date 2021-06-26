@@ -9,13 +9,13 @@ import argparse
 import json
 
 from hateno.manager import Manager
+from hateno.utils import utils
 
 def addArguments(parser):
-	parser.add_argument('folder_path', type = str, help = 'path to the managed folder')
 	parser.add_argument('simulation_id', type = str, help = 'identifier of the simulation (name or hashed settings)')
 
 def main(args):
-	with Manager(args.folder_path) as manager:
+	with Manager(utils.findFolder()) as manager:
 		settings = manager.settingsOf(args.simulation_id)
 		print(json.dumps(settings, indent = '\t'))
 

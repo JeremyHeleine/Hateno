@@ -10,15 +10,14 @@ import argparse
 from hateno.folder import Folder
 from hateno.remote import RemoteFolder
 from hateno.ui import UI
-from hateno.utils import string
+from hateno.utils import string, utils
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
 	parser.add_argument('--replace', action = 'store_true', help = 'force the replacement of the remote files')
-	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 
 def main(args):
-	folder = Folder(args.folder_path)
+	folder = Folder(utils.findFolder())
 	files = folder.program_files
 
 	if len(files) == 0:

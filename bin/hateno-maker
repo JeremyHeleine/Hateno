@@ -9,7 +9,7 @@ import argparse
 import os
 
 from hateno.maker import Maker, MakerUI
-from hateno.utils import jsonfiles, string
+from hateno.utils import jsonfiles, string, utils
 
 def addArguments(parser):
 	parser.add_argument('--config', type = str, help = 'name of the config to use')
@@ -17,7 +17,6 @@ def addArguments(parser):
 	parser.add_argument('--merge-copy', action = 'store_true', help = 'if the copy file already exists, merge instead of replace')
 	parser.add_argument('--save-unknown', type = str, help = 'path to the file where simulations that failed to be generated must be stored')
 	parser.add_argument('--pause-file', type = str, default = 'maker.state', help = 'path to the file to read/write for the pauses')
-	parser.add_argument('folder_path', type = str, help = 'path to the simulations folder')
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
 def main(args):
@@ -34,7 +33,7 @@ def main(args):
 
 		jsonfiles.write(list(simulations_to_write), args.copy_list)
 
-	with Maker(args.folder_path, args.config) as maker:
+	with Maker(utils.findFolder(), args.config) as maker:
 		ui = MakerUI(maker)
 
 		if os.path.isfile(args.pause_file):

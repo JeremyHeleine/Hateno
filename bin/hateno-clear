@@ -9,14 +9,13 @@ import argparse
 
 from hateno.manager import Manager
 from hateno.ui import UI
-from hateno.utils import string
+from hateno.utils import string, utils
 
 def addArguments(parser):
 	parser.add_argument('--no-confirm', action = 'store_false', dest = 'confirm', help = 'do not ask confirmation before clearing')
-	parser.add_argument('folder_path', type = str, help = 'path to the folder to clear')
 
 def main(args):
-	with Manager(args.folder_path) as manager:
+	with Manager(utils.findFolder()) as manager:
 		n_simulations = manager.getSimulationsNumber()
 
 		if n_simulations == 0:
@@ -27,7 +26,7 @@ def main(args):
 			clear_folder = False
 
 			while True:
-				print('This folder contains ' + string.plural(n_simulations, "simulation", "simulations"))
+				print('This folder contains ' + string.plural(n_simulations, 'simulation', 'simulations'))
 				answer = input('Do you really want to clear this folder? [y/N] ').strip().lower()
 
 				if answer in ['', 'y', 'n']:

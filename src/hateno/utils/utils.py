@@ -2,8 +2,31 @@
 # -*- coding: utf-8 -*-
 
 import importlib.util
+import pathlib
 import sys
 import uuid
+
+def findFolder():
+	'''
+	Find the Hateno-compatible folder we're currently in by testing the existence of the `.hateno` subfolder.
+	First search in the current folder, then in the parent, and then the parent of the parent, etc.
+
+	Returns
+	-------
+	folder : pathlib.Path
+		Path to the folder, relatively to the current one. `None` if nothing has been found.
+	'''
+
+	folder = pathlib.Path('.').resolve()
+
+	if (folder / '.hateno').is_dir():
+		return folder
+
+	for parent in folder.parents:
+		if (parent / '.hateno').is_dir():
+			return parent
+
+	return None
 
 def loadModuleFromFile(filename):
 	'''
