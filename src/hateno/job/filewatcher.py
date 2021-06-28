@@ -14,10 +14,13 @@ class FileWatcher():
 
 	path : str
 		Path to the file or directory to monitor.
+
+	timeout : float
+		Interval (in seconds) between polling the file system.
 	'''
 
-	def __init__(self, event_handler, path):
-		self._observer = watchdog.observers.polling.PollingObserver()
+	def __init__(self, event_handler, path, *, timeout = 0.1):
+		self._observer = watchdog.observers.polling.PollingObserver(timeout = timeout)
 		self._observer.schedule(event_handler, path)
 
 	def __enter__(self):
