@@ -419,7 +419,14 @@ class Folder():
 							self._program_files.append((path, os.path.join(dest, os.path.basename(path))))
 
 						else:
-							self._program_files += [(os.path.join(root, file), os.path.join(dest, root, file)) for root, folders, files in os.walk(path) for file in files]
+							self._program_files += [
+								(
+									os.path.join(root, file),
+									os.path.join(dest, os.path.relpath(os.path.join(root, file), os.path.join(path, '..')))
+								)
+								for root, folders, files in os.walk(path)
+								for file in files
+							]
 
 			except KeyError:
 				pass
