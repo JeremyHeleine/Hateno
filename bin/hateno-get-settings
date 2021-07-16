@@ -15,7 +15,13 @@ def addArguments(parser):
 	parser.add_argument('simulation_id', type = str, help = 'identifier of the simulation (name or hashed settings)')
 
 def main(args):
-	with Manager(utils.findFolder()) as manager:
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	with Manager(folder) as manager:
 		settings = manager.settingsOf(args.simulation_id)
 		print(json.dumps(settings, indent = '\t'))
 

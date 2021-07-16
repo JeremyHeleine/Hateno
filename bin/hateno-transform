@@ -16,7 +16,13 @@ def addArguments(parser):
 	parser.add_argument('simulations_list', type = str, nargs = '?', help = 'path to the file where the simulations list to transform can be found')
 
 def main(args):
-	with Manager(utils.findFolder()) as manager:
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	with Manager(folder) as manager:
 		ui = UI()
 
 		simulations = None

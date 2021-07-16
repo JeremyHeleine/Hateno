@@ -15,7 +15,13 @@ def addArguments(parser):
 	parser.add_argument('--no-confirm', action = 'store_false', dest = 'confirm', help = 'do not ask confirmation before clearing')
 
 def main(args):
-	with Manager(utils.findFolder()) as manager:
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	with Manager(folder) as manager:
 		n_simulations = manager.getSimulationsNumber()
 
 		if n_simulations == 0:

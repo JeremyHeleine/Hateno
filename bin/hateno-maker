@@ -33,7 +33,13 @@ def main(args):
 
 		jsonfiles.write(list(simulations_to_write), args.copy_list)
 
-	with Maker(utils.findFolder(), args.config) as maker:
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	with Maker(folder, args.config) as maker:
 		ui = MakerUI(maker)
 
 		if os.path.isfile(args.pause_file):

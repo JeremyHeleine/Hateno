@@ -18,7 +18,13 @@ def addArguments(parser):
 	parser.add_argument('simulations_list', type = str, help = 'path to the file where the simulations list can be found')
 
 def main(args):
-	generator = Generator(utils.findFolder())
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	generator = Generator(folder)
 
 	simulations = jsonfiles.read(args.simulations_list, allow_generator = True)
 	generator.add(simulations)

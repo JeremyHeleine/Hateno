@@ -6,6 +6,8 @@ import pathlib
 import sys
 import uuid
 
+from ..folder import Folder
+
 def findFolder():
 	'''
 	Find the Hateno-compatible folder we're currently in by testing the existence of the `.hateno` subfolder.
@@ -13,18 +15,22 @@ def findFolder():
 
 	Returns
 	-------
-	folder : pathlib.Path
-		Path to the folder, relatively to the current one. `None` if nothing has been found.
+	folder : Folder
+		Folder instance corresponding to the found path. `None` if nothing has been found.
 	'''
 
 	folder = pathlib.Path('.').resolve()
 
-	if (folder / '.hateno').is_dir():
-		return folder
+	try:
+		return Folder(folder)
 
-	for parent in folder.parents:
-		if (parent / '.hateno').is_dir():
-			return parent
+	except FileNotFoundError:
+		for parent in folder.parents:
+			try:
+				return Folder(parent)
+
+			except FileNotFoundError:
+				pass
 
 	return None
 

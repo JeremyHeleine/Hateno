@@ -24,7 +24,13 @@ def addArguments(parser):
 	parser.add_argument('output', type = str, help = 'path to the file where the output should be written')
 
 def main(args):
-	with Mapper(utils.findFolder(), args.config, generate_only = not(args.add_to_manager)) as mapper:
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	with Mapper(folder, args.config, generate_only = not(args.add_to_manager)) as mapper:
 		ui = MapperUI(mapper)
 
 		output = mapper.mapTree(jsonfiles.read(args.tree, allow_generator = True))

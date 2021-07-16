@@ -47,7 +47,13 @@ def main(args):
 		}
 	}
 
-	with Manager(utils.findFolder(), readonly = modes_configs[args.mode]['readonly']) as manager:
+	folder = utils.findFolder()
+
+	if folder is None:
+		print('No Hateno folder found')
+		return
+
+	with Manager(folder, readonly = modes_configs[args.mode]['readonly']) as manager:
 		if os.path.isfile(args.simulations):
 			simulations = jsonfiles.read(args.simulations, allow_generator = True)
 
