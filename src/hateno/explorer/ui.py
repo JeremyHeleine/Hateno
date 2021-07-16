@@ -127,8 +127,9 @@ class MapperUI(MakerUI):
 			Description of the node.
 		'''
 
-		self._nodes_lines[depth] = self.addTextLine(f'Depth {depth}…', position = 2*depth + 1)
-		self._nodes_bars[depth] = self.addProgressBar(len(node['values']), position = 2*depth + 2)
+		if node is not None:
+			self._nodes_lines[depth] = self.addTextLine(f'Depth {depth}…', position = 2*depth + 1)
+			self._nodes_bars[depth] = self.addProgressBar(len(node['values']), position = 2*depth + 2)
 
 	def _nodeProgress(self, depth):
 		'''
