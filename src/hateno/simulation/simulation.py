@@ -337,7 +337,7 @@ class Simulation():
 		'''
 
 		if self._setting_tag_regex_compiled is None:
-			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting)(?:\[(?P<setname>.+?)\])?(?:\((?P<index>[0-9]+)\))?:(?P<name>.+?)\}')
+			self._setting_tag_regex_compiled = re.compile(r'\{(?P<category>(?:global)?setting):(?:(?P<setname>.+?)(?:\[(?P<index>[0-9]+)\])?\.)?(?P<name>.+?)\}')
 
 		return self._setting_tag_regex_compiled
 
@@ -558,7 +558,7 @@ class Simulation():
 
 	def replaceSettingTag(self, match):
 		'''
-		Replace a setting tag (`{setting[set_name](k):setting_name}`) by the value of the right setting.
+		Replace a setting tag (`{setting:set_name[k].setting_name}`) by the value of the right setting.
 		To be called by `re.sub()`.
 
 		Parameters
