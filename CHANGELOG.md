@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.15 - 2021-07-19
+
+* New: job server
+* New: import of namers, fixers, checkers and evaluations
+* Scripts must now be launched from a Hateno-compatible folder
+* Explorer now shows the minimum of a search
+* Mapper now generates the simulations by batch when possible
+* Remote working directory is now created if it does not exist yet
+* Settings tags changed
+* Fix: harmonized behavior for paths of program files
+
 ## 0.14.1 - 2021-04-07
 
 * Fix: settings tags are taken into account in a search
