@@ -47,6 +47,8 @@ class JobClient():
 		Create the messaging file for this client.
 		'''
 
+		self._waitForServerReady()
+
 		self._client_id = string.uniqueID()
 		self._client_filename = os.path.join(self._job_dir, f'{self._client_id}.json')
 
@@ -65,6 +67,21 @@ class JobClient():
 
 		except FileNotFoundError:
 			pass
+
+	def _waitForServerReady(self):
+		'''
+		Wait until the server is ready (i.e. the job directory has been created).
+		'''
+
+		while True:
+			try:
+				os.stat(self._job_dir)
+
+			except FileNotFoundError:
+				time.sleep(0.1)
+
+			else:
+				break
 
 	def _processResponse(self, response):
 		'''
