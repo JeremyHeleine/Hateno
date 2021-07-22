@@ -278,8 +278,8 @@ class Generator():
 
 		Returns
 		-------
-		script_path : str
-			Remote path of the generated script.
+		script_paths : tuple
+			Remote paths of the scripts to execute.
 		'''
 
 		if not(self._simulations_to_generate):
@@ -293,4 +293,4 @@ class Generator():
 		for skeleton_filename in self._folder.skeletons(self._config['skeletons']):
 			self._generateScript(skeleton_filename, os.path.join(dest_folder, os.path.basename(skeleton_filename)))
 
-		return os.path.join(self._variables['BASEDIR'], 'exec.sh')
+		return (os.path.join(self._variables['BASEDIR'], 'server.sh'), os.path.join(self._variables['BASEDIR'], 'exec.sh'))
