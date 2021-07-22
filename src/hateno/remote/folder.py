@@ -135,40 +135,6 @@ class RemoteFolder():
 			stdin, stdout, stderr = self._ssh.exec_command(cmd)
 			return stdout
 
-	def startServer(self, cmd_filename, job_dir, log_filename):
-		'''
-		Start an instance of the server.
-
-		Parameters
-		----------
-		cmd_filename : str
-			Path to the file where the command lines are stored.
-
-		job_dir : str
-			Path to the job directory.
-
-		log_filename : str
-			Path to the file where the log will be stored.
-		'''
-
-		cmd = f'{self._configuration["hateno"]} server --log {log_filename} {cmd_filename} {job_dir} > /dev/null 2>&1 &'
-		if 'pre_start_server' in self._configuration:
-			cmd = f'{self._configuration["pre_start_server"]}; {cmd}'
-
-		self.execute(cmd)
-
-		# Wait until the job directory is created
-
-		while True:
-			try:
-				self._sftp.stat(job_dir)
-
-			except FileNotFoundError:
-				time.sleep(0.1)
-
-			else:
-				break
-
 	def getFileContents(self, remote_path):
 		'''
 		Retrieve the content of a remote file.

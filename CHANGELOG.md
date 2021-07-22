@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1 - 2021-07-23
+
+* Server launched with a dedicated script
+
 ## 0.15 - 2021-07-19
 
 * New: job server
