@@ -4,6 +4,8 @@
 import os
 import time
 
+from .errors import FileNotLockableError
+
 class LockedFile:
 	'''
 	Lock a file so only one access at a time is allowed.
@@ -15,11 +17,20 @@ class LockedFile:
 
 	mode : str
 		Mode to use to open the file.
+
+	delay : float
+		Time (in seconds) to wait between each attempt to lock the file.
+
+	timeout : float
+		Time (in seconds) after which we don't try anymore to lock the file.
 	'''
 
-	def __init__(self, filename, mode):
+	def __init__(self, filename, mode, *, delay = 0.1, timeout = 10):
 		self._filename = filename
 		self._mode = mode
+
+		self._delay = delay
+		self._timeout = timeout
 
 		self._lock_name = f'{filename}.lock'
 		self._is_locked = False
@@ -58,6 +69,8 @@ class LockedFile:
 		if self._is_locked:
 			return None
 
+		t0 = time.time()
+
 		while True:
 			try:
 				self._lock_file = os.open(self._lock_name, os.O_CREAT | os.O_EXCL | os.O_RDWR)
@@ -67,7 +80,10 @@ class LockedFile:
 				return self._file
 
 			except FileExistsError:
-				time.sleep(0.1)
+				if time.time() - t0 > self._timeout:
+					raise FileNotLockableError()
+
+				time.sleep(self._delay)
 
 	def release(self):
 		'''
