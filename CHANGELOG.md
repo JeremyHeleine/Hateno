@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.2 - 2021-07-28
+
+* Fix: forgotten imports of some functions
+
 ## 0.15.1 - 2021-07-23
 
 * Server launched with a dedicated script
