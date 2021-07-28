@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from math import floor, log10
+
 from .item import UIDisplayedItem
 
 class UIProgressBar(UIDisplayedItem):
