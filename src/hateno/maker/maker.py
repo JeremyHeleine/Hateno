@@ -454,14 +454,10 @@ class Maker():
 		n_total = len(self._simulations_to_generate)
 		self.events.trigger('wait-start', n_total)
 
-		hateno_path = self.folder.config('folder', self._config_name)['hateno']
-		cmd_job_state = f'{hateno_path} job-state {self._job_directory} {self._job_log_file}'
-
 		n_finished = 0
 
 		while True:
-
-			self._remote_folder.execute(cmd_job_state)
+			self._remote_folder.callHateno('job-state', [self._job_directory, self._job_log_file])
 
 			try:
 				log = json.loads(self._remote_folder.getFileContents(self._job_log_file))
