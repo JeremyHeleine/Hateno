@@ -1,5 +1,5 @@
 {
-	"n_exec": 5,
+	"n_job": 5,
 	"job_directory": "job",
 	"log_filename": "log.json",
 	"skeletons": "basic"
