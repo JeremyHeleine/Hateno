@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+import time
 
 from ..utils import LockedFile, jsonfiles, string
 
@@ -17,15 +18,20 @@ class Job():
 
 	job_dir : str
 		Path to the job directory where the logs are stored.
+
+	poll_delay : float
+		Time (in seconds) to wait between each process polling.
 	'''
 
-	def __init__(self, command_lines_filename, job_dir):
+	def __init__(self, command_lines_filename, job_dir, *, poll_delay = 0.1):
 		self._command_lines_filename = command_lines_filename
 
 		self._job_dir = job_dir
 		self._counter_filename = os.path.join(self._job_dir, 'counter')
 
 		self._log = []
+
+		self._poll_delay = poll_delay
 
 	def __enter__(self):
 		'''
@@ -139,12 +145,15 @@ class Job():
 		command_line = self._getNext()
 
 		if command_line is not None:
-			p = subprocess.run(command_line, shell = True, capture_output = True, encoding = 'utf-8')
+			p = subprocess.Popen(command_line, shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE, encoding = 'utf-8')
+
+			while p.poll() is None:
+				time.sleep(self._poll_delay)
 
 			self._logOutput({
 				'exec': command_line,
-				'stdout': p.stdout,
-				'stderr': p.stderr,
+				'stdout': p.stdout.read(),
+				'stderr': p.stderr.read(),
 				'success': p.returncode == 0
 			})
 
