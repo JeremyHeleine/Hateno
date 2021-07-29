@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script reads the logs of a job's clients to determine its state and write a complete log.
+'''
+
+import argparse
+import os
+
+from hateno.utils import jsonfiles
+
+def addArguments(parser):
+	parser.add_argument('job_dir', type = str, help = 'path to the job directory where the logs are stored')
+	parser.add_argument('log', type = str, help = 'path to the log file to write')
+
+def main(args):
+	try:
+		log = sum([
+			jsonfiles.read(entry.path)
+			for entry in os.scandir(args.job_dir)
+			if entry.name.endswith('.json')
+		], [])
+
+	except FileNotFoundError:
+		log = []
+
+	jsonfiles.write(log, args.log)
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Get the state of a job')
+	addArguments(parser)
+	main(parser.parse_args())
