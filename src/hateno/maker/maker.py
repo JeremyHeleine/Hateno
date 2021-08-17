@@ -463,7 +463,7 @@ class Maker():
 				job_state = json.loads(self._remote_folder.getFileContents(self._job_log_file))
 
 			except FileNotFoundError:
-				job_state = {'clients': {}, 'log': []}
+				job_state = {'clients': {'total': 0, 'dead': 0}, 'log': []}
 
 			if len(job_state['log']) != n_finished:
 				n_finished = len(job_state['log'])
@@ -471,6 +471,9 @@ class Maker():
 
 				if n_finished == n_total:
 					break
+
+			if job_state['clients']['total'] and job_state['clients']['dead'] == job_state['clients']['total']:
+				break
 
 			time.sleep(0.5)
 

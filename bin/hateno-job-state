@@ -6,19 +6,24 @@ This script reads the logs of a job's clients to determine its state and write a
 '''
 
 import argparse
+import datetime
 import os
 
 from hateno.utils import jsonfiles
 
 def addArguments(parser):
+	parser.add_argument('--dead-delay', type = float, default = 10, help = 'delay in seconds after which a job should be considered dead')
 	parser.add_argument('job_dir', type = str, help = 'path to the job directory where the logs are stored')
 	parser.add_argument('log', type = str, help = 'path to the log file to write')
 
 def main(args):
 	log = []
 	clients = 0
+	dead = 0
 
 	if os.path.isdir(args.job_dir):
+		current_time = datetime.datetime.now()
+
 		for client, state_file in ((os.path.splitext(entry.name)[0], entry.path) for entry in os.scandir(args.job_dir) if entry.name.endswith('.state')):
 			state = jsonfiles.readRetry(state_file)
 			clients += 1
@@ -32,9 +37,13 @@ def main(args):
 				except FileNotFoundError:
 					pass
 
+				if (current_time - datetime.datetime.fromisoformat(state['datetime'])).total_seconds() > args.dead_delay:
+					dead += 1
+
 	jsonfiles.write({
 		'clients': {
-			'total': clients
+			'total': clients,
+			'dead': dead
 		},
 		'log': log
 	}, args.log)

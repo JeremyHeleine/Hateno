@@ -44,7 +44,7 @@ def read(filename, *, allow_generator = False):
 		module = utils.loadModuleFromFile(filename)
 		return module.generate(*args)
 
-def readRetry(filename, *, max_failures = 3, delay = 0.1):
+def readRetry(filename, *, max_failures = 10, delay = 0.1):
 	'''
 	Read a JSON file and retry if there is an error.
 
