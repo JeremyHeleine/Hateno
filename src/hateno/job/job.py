@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import datetime
 import os
 import subprocess
 import time
@@ -57,6 +58,9 @@ class Job():
 
 		self._client_id = string.uniqueID()
 		self._client_filename = os.path.join(self._job_dir, f'{self._client_id}.json')
+		self._state_filename = os.path.join(self._job_dir, f'{self._client_id}.state')
+
+		self._alive()
 
 		self._command_lines_file = open(self._command_lines_filename, 'r')
 		self._command_lines = (row.strip() for row in self._command_lines_file)
@@ -148,6 +152,7 @@ class Job():
 			p = subprocess.Popen(command_line, shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE, encoding = 'utf-8')
 
 			while p.poll() is None:
+				self._alive(command_line)
 				time.sleep(self._poll_delay)
 
 			self._logOutput({
@@ -158,6 +163,26 @@ class Job():
 			})
 
 			self._launchNext()
+
+	def _alive(self, command_line = None):
+		'''
+		Update the state file to indicate the job is still alive.
+
+		Parameters
+		----------
+		command_line : str
+			Current command line executed.
+		'''
+
+		state = {}
+
+		if os.path.isfile(self._state_filename):
+			state = {
+				'exec': command_line,
+				'datetime': str(datetime.datetime.now())
+			}
+
+		jsonfiles.write(state, self._state_filename)
 
 	def run(self):
 		'''

@@ -3,6 +3,7 @@
 
 import json
 import os
+import time
 
 from . import utils
 
@@ -42,6 +43,35 @@ def read(filename, *, allow_generator = False):
 
 		module = utils.loadModuleFromFile(filename)
 		return module.generate(*args)
+
+def readRetry(filename, *, max_failures = 3, delay = 0.1):
+	'''
+	Read a JSON file and retry if there is an error.
+
+	Parameters
+	----------
+	filename : str
+		Path to the JSON file to read.
+
+	Returns
+	-------
+	obj : dict|list
+		The object described in the JSON file.
+	'''
+
+	failures = 0
+
+	while True:
+		try:
+			return read(filename)
+
+		except json.decoder.JSONDecodeError:
+			failures += 1
+
+			if failures > max_failures:
+				raise
+
+			time.sleep(delay)
 
 def write(obj, filename, *, sort_keys = False):
 	'''

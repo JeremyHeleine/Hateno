@@ -460,13 +460,13 @@ class Maker():
 			self._remote_folder.callHateno('job-state', [self._job_directory, self._job_log_file])
 
 			try:
-				log = json.loads(self._remote_folder.getFileContents(self._job_log_file))
+				job_state = json.loads(self._remote_folder.getFileContents(self._job_log_file))
 
 			except FileNotFoundError:
-				log = []
+				job_state = {'clients': {}, 'log': []}
 
-			if len(log) != n_finished:
-				n_finished = len(log)
+			if len(job_state['log']) != n_finished:
+				n_finished = len(job_state['log'])
 				self.events.trigger('wait-progress', n_finished)
 
 				if n_finished == n_total:
