@@ -4,6 +4,7 @@
 import os
 import paramiko
 import stat
+import time
 
 class SFTP(paramiko.SFTPClient):
 	'''
@@ -160,7 +161,7 @@ class SFTP(paramiko.SFTPClient):
 			if delete:
 				self.remove(remote_path)
 
-	def remove(self, path):
+	def remove(self, path, *, retry_rmdir = 3):
 		'''
 		Remove a file or a folder.
 
@@ -168,13 +169,28 @@ class SFTP(paramiko.SFTPClient):
 		----------
 		path : str
 			Path of the file/folder to remove.
+
+		retry_rmdir : int
+			Number of times we should retry to remove a directory.
 		'''
 
 		if stat.S_ISDIR(self.stat(path).st_mode):
+			# We recursively empty the folder
+			# After that, we should be able to call `rmdir()`
+			# If not, that means a file has been added to the folder while we was emptying it
+
 			for entry in self.listdir(path):
 				self.remove(os.path.join(path, entry))
 
-			self.rmdir(path)
+			try:
+				self.rmdir(path)
+
+			except OSError:
+				if retry_rmdir > 0:
+					self.remove(path, retry_rmdir = retry_rmdir - 1)
+
+				else:
+					raise
 
 		else:
 			super().remove(path)
