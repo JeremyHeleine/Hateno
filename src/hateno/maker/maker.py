@@ -459,11 +459,7 @@ class Maker():
 		while True:
 			self._remote_folder.callHateno('job-state', [self._job_directory, self._job_log_file])
 
-			try:
-				job_state = json.loads(self._remote_folder.getFileContents(self._job_log_file))
-
-			except FileNotFoundError:
-				job_state = {'clients': {'total': 0, 'dead': 0}, 'log': []}
+			job_state = self._getJobState()
 
 			if len(job_state['log']) != n_finished:
 				n_finished = len(job_state['log'])
@@ -483,6 +479,35 @@ class Maker():
 		self.events.trigger('wait-end')
 
 		return True
+
+	def _getJobState(self, retry = 3):
+		'''
+		Get the current job state.
+
+		Parameters
+		----------
+		retry : int
+			Number of times we should retry to read the state if the JSON decoding fails.
+
+		Returns
+		-------
+		job_state : dict
+			Current state of the job.
+		'''
+
+		try:
+			return json.loads(self._remote_folder.getFileContents(self._job_log_file))
+
+		except FileNotFoundError:
+			return {'clients': {'total': 0, 'dead': 0}, 'log': []}
+
+		except json.decoder.JSONDecodeError:
+			if retry > 0:
+				time.sleep(0.1)
+				return self._getJobState(retry - 1)
+
+			else:
+				raise
 
 	def downloadSimulations(self):
 		'''
