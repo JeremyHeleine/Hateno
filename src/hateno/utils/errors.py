@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+class EventsError(Exception):
+	'''
+	Base class for exceptions occurring with the Events class.
+	'''
+
+	pass
+
+class EventUnknownError(EventsError):
+	'''
+	Exception raised when we try to use an unkown event.
+
+	Parameters
+	----------
+	event : str
+		Name of the event.
+	'''
+
+	def __init__(self, event):
+		self.event = event
+
 class FCollectionError(Exception):
 	'''
 	Base class for exceptions occurring in an FCollection.
@@ -47,22 +67,9 @@ class FCollectionInvalidFilterRegexError(FCollectionError):
 	def __init__(self, regex):
 		self.regex = regex
 
-class EventsError(Exception):
+class FileNotLockableError(Exception):
 	'''
-	Base class for exceptions occurring with the Events class.
+	Exception raised when we try to lock a file that cannot be locked.
 	'''
 
 	pass
-
-class EventUnknownError(EventsError):
-	'''
-	Exception raised when we try to use an unkown event.
-
-	Parameters
-	----------
-	event : str
-		Name of the event.
-	'''
-
-	def __init__(self, event):
-		self.event = event
