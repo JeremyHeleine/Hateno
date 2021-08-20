@@ -3,6 +3,7 @@
 
 import datetime
 import os
+import shlex
 import subprocess
 import time
 
@@ -59,6 +60,9 @@ class Job():
 		self._client_id = string.uniqueID()
 		self._client_filename = os.path.join(self._job_dir, f'{self._client_id}.json')
 		self._state_filename = os.path.join(self._job_dir, f'{self._client_id}.state')
+
+		self._kill_filename = os.path.join(self._job_dir, f'{self._client_id}.kill')
+		self._killall_filename = os.path.join(self._job_dir, 'kill')
 
 		self._alive()
 
@@ -149,11 +153,17 @@ class Job():
 		command_line = self._getNext()
 
 		if command_line is not None:
-			p = subprocess.Popen(command_line, shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE, encoding = 'utf-8')
+			p = subprocess.Popen(shlex.split(command_line), stdout = subprocess.PIPE, stderr = subprocess.PIPE, encoding = 'utf-8')
+			killed = False
 
 			while p.poll() is None:
-				self._alive(command_line)
-				time.sleep(self._poll_delay)
+				if os.path.isfile(self._kill_filename) or os.path.isfile(self._killall_filename):
+					p.kill()
+					killed = True
+
+				else:
+					self._alive(command_line)
+					time.sleep(self._poll_delay)
 
 			self._logOutput({
 				'exec': command_line,
@@ -162,7 +172,8 @@ class Job():
 				'success': p.returncode == 0
 			})
 
-			self._launchNext()
+			if not(killed):
+				self._launchNext()
 
 	def _alive(self, command_line = None):
 		'''
