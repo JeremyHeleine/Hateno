@@ -3,3 +3,4 @@
 
 from .events import Events
 from .fcollection import FCollection
+from .lockedfile import LockedFile

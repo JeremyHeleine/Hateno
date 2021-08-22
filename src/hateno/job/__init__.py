@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from .client import JobClient
-from .server import JobServer
+from .job import Job

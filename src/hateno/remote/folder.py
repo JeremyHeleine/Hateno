@@ -135,6 +135,27 @@ class RemoteFolder():
 			stdin, stdout, stderr = self._ssh.exec_command(cmd)
 			return stdout
 
+	def callHateno(self, script, args):
+		'''
+		Call Hateno on the remote.
+
+		Parameters
+		----------
+		script : str
+		 	The Hateno script to call.
+
+		args : list
+			Args to pass to the call.
+		'''
+
+		cmd = f'{self._configuration["hateno"]} {script} '
+		cmd += ' '.join(args)
+
+		if 'pre_hateno' in self._configuration:
+			cmd = f'{self._configuration["pre_hateno"]}; {cmd}'
+
+		self.execute(cmd)
+
 	def getFileContents(self, remote_path):
 		'''
 		Retrieve the content of a remote file.

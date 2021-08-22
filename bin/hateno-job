@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+This script runs a job to execute some command lines.
+'''
+
+import argparse
+
+from hateno.job import Job
+
+def addArguments(parser):
+	parser.add_argument('--poll-delay', type = float, default = 0.1, help = 'time to wait between each process polling')
+	parser.add_argument('cmd_list', type = str, help = 'path to the file where the command lines are stored')
+	parser.add_argument('job_dir', type = str, help = 'path to the job directory to store the logs')
+
+def main(args):
+	with Job(args.cmd_list, args.job_dir, poll_delay = args.poll_delay) as job:
+		job.run()
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = 'Run a job')
+	addArguments(parser)
+	main(parser.parse_args())

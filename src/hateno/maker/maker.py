@@ -47,6 +47,7 @@ class Maker():
 
 		self._simulations_to_extract = []
 		self._unknown_simulations = []
+		self._job_directory = None
 		self._job_log_file = None
 
 		self._remote_scripts_dir = None
@@ -428,14 +429,13 @@ class Maker():
 			simulation['folder'] = os.path.join(self._simulations_remote_basedir, str(k))
 
 		self.generator.add(self._simulations_to_generate)
-		scripts_to_launch = self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
+		self.generator.generate(scripts_dir, self._config_name, empty_dest = True, basedir = self._remote_scripts_dir)
 
+		self._job_directory = self.generator.variables['JOB_DIRECTORY']
 		self._job_log_file = self.generator.variables['LOG_FILENAME']
 
 		self._remote_folder.send(scripts_dir, delete = True, replace = True)
-
-		for script_to_launch in scripts_to_launch:
-			self._remote_folder.execute(script_to_launch)
+		self._remote_folder.execute(self.generator.variables['FILE_JOB_SH'])
 
 		self.generator.clear()
 
@@ -457,26 +457,57 @@ class Maker():
 		n_finished = 0
 
 		while True:
-			try:
-				log = json.loads(self._remote_folder.getFileContents(self._job_log_file))
+			self._remote_folder.callHateno('job-state', [self._job_directory, self._job_log_file])
 
-			except FileNotFoundError:
-				log = []
+			job_state = self._getJobState()
 
-			if len(log) != n_finished:
-				n_finished = len(log)
+			if len(job_state['log']) != n_finished:
+				n_finished = len(job_state['log'])
 				self.events.trigger('wait-progress', n_finished)
 
 				if n_finished == n_total:
 					break
 
+			if job_state['clients']['total'] and job_state['clients']['dead'] == job_state['clients']['total']:
+				break
+
 			time.sleep(0.5)
 
+		self._job_directory = None
 		self._job_log_file = None
 
 		self.events.trigger('wait-end')
 
 		return True
+
+	def _getJobState(self, retry = 3):
+		'''
+		Get the current job state.
+
+		Parameters
+		----------
+		retry : int
+			Number of times we should retry to read the state if the JSON decoding fails.
+
+		Returns
+		-------
+		job_state : dict
+			Current state of the job.
+		'''
+
+		try:
+			return json.loads(self._remote_folder.getFileContents(self._job_log_file))
+
+		except FileNotFoundError:
+			return {'clients': {'total': 0, 'dead': 0}, 'log': []}
+
+		except json.decoder.JSONDecodeError:
+			if retry > 0:
+				time.sleep(0.1)
+				return self._getJobState(retry - 1)
+
+			else:
+				raise
 
 	def downloadSimulations(self):
 		'''

@@ -23,6 +23,7 @@ def main(args):
 		print('No Hateno folder found')
 		return
 
+	folder = Folder(folder)
 	files = folder.program_files
 
 	if len(files) == 0:
