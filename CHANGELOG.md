@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16 - 2021-08-22
+
+* New: job system without server
+
 ## 0.15.2 - 2021-07-28
 
 * Fix: forgotten imports of some functions
